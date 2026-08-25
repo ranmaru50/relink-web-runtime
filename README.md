@@ -373,6 +373,32 @@ docs/
 
 The exact structure may change during early development.
 
+## ローカルデモ（実装済み）
+
+このリポジトリには、最小 PoC を実行するデモとローカルバックエンドを含めています。
+
+```powershell
+pnpm install
+pnpm server
+```
+
+別のターミナルで次を実行し、表示された URL をブラウザで開きます。
+
+```powershell
+pnpm dev
+```
+
+入力欄の初期値 `/sample.arxml` を Load すると、ローカルバックエンドから AR-XML を読み込みます。表示された「入庫する」ボタンを押すと `POST /api/register` を実行し、AR-DOM と画面内のテキストが「入庫しました」に更新されます。
+
+テストとプロダクションビルドはそれぞれ次で実行します。
+
+```powershell
+pnpm test
+pnpm build
+```
+
+実装は `src/core`（Loader / Parser / Runtime）、`src/dom`（AR-DOM）、`src/actions`（HTTP Action）、`src/renderer`（安全な HTML 描画）に分離しています。Action endpoint は同一オリジンのみ許可し、AR-XML のテキストは `textContent` で描画します。
+
 ## Security
 
 The initial PoC intentionally supports only a very limited feature set.

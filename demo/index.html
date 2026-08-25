@@ -1,0 +1,6 @@
+<!-- demo/index.html -->
+<!doctype html>
+<html lang="ja">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>RELink Web Runtime Demo</title><style>body{font-family:system-ui,sans-serif;max-width:640px;margin:2rem auto;padding:0 1rem}form{display:flex;gap:.5rem}input{flex:1;padding:.7rem}.ar-button,form button{padding:.75rem 1rem;font-size:1rem;min-height:44px}#error{color:#b00020;min-height:1.5em}#content{margin-top:1rem;padding:1rem;border:1px solid #ccc;border-radius:.5rem}</style></head>
+  <body><h1>RELink Web Runtime</h1><form id="loader"><input id="url" type="url" required value="/sample.arxml" aria-label="AR-XML URL" /><button type="submit">Load</button></form><p id="error" role="alert"></p><main id="content" aria-live="polite"></main><script type="module" src="./demo.ts"></script></body>
+</html>
