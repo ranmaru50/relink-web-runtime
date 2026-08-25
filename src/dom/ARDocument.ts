@@ -1,4 +1,6 @@
 // src/dom/ARDocument.ts
+import { ARXMLValidationError } from "../errors/errors";
+
 export type AROutputElement = ARTextElement | ARButtonElement;
 
 /** AR-DOM の全要素が持つ最小の基底型です。 */
@@ -58,7 +60,7 @@ export class ARDocument {
   }
 
   private addElement(element: ARElement): void {
-    if (this.elements.has(element.id)) throw new Error(`Duplicate AR-DOM element id: ${element.id}`);
+    if (this.elements.has(element.id)) throw new ARXMLValidationError(`AR-DOM element id が重複しています: ${element.id}`);
     this.elements.set(element.id, element);
   }
 }

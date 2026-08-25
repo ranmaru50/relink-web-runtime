@@ -373,31 +373,31 @@ docs/
 
 The exact structure may change during early development.
 
-## ローカルデモ（実装済み）
+## Local demo (implemented)
 
-このリポジトリには、最小 PoC を実行するデモとローカルバックエンドを含めています。
+This repository includes a demo and local backend for running the minimum PoC.
 
 ```powershell
 pnpm install
 pnpm server
 ```
 
-別のターミナルで次を実行し、表示された URL をブラウザで開きます。
+Run the following in a separate terminal, then open the displayed URL in a browser.
 
 ```powershell
 pnpm dev
 ```
 
-入力欄の初期値 `/sample.arxml` を Load すると、ローカルバックエンドから AR-XML を読み込みます。表示された「入庫する」ボタンを押すと `POST /api/register` を実行し、AR-DOM と画面内のテキストが「入庫しました」に更新されます。
+Load the initial `/sample.arxml` input value to fetch AR-XML from the local backend. Clicking the displayed button executes `POST /api/register` and updates both the AR-DOM and the displayed text.
 
-テストとプロダクションビルドはそれぞれ次で実行します。
+Run tests and the production build with:
 
 ```powershell
 pnpm test
 pnpm build
 ```
 
-実装は `src/core`（Loader / Parser / Runtime）、`src/dom`（AR-DOM）、`src/actions`（HTTP Action）、`src/renderer`（安全な HTML 描画）に分離しています。Action endpoint は同一オリジンのみ許可し、AR-XML のテキストは `textContent` で描画します。
+The implementation separates `src/core` (Loader / Parser / Runtime), `src/dom` (AR-DOM), `src/actions` (HTTP Action), and `src/renderer` (safe HTML rendering). Action endpoints are restricted to the AR-XML origin, and AR-XML text is rendered with `textContent`.
 
 ## Security
 
@@ -414,6 +414,8 @@ The initial runtime should avoid:
 * passing AR-XML strings directly to `innerHTML`.
 
 Text originating from AR-XML should be rendered using safe text APIs such as `textContent`.
+
+Relative action endpoints are resolved against the URL from which the AR-XML document was loaded. For example, `/api/register` in `https://warehouse.example/container.arxml` resolves to `https://warehouse.example/api/register`. The initial PoC permits only endpoints on that AR-XML origin.
 
 Future scripting support should execute within an isolated runtime and should not expose the host browser environment directly.
 

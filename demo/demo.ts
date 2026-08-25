@@ -15,7 +15,8 @@ form.addEventListener("submit", async (event) => {
   try {
     const url = new URL(urlInput.value, window.location.href).href;
     const arDocument = parseARXML(await loadARXML(url));
-    new ARRuntime(arDocument, new HTMLRenderer(content), window.location.href).mount();
+    // 相対 endpoint は Runtime ではなく取得した AR-XML 自身の URL を基準に解決します。
+    new ARRuntime(arDocument, new HTMLRenderer(content), url).mount();
   } catch (error) {
     console.error(error); errorElement.textContent = "AR-XML を読み込めませんでした。URLと内容を確認してください。";
   }
