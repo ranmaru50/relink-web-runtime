@@ -6,6 +6,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
     "server": "tsx server/server.ts"
   },
   "devDependencies": {

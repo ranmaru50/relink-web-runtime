@@ -1,2 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ar-content version="0.1"><outputs><text id="message">コンテナを認識しました</text><button id="register">入庫する</button></outputs><actions><action id="register-action" type="http" method="POST" endpoint="/api/register" /></actions><events><event on="click" target="register" action="register-action" success-target="message" success-text="入庫しました" error-target="message" error-text="入庫に失敗しました" /></events></ar-content>
+<ar-entity xmlns="https://relink.dev/ns/arxml/core/0.1" version="0.1">
+  <category>warehouse.container</category>
+  <capabilities>
+    <capability id="temperature" type="https://example.org/capabilities/temperature/read/1">
+      <result><outputs><output name="temperature" type="number" /></outputs><representations><representation media-type="application/json" /></representations></result>
+      <interfaces><interface type="http" method="GET" endpoint="/api/temperature" /></interfaces>
+    </capability>
+  </capabilities>
+</ar-entity>
