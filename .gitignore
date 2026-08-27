@@ -4,3 +4,9 @@ dist/
 .pnpm-store/
 pnpm-workspace.yaml
 AGENTS.md
+
+# ローカル検証・エージェント作業で生成される一時ファイル
+chrome_tmp/
+scratch_test.js
+commit_message.txt
+WORK_INSTRUCTIONS.md
