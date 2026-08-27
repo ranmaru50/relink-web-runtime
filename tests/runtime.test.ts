@@ -1,6 +1,7 @@
 // tests/runtime.test.ts
 import { describe, expect, it, vi } from "vitest";
 import { BrowserXMLParser } from "../src/adapters/web/BrowserXMLParser";
+import { BrowserResourceFetcher, FetchHTTPInvoker } from "../src/adapters/web/BrowserFetchAdapters";
 import { resolveEndpoint } from "../src/application/endpoint";
 import { buildARDocument } from "../src/application/validation";
 import { InterfaceError, ParseError, RepresentationError, ValidationError } from "../src/domain/errors";
@@ -39,6 +40,25 @@ describe("endpoint resolution", () => {
     expect(resolveEndpoint(base, "api/start").href).toBe("https://example.org/entities/device/api/start");
     expect(resolveEndpoint(base, "../start").href).toBe("https://example.org/entities/start");
     expect(resolveEndpoint(base, "https://api.example.net/start").href).toBe("https://api.example.net/start");
+  });
+});
+
+describe("browser fetch adapters", () => {
+  it("既定 fetch を globalThis に束縛して呼び出す", async () => {
+    const nativeLikeFetch = vi.fn(function (this: unknown): Promise<Response> {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      return Promise.resolve(new Response("AR-XML", { status: 200 }));
+    });
+    vi.stubGlobal("fetch", nativeLikeFetch);
+
+    try {
+      await expect(new BrowserResourceFetcher().fetchText("https://example.test/document.arxml")).resolves.toBe("AR-XML");
+      await expect(new FetchHTTPInvoker().invoke(new URL("https://example.test/api"), { method: "GET" })).resolves.toBeInstanceOf(Response);
+      expect(nativeLikeFetch).toHaveBeenCalledTimes(2);
+    } finally {
+      // 後続テストへブラウザAPIの差し替え状態を持ち越さないようにします。
+      vi.unstubAllGlobals();
+    }
   });
 });
 

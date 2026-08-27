@@ -4,7 +4,8 @@ import type { HTTPInvoker, HTTPResponse, ResourceFetcher } from "../../ports/run
 
 /** 標準 fetch で AR-XML テキストを取得する Adapter です。 */
 export class BrowserResourceFetcher implements ResourceFetcher {
-  public constructor(private readonly fetcher: typeof fetch = fetch) {}
+  /** 既定の fetch はブラウザの globalThis に束縛して Illegal invocation を防ぎます。 */
+  public constructor(private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis)) {}
   public async fetchText(url: string, signal?: AbortSignal): Promise<string> {
     let response: Response;
     try { response = await this.fetcher(url, { signal }); } catch (error) { throw new TransportError("AR-XML の取得中に通信エラーが発生しました", error); }
@@ -15,7 +16,8 @@ export class BrowserResourceFetcher implements ResourceFetcher {
 
 /** 標準 fetch を HTTPInvoker port として公開する Adapter です。 */
 export class FetchHTTPInvoker implements HTTPInvoker {
-  public constructor(private readonly fetcher: typeof fetch = fetch) {}
+  /** 既定の fetch はブラウザの globalThis に束縛して Illegal invocation を防ぎます。 */
+  public constructor(private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis)) {}
   public async invoke(url: URL, init: RequestInit): Promise<HTTPResponse> {
     try { return await this.fetcher(url, init); } catch (error) { throw new TransportError("HTTP 呼び出し中に通信エラーが発生しました", error); }
   }
