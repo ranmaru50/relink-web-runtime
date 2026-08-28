@@ -321,6 +321,17 @@ It loads AR-XML, lists discovered Capabilities and runtime state, and allows a s
 
 The demo is **not** an AR-XML Presentation implementation and should not be interpreted as defining UI semantics for AR-XML.
 
+## Web Runtime Test Harness
+
+`test-harness/` is a Runtime-specific manual evaluation UI. The external [RELink Testbed](https://github.com/ranmaru50/relink-testbed) remains a Runtime-independent deterministic test environment.
+
+1. Start `relink-testbed` separately and note its Entity Origin.
+2. Run `pnpm harness` in this repository.
+3. Open the displayed URL, enter the Entity Origin, and connect.
+4. Select a case, explicitly load its AR-XML, then explicitly invoke its Capability.
+
+The Harness keeps expected data, Runtime result/error, and Testbed-observed requests visible side-by-side. It currently supports all exposed baseline cases, including `single-output-json`, `post-json`, `relative-endpoint-invocable`, `http-500`, `malformed-json`, `multi-output-json`, and `http-204-no-output`.
+
 ## Current Limitations
 
 The following are intentionally outside the current Web Runtime PoC or are not yet standardized by AR-XML Core 0.1 Draft 4:

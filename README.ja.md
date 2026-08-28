@@ -174,6 +174,17 @@ console.log(result.values.temperature);
 - 差し替え可能な Runtime Network Policy
 - Layered Runtime Error Model
 
+## Web Runtime Test Harness
+
+`test-harness/` は Runtime 固有の手動評価 UI です。外部の [RELink Testbed](https://github.com/ranmaru50/relink-testbed) は、Runtime 非依存の決定的なテスト環境として分離されています。
+
+1. `relink-testbed` を別プロセスで起動し、Entity Origin を確認します。
+2. このリポジトリで `pnpm harness` を実行します。
+3. 表示された URL をブラウザで開き、Entity Origin を入力して接続します。
+4. ケースを選択し、明示的に AR-XML を Load してから Capability を Invoke します。
+
+Harness は Expected Data、Runtime Result/Error、Testbed が観測した Request を並べて表示します。`single-output-json`、`post-json`、`relative-endpoint-invocable`、`http-500`、`malformed-json`、`multi-output-json`、`http-204-no-output` を含む、公開済みの Baseline Case を扱えます。
+
 ## Architecture
 
 Runtime は小さな **Ports-and-Adapters / Hexagonal Architecture** を採用しています。
