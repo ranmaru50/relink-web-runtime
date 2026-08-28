@@ -1,7 +1,7 @@
 // tests/harness.test.ts
 import { describe, expect, it, vi } from "vitest";
 import { TestbedClient } from "../test-harness/client";
-import { compareRequest, normalizeOrigin, parseCases, parseInputs } from "../test-harness/logic";
+import { compareRequest, normalizeOrigin, parseCases, parseInputs, requestsAddedSince } from "../test-harness/logic";
 
 describe("Test Harness logic", () => {
   it("Testbed のケース一覧を検証して選択に必要なデータを保持する", () => {
@@ -13,6 +13,15 @@ describe("Test Harness logic", () => {
     const expected = { request: { method: "POST", pathname: "/api", query: {}, json: { a: 1 } } };
     expect(compareRequest(expected, { method: "POST", pathname: "/api", query: {}, json: { a: 1 }, endpointId: "echo", timestamp: 1 }).status).toBe("PASS");
     expect(compareRequest(expected, { method: "GET", pathname: "/api", query: {}, endpointId: "echo", timestamp: 1 }).status).toBe("FAIL");
+  });
+  it("現在の Invocation で増えなかった古い観測を比較対象にしない", () => {
+    const old = { method: "POST", pathname: "/api", query: {}, json: { a: 1 }, endpointId: "echo", timestamp: 1 };
+    const expected = { request: { method: "POST", pathname: "/api", json: { a: 1 } } };
+    const none = requestsAddedSince([old], [old]);
+    expect(none).toEqual([]);
+    expect(compareRequest(expected, none.at(-1)).status).toBe("NOT_AVAILABLE");
+    const fresh = { ...old, timestamp: 2 };
+    expect(requestsAddedSince([old], [old, fresh]).at(-1)).toEqual(fresh);
   });
   it("不正な入力 JSON と Origin を拒否する", () => {
     expect(() => parseInputs("[]")).toThrow("object"); expect(() => parseInputs("{")).toThrow(); expect(() => normalizeOrigin("ftp://example.test")).toThrow("HTTP");

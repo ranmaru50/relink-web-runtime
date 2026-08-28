@@ -5,6 +5,11 @@ export interface TestCase { readonly id: string; readonly group: string; readonl
 export interface ObservedRequest { readonly method: string; readonly pathname: string; readonly query: Readonly<Record<string, string[]>>; readonly json?: unknown; readonly endpointId: string; readonly timestamp: number; readonly [key: string]: unknown; }
 export interface RequestComparison { readonly status: "PASS" | "FAIL" | "NOT_AVAILABLE"; readonly differences: readonly string[]; }
 
+/** Invocation 前後の履歴から、その Invocation 中に追加された観測だけを取り出します。 */
+export function requestsAddedSince(before: readonly ObservedRequest[], after: readonly ObservedRequest[]): readonly ObservedRequest[] {
+  return after.length > before.length ? after.slice(before.length) : [];
+}
+
 /** Origin 入力を HTTP(S) の origin へ正規化します。 */
 export function normalizeOrigin(value: string): string {
   const url = new URL(value);
