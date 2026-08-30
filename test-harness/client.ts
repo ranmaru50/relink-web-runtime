@@ -3,7 +3,11 @@ import { normalizeOrigin, parseCases, parseInfo, type ObservedRequest, type Test
 
 /** Testbed 診断 API への HTTP 接続を担当します。 */
 export class TestbedClient {
-  public constructor(public readonly origin: string, private readonly fetcher: typeof fetch = fetch) {}
+  private readonly fetcher: typeof fetch;
+  public constructor(public readonly origin: string, fetcher?: typeof fetch) {
+    // ブラウザの native fetch は receiver を必要とするため、既定実装を globalThis に束縛します。
+    this.fetcher = fetcher ?? globalThis.fetch.bind(globalThis);
+  }
   /** Origin を検証して Client を作成します。 */
   public static create(origin: string, fetcher?: typeof fetch): TestbedClient { return new TestbedClient(normalizeOrigin(origin), fetcher); }
   /** Testbed の接続情報を取得します。 */

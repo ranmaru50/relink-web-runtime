@@ -33,4 +33,17 @@ describe("Test Harness logic", () => {
   it("reset は POST を送信する", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 204 })); await TestbedClient.create("http://example.test", fetcher).reset(); expect(fetcher.mock.calls[0]?.[1]).toEqual({ method: "POST" });
   });
+  it("既定の browser fetch を globalThis に束縛して呼び出す", async () => {
+    const nativeLikeFetch = vi.fn(function (this: unknown): Promise<Response> {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      return Promise.resolve(new Response(JSON.stringify({ name: "RELink Testbed", version: "0.1.0", entityOrigin: "http://example.test" })));
+    });
+    vi.stubGlobal("fetch", nativeLikeFetch);
+    try {
+      await expect(TestbedClient.create("http://example.test").info()).resolves.toMatchObject({ name: "RELink Testbed" });
+    } finally {
+      // 後続テストへブラウザ API の差し替え状態を持ち越さないようにします。
+      vi.unstubAllGlobals();
+    }
+  });
 });
