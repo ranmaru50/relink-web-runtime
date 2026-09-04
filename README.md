@@ -145,6 +145,16 @@ console.log(result.values.temperature);
 
 `ARRuntime` supports dependency injection for the XML parser, resource fetcher, HTTP invoker, and network policy so browser-specific behavior remains behind adapters.
 
+### Document Loading and Resolver Core L1
+
+`ARRuntime.load()` accepts both a direct AR-XML URL (L0) and an Anchor / Resolver URL (L1). It uses the browser's ordinary Fetch redirect behavior and preserves the requested URL, final response URL, terminal HTTP status, and representation body.
+
+`RuntimeDocument.url` is the final successful AR-XML response URL. Relative Capability Interface endpoints are therefore resolved against that final URL, never against the original Anchor or Resolver URL. A terminal non-2xx response, an HTTPS-to-HTTP downgrade, or a configured document resource-policy rejection fails before XML parsing.
+
+The default document policy allows HTTP(S) for compatibility with direct (L0) loading and rejects HTTP after an HTTPS request. Callers using Resolver Core L1 should configure a `ResourceNetworkPolicy` that requires an HTTPS input. The Browser Adapter cannot observe redirect targets before the browser does, so it relies on browser Fetch/CORS/mixed-content enforcement. For public Resolver requests where ambient credentials should not be sent, use `new BrowserResourceFetcher(fetcher, { credentials: "omit" })` or `ARRuntimeOptions.resourceCredentials`.
+
+Resolver / Manifest-specific parsing and Manifest retrieval are not added to the baseline path, and browser CORS / Fetch restrictions are not bypassed.
+
 ## Current Baseline Behavior
 
 The current PoC targets the Draft 4 browser-runtime baseline, including:
