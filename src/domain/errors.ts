@@ -17,6 +17,16 @@ export class ContractResolutionError extends ARRuntimeError { public constructor
 export class ContractError extends ARRuntimeError { public constructor(message: string) { super("ContractError", message); } }
 /** 通信層で発生したエラーです。 */
 export class TransportError extends ARRuntimeError { public constructor(message: string, cause?: unknown) { super("TransportError", message, cause); } }
+/** ドキュメント取得の終端HTTP応答が成功でない場合のエラーです。 */
+export class HTTPResponseError extends ARRuntimeError {
+  public constructor(public readonly status: number, public readonly url: string) { super("HTTPResponseError", `AR-XML の取得に失敗しました (${status})`); }
+}
+/** HTTPSからHTTPへのダウングレードを拒否した場合のエラーです。 */
+export class HTTPSDowngradeError extends ARRuntimeError {
+  public constructor(public readonly fromUrl: string, public readonly toUrl: string) { super("HTTPSDowngradeError", "HTTPS から HTTP へのダウングレードは許可されません"); }
+}
+/** ドキュメント取得先がRuntimeのネットワークポリシーで拒否された場合のエラーです。 */
+export class NetworkPolicyError extends ARRuntimeError { public constructor(public readonly url: string) { super("NetworkPolicyError", "Runtime のネットワークポリシーによりドキュメント取得先が拒否されました"); } }
 /** HTTP Interface の非成功状態または未対応状態を表すエラーです。 */
 export class InterfaceError extends ARRuntimeError { public constructor(message: string) { super("InterfaceError", message); } }
 /** Response Representation または Output Mapping のエラーです。 */

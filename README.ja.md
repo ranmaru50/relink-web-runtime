@@ -147,6 +147,14 @@ console.log(result.values.temperature);
 
 `ARRuntime` では XML Parser、Resource Fetcher、HTTP Invoker、Network Policy を差し替えられるようにし、Browser 固有処理を Adapter の背後へ分離しています。
 
+### Document Loading と Resolver Core L1
+
+`ARRuntime.load()` は、直接 AR-XML URL（L0）と Anchor / Resolver URL（L1）の両方を受け付けます。ブラウザの通常の Fetch リダイレクト処理に従い、終端の成功レスポンスについて要求 URL、最終レスポンス URL、終端 HTTP ステータス、表現本文を保持します。
+
+`RuntimeDocument.url` は最終 AR-XML レスポンス URLです。そのため、Capability の相対 Interface Endpoint も最終 AR-XML URLを基準に解決されます。終端 non-2xx、HTTPS から HTTP へのダウングレード、設定したドキュメント取得ポリシーによる拒否は、XML Parseより前に失敗します。
+
+Resolver / Manifest 固有の解析や Manifest 取得は行わず、ブラウザの CORS / Fetch 制約も迂回しません。
+
 ## 現在の Baseline Behavior
 
 この PoC では Draft 4 の Web Runtime Baseline を中心に、次の機能を対象とします。
