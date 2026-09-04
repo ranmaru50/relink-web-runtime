@@ -13,13 +13,22 @@ export interface ResourceFetchResult {
   readonly status: number;
   /** 最終レスポンスの表現本文です。 */
   readonly body: string;
-  /** Adapter が追跡できる場合に保持するリダイレクト先一覧です。 */
+  /** Adapter が追跡できる場合に保持する、事後診断用のリダイレクト先一覧です。 */
   readonly redirectUrls?: readonly string[];
+}
+/** リソース取得Adapterが各通信前に参照するRuntimeコンテキストです。 */
+export interface ResourceFetchOptions {
+  /** リソース取得を中断するシグナルです。 */
+  readonly signal?: AbortSignal;
+  /** 次の通信先をFetchする直前に呼び出すポリシー照会です。 */
+  readonly beforeRequest?: (url: string) => void;
+  /** 指定時はブラウザFetchのcredentials modeとして利用します。 */
+  readonly credentials?: RequestCredentials;
 }
 /** AR-XML リソースの取得を抽象化します。 */
 export interface ResourceFetcher {
-  /** リダイレクト後の取得メタデータを返す新しい境界です。 */
-  fetchResource?(url: string, signal?: AbortSignal): Promise<ResourceFetchResult>;
+  /** リダイレクト後の取得メタデータを返します。redirect対応AdapterはbeforeRequestを各通信前に呼び出します。 */
+  fetchResource?(url: string, options?: ResourceFetchOptions): Promise<ResourceFetchResult>;
   /** 旧APIとの互換用です。実装時は fetchResource の利用を優先します。 */
   fetchText?(url: string, signal?: AbortSignal): Promise<string>;
 }

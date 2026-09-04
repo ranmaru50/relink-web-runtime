@@ -28,12 +28,19 @@ describe("Resolver Core 0.1 L1 document loading", () => {
     expect(fetcher).toHaveBeenCalledWith("https://resolver.example/relink/entity", { signal: undefined, redirect: "follow" });
   });
 
+  it("BrowserResourceFetcherはcredentials modeを明示設定できる", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(documentXml, { status: 200 }));
+
+    await new BrowserResourceFetcher(fetcher, { credentials: "omit" }).fetchResource("https://resolver.example/relink/entity");
+    expect(fetcher).toHaveBeenCalledWith("https://resolver.example/relink/entity", { signal: undefined, redirect: "follow", credentials: "omit" });
+  });
+
   it("RT-001 / RT-018: direct AR-XML load remains supported", async () => {
     const { runtime, fetchResource } = runtimeWith(resourceResult("https://entity.example/descriptions/entity.xml"));
     const document = await runtime.load("https://entity.example/descriptions/entity.xml");
 
     expect(document.url).toBe("https://entity.example/descriptions/entity.xml");
-    expect(fetchResource).toHaveBeenCalledWith("https://entity.example/descriptions/entity.xml", undefined);
+    expect(fetchResource).toHaveBeenCalledWith("https://entity.example/descriptions/entity.xml", expect.objectContaining({ signal: undefined, credentials: undefined, beforeRequest: expect.any(Function) }));
   });
 
   it("RT-002: Resolver 303 handoff converges at the final representation", async () => {
@@ -71,6 +78,12 @@ describe("Resolver Core 0.1 L1 document loading", () => {
     await expect(runtime.load("https://resolver.example/relink/entity")).rejects.toBeInstanceOf(HTTPSDowngradeError);
   });
 
+  it("カスタムポリシーがHTTPを許可してもHTTPSダウングレードは拒否する", async () => {
+    const { runtime } = runtimeWith(resourceResult("http://cdn.example/entity.xml"), vi.fn().mockResolvedValue(resourceResult("http://cdn.example/entity.xml")), { resourceNetworkPolicy: { permits: vi.fn().mockReturnValue(true) } });
+
+    await expect(runtime.load("https://resolver.example/relink/entity")).rejects.toBeInstanceOf(HTTPSDowngradeError);
+  });
+
   it("RT-008: 設定したドキュメント取得ポリシーの拒否前にfetchしない", async () => {
     const fetchResource = vi.fn().mockResolvedValue(resourceResult("https://entity.example/entity.xml"));
     const resourceNetworkPolicy = { permits: vi.fn().mockReturnValue(false) };
@@ -78,6 +91,21 @@ describe("Resolver Core 0.1 L1 document loading", () => {
 
     await expect(runtime.load("https://resolver.example/relink/entity")).rejects.toBeInstanceOf(NetworkPolicyError);
     expect(fetchResource).not.toHaveBeenCalled();
+  });
+
+  it("redirectを事前観測できるAdapterは拒否先へ通信しない", async () => {
+    const networkCalls: string[] = [];
+    const fetchResource = vi.fn(async (_url: string, options: { beforeRequest?: (url: string) => void }) => {
+      options.beforeRequest?.("https://allowed.example/resolver");
+      options.beforeRequest?.("https://denied.example/entity.xml");
+      networkCalls.push("denied.example");
+      return resourceResult("https://denied.example/entity.xml");
+    });
+    const resourceNetworkPolicy = { permits: vi.fn((url: URL) => url.hostname !== "denied.example") };
+    const runtime = new ARRuntime({ resourceFetcher: { fetchResource }, resourceNetworkPolicy });
+
+    await expect(runtime.load("https://anchor.example/relink/entity")).rejects.toBeInstanceOf(NetworkPolicyError);
+    expect(networkCalls).toEqual([]);
   });
 
   it("RT-009: Fetch/CORSの失敗をプロキシで迂回せずTransportErrorとして伝える", async () => {

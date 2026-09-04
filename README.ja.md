@@ -153,6 +153,8 @@ console.log(result.values.temperature);
 
 `RuntimeDocument.url` は最終 AR-XML レスポンス URLです。そのため、Capability の相対 Interface Endpoint も最終 AR-XML URLを基準に解決されます。終端 non-2xx、HTTPS から HTTP へのダウングレード、設定したドキュメント取得ポリシーによる拒否は、XML Parseより前に失敗します。
 
+既定のドキュメント取得ポリシーは、既存の直接ロード（L0）互換のため HTTP(S) を許可し、HTTPS 起点の HTTP 化を拒否します。Resolver Core L1としてHTTPSを必須にする場合は、HTTPSの入力を要求する`ResourceNetworkPolicy`を設定してください。Browser Adapterはredirect先を事前に観測できないため、ブラウザのFetch/CORS/mixed-content制約に従います。公開Resolver向けにambient credentialsを送信したくない場合は、`new BrowserResourceFetcher(fetcher, { credentials: "omit" })`または`ARRuntimeOptions.resourceCredentials`を使用できます。
+
 Resolver / Manifest 固有の解析や Manifest 取得は行わず、ブラウザの CORS / Fetch 制約も迂回しません。
 
 ## 現在の Baseline Behavior
