@@ -14,8 +14,10 @@ export interface ParsedManifest {
 export function parseManifest(json: string, sourceUrl: string): ParsedManifest {
   let value: unknown;
   try {
+    rejectDuplicateObjectMembers(json);
     value = JSON.parse(json);
   } catch (error) {
+    if (error instanceof ManifestParseError) throw error;
     throw new ManifestParseError(`Manifest JSON の構文が正しくありません: ${sourceUrl}`, error);
   }
 
@@ -57,6 +59,62 @@ function requiredString(parent: Record<string, unknown>, property: string, secti
 
 function isAbsoluteUri(value: string): boolean {
   try { return new URL(value).protocol.length > 0; } catch { return false; }
+}
+
+/** JSON.parse前のraw JSONを走査し、全objectの重複member名を検出します。 */
+function rejectDuplicateObjectMembers(json: string): void {
+  const scopes: Set<string>[] = [];
+  let index = 0;
+  while (index < json.length) {
+    const character = json[index];
+    if (character === "{") {
+      scopes.push(new Set<string>());
+      index += 1;
+      continue;
+    }
+    if (character === "}") {
+      scopes.pop();
+      index += 1;
+      continue;
+    }
+    if (character !== '"') {
+      index += 1;
+      continue;
+    }
+
+    const token = readJsonStringToken(json, index);
+    index = token.end;
+    const next = skipWhitespace(json, index);
+    if (json[next] !== ":" || scopes.length === 0) continue;
+    const currentScope = scopes[scopes.length - 1];
+    if (!currentScope) continue;
+    if (currentScope.has(token.value)) throw new ManifestParseError(`Manifest JSON に重複した member name があります: ${token.value}`);
+    currentScope.add(token.value);
+  }
+}
+
+/** JSON string tokenを読み取り、JSON.parseでescape表現を通常のキー名へ戻します。 */
+function readJsonStringToken(json: string, start: number): { readonly value: string; readonly end: number } {
+  let index = start + 1;
+  while (index < json.length) {
+    if (json[index] === "\\") {
+      index += 2;
+      continue;
+    }
+    if (json[index] === '"') {
+      const raw = json.slice(start, index + 1);
+      return { value: JSON.parse(raw) as string, end: index + 1 };
+    }
+    index += 1;
+  }
+  throw new SyntaxError("Unterminated JSON string");
+}
+
+/** JSON token間の空白を読み飛ばします。 */
+function skipWhitespace(json: string, start: number): number {
+  let index = start;
+  while (index < json.length && /\s/.test(json[index] ?? "")) index += 1;
+  return index;
 }
 
 /** 決定論的な /{uuid}/manifest URL の場合だけ anchor.id の対応を検証します。 */

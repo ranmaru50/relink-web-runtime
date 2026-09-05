@@ -32,7 +32,7 @@ export class ARRuntime {
       const manifestUrl = parseDocumentUrl(result.responseUrl);
       const manifest = parseManifest(result.body, manifestUrl.href);
       const descriptionUrl = parseDocumentUrl(manifest.descriptionLocation);
-      const descriptionResult = await this.fetchDocumentResource(descriptionUrl.href, manifestUrl.href, options, false);
+      const descriptionResult = await this.fetchDocumentResource(descriptionUrl.href, descriptionUrl.href, options, false);
       return this.buildRuntimeDocument(descriptionResult);
     }
     return this.buildRuntimeDocument(result);

@@ -163,6 +163,25 @@ describe("Resolver Core 0.1 L1 document loading", () => {
     expect(fetchResource).toHaveBeenCalledTimes(1);
   });
 
+  it("Manifest JSONのトップレベル・ネスト・escaped-equivalent重複キーを拒否する", async () => {
+    const duplicateTopLevel = manifestJson.replace('"manifestVersion":"0.1",', '"manifestVersion":"0.1","manifestVersion":"0.1",');
+    const duplicateNested = manifestJson.replace(`"location":"${descriptionUrl}"`, `"location":"${descriptionUrl}","location":"${descriptionUrl}"`);
+    const duplicateEscaped = manifestJson.replace(`"location":"${descriptionUrl}"`, `"location":"${descriptionUrl}","loc\\u0061tion":"${descriptionUrl}"`);
+
+    for (const invalid of [duplicateTopLevel, duplicateNested, duplicateEscaped]) {
+      const fetchResource = vi.fn().mockResolvedValue(resourceResult(manifestUrl, 200, [], invalid, "application/json"));
+      await expect(new ARRuntime({ resourceFetcher: { fetchResource } }).load(manifestUrl)).rejects.toBeInstanceOf(ManifestParseError);
+    }
+  });
+
+  it("Description取得のHTTPS downgradeはManifest URLのschemeに関係なく拒否する", async () => {
+    const httpManifestUrl = manifestUrl.replace("https:", "http:");
+    for (const sourceUrl of [httpManifestUrl, manifestUrl]) {
+      const fetchResource = vi.fn((url: string) => Promise.resolve(url === sourceUrl ? resourceResult(sourceUrl, 200, [], manifestJson, "application/json") : resourceResult("http://entity.example/descriptions/redirected.xml")));
+      await expect(new ARRuntime({ resourceFetcher: { fetchResource } }).load(sourceUrl)).rejects.toBeInstanceOf(HTTPSDowngradeError);
+    }
+  });
+
   it("ManifestのHTTP取得失敗をManifestFetchErrorとして返す", async () => {
     const fetchResource = vi.fn().mockResolvedValue(resourceResult(manifestUrl, 404, [], "", "application/json"));
 
@@ -176,7 +195,7 @@ describe("Resolver Core 0.1 L1 document loading", () => {
 
     await expect(runtime.load(manifestUrl)).rejects.toBeInstanceOf(NetworkPolicyError);
     expect(fetchResource).toHaveBeenCalledTimes(1);
-    expect(resourceNetworkPolicy.permits).toHaveBeenCalledWith(new URL(descriptionUrl), manifestUrl);
+    expect(resourceNetworkPolicy.permits).toHaveBeenCalledWith(new URL(descriptionUrl), descriptionUrl);
   });
 
   it("RT-015: 終端HTTP失敗をXML parserへ渡さない", async () => {
