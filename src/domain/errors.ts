@@ -27,6 +27,16 @@ export class HTTPSDowngradeError extends ARRuntimeError {
 }
 /** ドキュメント取得先がRuntimeのネットワークポリシーで拒否された場合のエラーです。 */
 export class NetworkPolicyError extends ARRuntimeError { public constructor(public readonly url: string) { super("NetworkPolicyError", "Runtime のネットワークポリシーによりドキュメント取得先が拒否されました"); } }
+/** Manifest の取得、構文解析、検証に関するエラーの基底クラスです。 */
+export abstract class ManifestError extends ARRuntimeError { public constructor(category: string, message: string, cause?: unknown) { super(category, message, cause); } }
+/** Manifest の通信または終端HTTP応答に関するエラーです。 */
+export class ManifestFetchError extends ManifestError {
+  public constructor(message: string, public readonly url: string, public readonly status?: number, cause?: unknown) { super("ManifestFetchError", message, cause); }
+}
+/** Manifest JSON の構文を解釈できない場合のエラーです。 */
+export class ManifestParseError extends ManifestError { public constructor(message: string, cause?: unknown) { super("ManifestParseError", message, cause); } }
+/** Manifest 0.1 の必須構造または値が不正な場合のエラーです。 */
+export class ManifestValidationError extends ManifestError { public constructor(message: string) { super("ManifestValidationError", message); } }
 /** HTTP Interface の非成功状態または未対応状態を表すエラーです。 */
 export class InterfaceError extends ARRuntimeError { public constructor(message: string) { super("InterfaceError", message); } }
 /** Response Representation または Output Mapping のエラーです。 */

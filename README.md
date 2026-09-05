@@ -147,13 +147,13 @@ console.log(result.values.temperature);
 
 ### Document Loading and Resolver Core L1
 
-`ARRuntime.load()` accepts both a direct AR-XML URL (L0) and an Anchor / Resolver URL (L1). It uses the browser's ordinary Fetch redirect behavior and preserves the requested URL, final response URL, terminal HTTP status, and representation body.
+`ARRuntime.load()` accepts a direct AR-XML URL (L0), an Anchor / Resolver URL (L1), or an explicitly supplied Manifest URL. When the successful response is a Manifest JSON representation, it validates the Manifest and loads `description.location` as the AR-XML document.
 
 `RuntimeDocument.url` is the final successful AR-XML response URL. Relative Capability Interface endpoints are therefore resolved against that final URL, never against the original Anchor or Resolver URL. A terminal non-2xx response, an HTTPS-to-HTTP downgrade, or a configured document resource-policy rejection fails before XML parsing.
 
 The default document policy allows HTTP(S) for compatibility with direct (L0) loading and rejects HTTP after an HTTPS request. Callers using Resolver Core L1 should configure a `ResourceNetworkPolicy` that requires an HTTPS input. The Browser Adapter cannot observe redirect targets before the browser does, so it relies on browser Fetch/CORS/mixed-content enforcement. For public Resolver requests where ambient credentials should not be sent, use `new BrowserResourceFetcher(fetcher, { credentials: "omit" })` or `ARRuntimeOptions.resourceCredentials`.
 
-Resolver / Manifest-specific parsing and Manifest retrieval are not added to the baseline path, and browser CORS / Fetch restrictions are not bypassed.
+Manifest retrieval is opt-in through the supplied URL; the Runtime does not discover a Manifest automatically and does not make Manifest retrieval a prerequisite for ordinary Resolver Core loading. Browser CORS / Fetch restrictions are not bypassed.
 
 ## Current Baseline Behavior
 
@@ -181,6 +181,7 @@ The current PoC targets the Draft 4 browser-runtime baseline, including:
 - browser CORS enforcement
 - replaceable Runtime network policy
 - layered Runtime error categories
+- explicit Manifest 0.1 loading through `description.location`
 
 ## Architecture
 
@@ -347,7 +348,7 @@ The Harness keeps expected data, Runtime result/error, and Testbed-observed requ
 The following are intentionally outside the current Web Runtime PoC or are not yet standardized by AR-XML Core 0.1 Draft 4:
 
 - RELink Resolver
-- Manifest
+- automatic Manifest discovery and Manifest integrity verification
 - physical Anchor handling
 - NFC / BLE / UWB
 - cryptographic Trust Profiles

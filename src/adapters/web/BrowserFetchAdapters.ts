@@ -13,8 +13,10 @@ export class BrowserResourceFetcher implements ResourceFetcher {
     const credentials = options.credentials ?? this.defaultOptions.credentials;
     if (credentials !== undefined) init.credentials = credentials;
     try { response = await this.fetcher(url, init); } catch (error) { throw new TransportError("AR-XML の取得中に通信エラーが発生しました", error); }
-    if (!response.ok) return { requestedUrl: url, responseUrl: response.url || url, status: response.status, body: "" };
-    try { return { requestedUrl: url, responseUrl: response.url || url, status: response.status, body: await response.text() }; } catch (error) { throw new TransportError("AR-XML 応答の読み取り中に通信エラーが発生しました", error); }
+    const responseUrl = response.url || url;
+    const contentType = response.headers.get("content-type") ?? undefined;
+    if (!response.ok) return { requestedUrl: url, responseUrl, status: response.status, body: "", contentType };
+    try { return { requestedUrl: url, responseUrl, status: response.status, body: await response.text(), contentType }; } catch (error) { throw new TransportError("AR-XML 応答の読み取り中に通信エラーが発生しました", error); }
   }
   /** 旧ResourceFetcher APIを維持し、成功時の本文だけを返します。 */
   public async fetchText(url: string, signal?: AbortSignal): Promise<string> {
