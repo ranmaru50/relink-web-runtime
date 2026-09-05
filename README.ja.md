@@ -149,13 +149,13 @@ console.log(result.values.temperature);
 
 ### Document Loading と Resolver Core L1
 
-`ARRuntime.load()` は、直接 AR-XML URL（L0）と Anchor / Resolver URL（L1）の両方を受け付けます。ブラウザの通常の Fetch リダイレクト処理に従い、終端の成功レスポンスについて要求 URL、最終レスポンス URL、終端 HTTP ステータス、表現本文を保持します。
+`ARRuntime.load()` は、直接 AR-XML URL（L0）、Anchor / Resolver URL（L1）、または明示的に指定した Manifest URL を受け付けます。成功レスポンスが Manifest JSON の場合は Manifest を検証し、`description.location` の URL を AR-XML 文書として取得します。
 
 `RuntimeDocument.url` は最終 AR-XML レスポンス URLです。そのため、Capability の相対 Interface Endpoint も最終 AR-XML URLを基準に解決されます。終端 non-2xx、HTTPS から HTTP へのダウングレード、設定したドキュメント取得ポリシーによる拒否は、XML Parseより前に失敗します。
 
 既定のドキュメント取得ポリシーは、既存の直接ロード（L0）互換のため HTTP(S) を許可し、HTTPS 起点の HTTP 化を拒否します。Resolver Core L1としてHTTPSを必須にする場合は、HTTPSの入力を要求する`ResourceNetworkPolicy`を設定してください。Browser Adapterはredirect先を事前に観測できないため、ブラウザのFetch/CORS/mixed-content制約に従います。公開Resolver向けにambient credentialsを送信したくない場合は、`new BrowserResourceFetcher(fetcher, { credentials: "omit" })`または`ARRuntimeOptions.resourceCredentials`を使用できます。
 
-Resolver / Manifest 固有の解析や Manifest 取得は行わず、ブラウザの CORS / Fetch 制約も迂回しません。
+Manifest の取得は指定された URL から明示的に行う場合だけ実行し、Manifest の自動探索や通常の Resolver Core ロードへの Manifest 必須化は行いません。ブラウザの CORS / Fetch 制約も迂回しません。
 
 ## 現在の Baseline Behavior
 
@@ -183,6 +183,7 @@ Resolver / Manifest 固有の解析や Manifest 取得は行わず、ブラウ�
 - Browser CORS Enforcement
 - 差し替え可能な Runtime Network Policy
 - Layered Runtime Error Model
+- `description.location` を使った明示的な Manifest 0.1 ロード
 
 ## Web Runtime Test Harness
 
@@ -358,7 +359,7 @@ Demo は **AR-XML Presentation 実装ではありません**。AR-XML の UI Sem
 次の機能は現在の Web Runtime PoC の対象外、または AR-XML Core 0.1 Draft 4 で未確定です。
 
 - RELink Resolver
-- Manifest
+- Manifest の自動探索と Manifest integrity 検証
 - Physical Anchor Handling
 - NFC / BLE / UWB
 - Cryptographic Trust Profiles

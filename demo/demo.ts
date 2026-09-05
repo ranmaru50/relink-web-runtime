@@ -1,6 +1,6 @@
 // demo/demo.ts
 // demo/demo.ts
-import { ARRuntime } from "../src/index";
+import { ARRuntime, ManifestError } from "../src/index";
 
 const form = document.querySelector<HTMLFormElement>("#loader");
 const urlInput = document.querySelector<HTMLInputElement>("#url");
@@ -26,6 +26,6 @@ form.addEventListener("submit", async (event) => {
       item.append(control); content.append(item);
     }
   } catch (error) {
-    console.error(error); errorElement.textContent = "AR-XML を読み込めませんでした。URLと内容を確認してください。";
+    console.error(error); errorElement.textContent = error instanceof ManifestError ? "Manifest を読み込めませんでした。Manifest URLと内容を確認してください。" : "AR-XML を読み込めませんでした。URLと内容を確認してください。";
   }
 });

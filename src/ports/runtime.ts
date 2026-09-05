@@ -13,6 +13,8 @@ export interface ResourceFetchResult {
   readonly status: number;
   /** 最終レスポンスの表現本文です。 */
   readonly body: string;
+  /** 最終レスポンスの Content-Type です。パラメータを含む場合があります。 */
+  readonly contentType?: string;
   /** Adapter が追跡できる場合に保持する、事後診断用のリダイレクト先一覧です。 */
   readonly redirectUrls?: readonly string[];
 }
