@@ -1,16 +1,18 @@
 # RELink Web Runtime Public API Reference
 
-Runtime `0.1.0` の **Beta / Experimental** Public API Referenceです。`1.0.0`未満では、Version間のBackward Compatibilityを保証しません。
+This is the canonical Public API Reference for Runtime `0.1.0`, which is **Beta / Experimental**. Versions below `1.0.0` do not guarantee backward compatibility between releases.
 
-このDocumentは、通常のWeb Applicationが使うAPI、Integration向けの拡張Point、Data Model、Errorを区分して説明します。PackageのPublic Entry Pointは次のImportです。
+日本語訳: [Public API Reference（日本語）](api.ja.md)
+
+This document classifies the APIs used by typical Web applications, advanced integration and extension points, data model types, and errors. The public package entry point is:
 
 ```ts
 import { ARRuntime } from "@relink/web-runtime";
 ```
 
-`src/`以下のModule、Parser / AdapterのConcrete実装、`resolveEndpoint`、`parseManifest`はPublic APIではありません。
+Modules under `src/`, concrete parser or adapter implementations, `resolveEndpoint`, and `parseManifest` are not public APIs.
 
-## Runtime / Specification Baseline
+## Runtime / specification baseline
 
 | Runtime | AR-XML Core | Resolver Core | Manifest |
 | --- | --- | --- | --- |
@@ -20,7 +22,7 @@ import { ARRuntime } from "@relink/web-runtime";
 
 ### `ARRuntime`
 
-AR-XML URLをLoadし、Parse・Validation済みのRuntime Documentを返すEntry Pointです。
+Loads an AR-XML URL and returns a parsed and validated Runtime document.
 
 ```ts
 new ARRuntime(options?: ARRuntimeOptions)
@@ -43,11 +45,11 @@ const result = await capability.invoke({}, { accept: "application/json" });
 console.log(result.values.temperature);
 ```
 
-`load()`は、URLのResolve、Resource Fetch、AR-XML Parse、Validation、Runtime APIによるExposeを担当します。`load()`はCapabilityを自動実行しません。
+`load()` performs URL resolution, resource fetching, AR-XML parsing, validation, and exposure through the Runtime API. `load()` does not automatically execute a Capability.
 
 ### `RuntimeDocument`
 
-`ARRuntime.load()`の結果として得られる、読み込み済みAR-DOMへのPublic Facadeです。
+The public facade for the loaded AR-DOM returned by `ARRuntime.load()`.
 
 ```ts
 readonly url: string
@@ -59,18 +61,18 @@ getCapability(localId: string): RuntimeCapability | undefined
 
 ### `RuntimeCapability`
 
-Document内のCapabilityを検索し、ApplicationまたはHumanの明示的な実行要求を送るPublic Facadeです。
+A public facade for a Capability in the document. It sends an explicit execution request from an application or human.
 
 ```ts
 readonly definition: Capability
 invoke(inputs: InputValues, options?: InvokeOptions): Promise<InvocationResult>
 ```
 
-`invoke()`は、Input検証、Interface選択、HTTP Request、Response Decode、Output Mappingを実行します。現在のBaselineで実行できるInterfaceはHTTP `GET` / `POST`です。
+`invoke()` validates inputs, selects an interface, sends the HTTP request, decodes the response, and maps outputs. The current baseline supports HTTP `GET` and `POST` interfaces.
 
 ### `DefaultResourceNetworkPolicy`
 
-Document取得時の既定Policyです。HTTP(S)を扱い、HTTPSからHTTPへのDowngradeを拒否します。より厳しいPolicyが必要な場合は`ARRuntimeOptions.resourceNetworkPolicy`へ指定します。
+The default policy for document retrieval. It handles HTTP(S) and rejects a downgrade from HTTPS to HTTP. Supply a stricter policy through `ARRuntimeOptions.resourceNetworkPolicy` when needed.
 
 ```ts
 new DefaultResourceNetworkPolicy()
@@ -81,14 +83,14 @@ permits(url: URL, requestedUrl: string): boolean
 
 ### Invocation types
 
-- `InputValues`: `Readonly<Record<string, unknown>>`。Capabilityへ渡すInput値です。
-- `InvokeOptions`: `accept?: string`と`signal?: AbortSignal`を指定します。
-- `InvocationResult`: `values`（Output値）と`representation`（選択されたMedia Type）を持ちます。
-- `NetworkPolicy`: Capability InterfaceのURLを許可する`permits(url, documentUrl)`を実装します。既定は同一Origin Policyです。
+- `InputValues`: `Readonly<Record<string, unknown>>` values passed to a Capability.
+- `InvokeOptions`: accepts `accept?: string` and `signal?: AbortSignal`.
+- `InvocationResult`: contains `values` (mapped outputs) and `representation` (the selected media type).
+- `NetworkPolicy`: implements `permits(url, documentUrl)` to allow or reject Capability interface URLs. The default is same-origin.
 
 ### `ARRuntimeOptions`
 
-Browser固有の処理やNetwork Policyを差し替えるConfigurationです。
+Configuration for replacing browser-specific processing and network policies.
 
 ```ts
 interface ARRuntimeOptions {
@@ -103,61 +105,61 @@ interface ARRuntimeOptions {
 
 ### Extension ports
 
-- `ResourceNetworkPolicy`: Document取得先の`permits(url, requestedUrl)`を実装します。
-- `ResourceFetcher`: `fetchResource(url, options?)`で本文・Status・Response URLを返します。旧`fetchText(url, signal?)`も互換用に利用できます。
-- `XMLParser`: `parse(xml)`でRuntimeがValidationに渡すXML中間Modelを返します。
-- `HTTPInvoker`: `invoke(url, init)`でHTTP Responseの最小Portを提供します。
-- `HTTPResponse`: `status`、`headers.get()`、`text()`、`blob()`を持つResponse Portです。
-- `ResourceFetchOptions` / `ResourceFetchResult`: Resource Fetch Portの入力・結果型です。
+- `ResourceNetworkPolicy`: implements `permits(url, requestedUrl)` for document retrieval targets.
+- `ResourceFetcher`: `fetchResource(url, options?)` returns the body, status, and response URL. The legacy `fetchText(url, signal?)` form is also supported for compatibility.
+- `XMLParser`: `parse(xml)` returns the intermediate XML model passed to Runtime validation.
+- `HTTPInvoker`: `invoke(url, init)` provides the minimal HTTP response port.
+- `HTTPResponse`: provides `status`, `headers.get()`, `text()`, and `blob()`.
+- `ResourceFetchOptions` / `ResourceFetchResult`: input and result types for the resource-fetch port.
 
-これらのPortは、テスト用のFake、別のFetch実装、Network Policyの差し替えに利用できます。Browser AdapterのConcrete ClassそのものはPublic APIとして公開していません。
+These ports can be used for test fakes, alternative fetch implementations, and custom network policies. Concrete browser adapter classes are not exposed as public APIs.
 
 ## Data model / type definitions
 
-AR-DOMとAR-XML CoreのData Modelを表す、Type-onlyのPublic APIです。
+These type-only public APIs represent the AR-DOM and AR-XML Core data model.
 
-- `ARDocument`: Document URL、Category、Profile Claim、Capabilityの集合。
-- `Capability`: Local ID、Semantic Type、Input、Result、Requirement、Interface、Runtime State。
-- `CapabilityLocalId` / `SemanticCapabilityIdentifier`: Capabilityの識別子。
-- `InputDefinition` / `OutputDefinition`: Input / OutputのName、Type、Format、Unit。
-- `ResultDefinition`: Output、Representation、Capability Errorの定義。
-- `RepresentationDefinition`: Response Media Typeの定義。
-- `InterfaceDefinition` / `HTTPInterfaceDefinition`: 現在のHTTP Interface（`GET` / `POST`）の定義。
-- `RequirementDefinition`: Capability Requirementの定義。
-- `ProfileClaim`: Profile URIのClaim。
-- `CoreDataType`: `string`、`number`、`integer`、`boolean`、`binary`、`object`、`array`。
-- `CapabilityErrorDefinition`: Capability Error Typeの定義。
-- `ContractResolutionState`、`ProjectionValidationState`、`AvailabilityState`: Runtime StateのUnion Type。
+- `ARDocument`: document URL, category, profile claims, and Capabilities.
+- `Capability`: local ID, semantic type, inputs, result, requirements, interfaces, and Runtime state.
+- `CapabilityLocalId` / `SemanticCapabilityIdentifier`: Capability identifiers.
+- `InputDefinition` / `OutputDefinition`: input or output name, type, format, and unit.
+- `ResultDefinition`: output, representation, and Capability error definitions.
+- `RepresentationDefinition`: response media type definition.
+- `InterfaceDefinition` / `HTTPInterfaceDefinition`: the current HTTP interface (`GET` / `POST`) definition.
+- `RequirementDefinition`: Capability requirement definition.
+- `ProfileClaim`: profile URI claim.
+- `CoreDataType`: `string`, `number`, `integer`, `boolean`, `binary`, `object`, or `array`.
+- `CapabilityErrorDefinition`: Capability error type definition.
+- `ContractResolutionState`, `ProjectionValidationState`, `AvailabilityState`: Runtime state union types.
 
 ## Errors
 
-全てのRuntime Errorは`ARRuntimeError`を基底とし、`category`でFailure Layerを識別できます。
+All Runtime errors derive from `ARRuntimeError`. Use `category` to identify the failure layer.
 
-- `ParseError`: XML Parse失敗。
-- `ValidationError`: AR-XML CoreまたはInputのValidation失敗。
-- `TransportError`: NetworkまたはResponse読取失敗。
-- `HTTPResponseError`: Document取得のnon-2xx Response。
-- `HTTPSDowngradeError`: HTTPSからHTTPへのDowngrade。
-- `NetworkPolicyError`: Document取得先のPolicy拒否。
-- `InterfaceError`: HTTP Interfaceの不備、非成功Response、Invocation拒否。
-- `RepresentationError`: Response RepresentationまたはOutput Mapping失敗。
-- `ContractResolutionError` / `ContractError`: Contract解決または矛盾のError。
-- `CapabilityError`: Capability固有の意味的Errorを表す予約済みError。
-- `ManifestError`: Manifest Errorの基底Class。
-- `ManifestFetchError`: Manifest取得失敗。
-- `ManifestParseError`: Manifest JSON Parse失敗。
-- `ManifestValidationError`: Manifest 0.1のValidation失敗。
+- `ParseError`: XML parsing failure.
+- `ValidationError`: AR-XML Core or input validation failure.
+- `TransportError`: network or response-reading failure.
+- `HTTPResponseError`: non-2xx response while retrieving a document.
+- `HTTPSDowngradeError`: HTTPS-to-HTTP downgrade.
+- `NetworkPolicyError`: document retrieval rejected by policy.
+- `InterfaceError`: invalid HTTP interface, non-success response, or invocation rejection.
+- `RepresentationError`: response representation or output mapping failure.
+- `ContractResolutionError` / `ContractError`: contract resolution failure or conflict.
+- `CapabilityError`: reserved error for a semantic Capability error.
+- `ManifestError`: base class for Manifest errors.
+- `ManifestFetchError`: Manifest retrieval failure.
+- `ManifestParseError`: Manifest JSON parsing failure.
+- `ManifestValidationError`: Manifest 0.1 validation failure.
 
-## 責務境界
+## Responsibility boundary
 
 ```text
 ARRuntime.load()
   = Resolve / Fetch / Parse / Validate / Expose
 
 RuntimeCapability.invoke()
-  = Application / Humanによる明示的な実行要求
+  = An explicit execution request from an application or human
 
-load()はCapabilityを自動実行しない
+load() does not automatically execute Capabilities
 ```
 
-RuntimeがDocumentやCapabilityをExposeしたことは、Capabilityの自動実行、Authorization、Backendの成功を意味しません。実行は`RuntimeCapability.invoke()`を明示的に呼び出した場合だけ発生します。
+Exposing a document or Capability through the Runtime does not imply automatic execution, authorization, or backend success. Execution occurs only when `RuntimeCapability.invoke()` is called explicitly.
