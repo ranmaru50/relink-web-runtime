@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <title>RELink Web Runtime static consumer</title>
+  </head>
+  <body>
+    <p id="status">Runtimeを読み込んでいます。</p>
+    <script type="module">
+      import { ARRuntime } from "./vendor/relink-web-runtime.js";
+
+      const runtime = new ARRuntime();
+      document.querySelector("#status").textContent =
+        `ARRuntimeを読み込みました: ${typeof runtime.load}`;
+    </script>
+  </body>
+</html>

@@ -1,11 +1,40 @@
 {
-  "name": "relink-web-runtime",
+  "name": "@relink/web-runtime",
   "version": "0.1.0",
-  "private": true,
+  "description": "Experimental browser Runtime for AR-XML Core 0.1 Draft 4",
+  "type": "module",
+  "main": "./dist/relink-web-runtime.js",
+  "module": "./dist/relink-web-runtime.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/relink-web-runtime.js",
+      "default": "./dist/relink-web-runtime.js"
+    }
+  },
+  "files": [
+    "dist/relink-web-runtime.js",
+    "dist/types/index.d.ts",
+    "dist/types/application/invocation.d.ts",
+    "dist/types/application/parsing.d.ts",
+    "dist/types/domain",
+    "dist/types/ports/runtime.d.ts",
+    "dist/types/runtime",
+    "LICENSE",
+    "README.md",
+    "README.ja.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "vite",
     "harness": "vite --config vite.harness.config.ts",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && npm run build:library",
+    "build:library": "tsc -p tsconfig.build.json && vite build --config vite.library.config.ts",
+    "prepack": "npm run build:library",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
