@@ -25,7 +25,9 @@
     "README.md",
     "README.ja.md",
     "docs/api.md",
-    "docs/api.ja.md"
+    "docs/api.ja.md",
+    "docs/releases/0.1.0.md",
+    "docs/releases/0.1.0.ja.md"
   ],
   "sideEffects": false,
   "publishConfig": {
