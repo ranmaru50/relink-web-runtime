@@ -120,7 +120,7 @@ https://example.org/api/temperature
 ## Runtime API
 
 ```ts
-import { ARRuntime } from "./src";
+import { ARRuntime } from "@relink/web-runtime";
 
 const runtime = new ARRuntime();
 
@@ -146,6 +146,45 @@ console.log(result.values.temperature);
 ```
 
 `ARRuntime` では XML Parser、Resource Fetcher、HTTP Invoker、Network Policy を差し替えられるようにし、Browser 固有処理を Adapter の背後へ分離しています。
+
+Runtime の Load や公開は Capability の自動実行を意味しません。Capability の Invocation は、`RuntimeCapability.invoke()`を通じた Application または Human の明示的な操作として行います。
+
+## Package Distribution
+
+Runtime `0.1.0` は **Beta / Experimental** です。`1.0.0`未満のVersionでは、Backward Compatibilityを保証しません。
+
+Web ProjectへInstallします。
+
+```bash
+npm install @relink/web-runtime
+```
+
+Public Package Entry Pointは、サポート対象のRuntime APIだけを公開します。
+
+```ts
+import { ARRuntime } from "@relink/web-runtime";
+```
+
+APIの分類、Signature、Extension Port、Data Model Type、Error Classの一覧は[Public API Reference（日本語）](docs/api.ja.md)を参照してください。
+
+PackageにはESM BuildとTypeScript Declarationが含まれます。Standalone ESM Artifactは`dist/relink-web-runtime.js`として生成されます。Static Web Applicationでは、このFileをVendor DirectoryへCopyして、Runtime Source Fileを直接ImportせずにLoadできます。
+
+```html
+<script type="module">
+  import { ARRuntime } from "./vendor/relink-web-runtime.js";
+
+  const runtime = new ARRuntime();
+  console.log(typeof runtime.load);
+</script>
+```
+
+PackageのBaselineは、AR-XMLや関連SpecificationのVersionとは分けて管理します。
+
+| Runtime | AR-XML Core | Resolver Core | Manifest |
+| --- | --- | --- | --- |
+| 0.1.0 | 0.1 Draft 4 | 0.1 | 0.1 |
+
+`npm pack`に含まれるのは、Build済みDistribution、Declaration、License、Package Documentation、Package Metadataだけです。Consumerが`src/`をImportするPathは公開しません。
 
 ### Document Loading と Resolver Core L1
 

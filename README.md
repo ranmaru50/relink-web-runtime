@@ -118,7 +118,7 @@ Relative Interface endpoints are resolved against the **AR-XML document URL**, n
 ## Runtime API
 
 ```ts
-import { ARRuntime } from "./src";
+import { ARRuntime } from "@relink/web-runtime";
 
 const runtime = new ARRuntime();
 
@@ -144,6 +144,45 @@ console.log(result.values.temperature);
 ```
 
 `ARRuntime` supports dependency injection for the XML parser, resource fetcher, HTTP invoker, and network policy so browser-specific behavior remains behind adapters.
+
+Loading or exposing a Runtime does not automatically execute any Capability. Capability invocation remains an explicit application or human action through `RuntimeCapability.invoke()`.
+
+## Package Distribution
+
+Runtime `0.1.0` is **Beta / Experimental**. Versions below `1.0.0` do not guarantee backward compatibility.
+
+Install the package in a Web project:
+
+```bash
+npm install @relink/web-runtime
+```
+
+The public package entry point is intentionally limited to the supported Runtime API:
+
+```ts
+import { ARRuntime } from "@relink/web-runtime";
+```
+
+See the [Public API Reference](docs/api.md) for the complete API classification, signatures, extension ports, data model types, and error classes.
+
+The package provides an ESM build and TypeScript declarations. A standalone ESM artifact is produced at `dist/relink-web-runtime.js`; a static Web application can copy it to a vendor directory and load it without importing Runtime source files:
+
+```html
+<script type="module">
+  import { ARRuntime } from "./vendor/relink-web-runtime.js";
+
+  const runtime = new ARRuntime();
+  console.log(typeof runtime.load);
+</script>
+```
+
+The package baseline is deliberately tracked separately from AR-XML and related specifications:
+
+| Runtime | AR-XML Core | Resolver Core | Manifest |
+| --- | --- | --- | --- |
+| 0.1.0 | 0.1 Draft 4 | 0.1 | 0.1 |
+
+`npm pack` includes only the built distribution, declarations, license, package documentation, and package metadata. It does not expose `src/` as a consumer import path.
 
 ### Document Loading and Resolver Core L1
 
