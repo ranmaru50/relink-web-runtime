@@ -163,6 +163,8 @@ The public package entry point is intentionally limited to the supported Runtime
 import { ARRuntime } from "@relink/web-runtime";
 ```
 
+See the [Public API Reference](docs/api.md) for the complete API classification, signatures, extension ports, data model types, and error classes.
+
 The package provides an ESM build and TypeScript declarations. A standalone ESM artifact is produced at `dist/relink-web-runtime.js`; a static Web application can copy it to a vendor directory and load it without importing Runtime source files:
 
 ```html

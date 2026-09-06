@@ -23,7 +23,8 @@
     "dist/types/runtime",
     "LICENSE",
     "README.md",
-    "README.ja.md"
+    "README.ja.md",
+    "docs/api.md"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -35,6 +36,7 @@
     "build": "tsc --noEmit && vite build && npm run build:library",
     "build:library": "tsc -p tsconfig.build.json && vite build --config vite.library.config.ts",
     "prepack": "npm run build:library",
+    "verify:external": "node scripts/verify-external-consumer.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
