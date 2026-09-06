@@ -165,6 +165,8 @@ import { ARRuntime } from "@relink/web-runtime";
 
 See the [Public API Reference](docs/api.md) for the complete API classification, signatures, extension ports, data model types, and error classes.
 
+Release details are documented in the [0.1.0 Release Notes](docs/releases/0.1.0.md).
+
 The package provides an ESM build and TypeScript declarations. A standalone ESM artifact is produced at `dist/relink-web-runtime.js`; a static Web application can copy it to a vendor directory and load it without importing Runtime source files:
 
 ```html

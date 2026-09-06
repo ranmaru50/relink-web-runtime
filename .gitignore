@@ -1,6 +1,10 @@
 # .gitignore
 node_modules/
 dist/
+!dist/
+dist/*
+!dist/relink-web-runtime.js
+examples/external-consumer/dist/
 .pnpm-store/
 pnpm-workspace.yaml
 AGENTS.md

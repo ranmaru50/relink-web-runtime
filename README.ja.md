@@ -167,6 +167,8 @@ import { ARRuntime } from "@relink/web-runtime";
 
 APIの分類、Signature、Extension Port、Data Model Type、Error Classの一覧は[Public API Reference（日本語）](docs/api.ja.md)を参照してください。
 
+Releaseの詳細は[0.1.0 Release Notes（日本語）](docs/releases/0.1.0.ja.md)を参照してください。
+
 PackageにはESM BuildとTypeScript Declarationが含まれます。Standalone ESM Artifactは`dist/relink-web-runtime.js`として生成されます。Static Web Applicationでは、このFileをVendor DirectoryへCopyして、Runtime Source Fileを直接ImportせずにLoadできます。
 
 ```html
