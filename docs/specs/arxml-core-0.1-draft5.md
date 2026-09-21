@@ -2241,7 +2241,269 @@ Resolution ≠ Execution
 
 # Part VII — Validation and Processing
 
-Sections 56–60 are reserved for the staged Validation and Processing draft.
+# 56. Processing Model
+
+## 56.1 Load Pipeline
+
+An AR-XML Runtime load operation follows this conceptual pipeline:
+
+```text
+1. Resolve Entity reference when required
+2. Fetch AR-XML resource bytes
+3. Parse XML safely and namespace-aware
+4. Validate Core namespace and Draft version
+5. Validate Core structure and Extension Slot envelopes
+6. Validate typed uniqueness and local references
+7. Construct AR-DOM and preserve Extension data
+8. Expose the description and diagnostics
+```
+
+This pipeline refines, but does not change, the fundamental rule:
+
+```text
+ARRuntime.load()
+= Resolve / Fetch / Parse / Validate / Expose
+```
+
+No step in load authorizes or invokes a Capability. Fetching the AR-XML resource is document retrieval, not execution of a described Capability.
+
+Semantic Contract or Profile resolution MAY occur during load, after AR-DOM exposure, or on explicit application request. It is not required for Core structural validity and MUST NOT cause Capability execution.
+
+## 56.2 Distinct Processing Outcomes
+
+A processor MUST keep these outcome categories distinct:
+
+```text
+Entity resolution failure
+resource fetch failure
+XML parse failure
+Core validation failure
+Extension validation result
+semantic resolution result
+projection validation result
+Profile conformance result
+Runtime availability result
+invocation result or error
+```
+
+One category MUST NOT be silently reported as another. For example, an unresolved Capability Contract is not a Core validation failure, and an HTTP authorization failure is not proof that the AR-XML document is invalid.
+
+## 56.3 Determinism and No Repair
+
+Core parsing and validation MUST be deterministic and MUST NOT require AI, an LLM, network dereferencing of Semantic Identifiers, or human interpretation.
+
+A processor MAY collect multiple diagnostics, but MUST NOT repair an invalid document while claiming it validated the original. Examples of prohibited silent repair include:
+
+- deleting an unknown Core element or attribute;
+- choosing one duplicate local ID;
+- selecting an arbitrary target for a dangling reference;
+- moving foreign content into an Extension Slot;
+- filling missing Entity projection fields from a Contract; or
+- treating malformed XML as a valid AR-DOM.
+
+An application MAY offer a separate repair workflow, but repaired content is a new document and MUST be revalidated.
+
+## 56.4 Safe XML Parsing
+
+Processors MUST use an XML parser configuration suitable for untrusted input. During Core parsing they MUST NOT fetch external entities or external DTD resources as an implicit side effect. Resource limits SHOULD bound document size, nesting depth, attribute count, and expanded text according to the deployment environment.
+
+Parser security policy is not an Extension mechanism. A document cannot weaken the Runtime's XML security configuration.
+
+# 57. Core Structural Validation
+
+Core structural validation determines whether the parsed document conforms to the Core grammar independently of semantic-definition resolution and Extension-specific meaning.
+
+A Core validator MUST verify at least:
+
+1. the resource is well-formed XML;
+2. the document element is Core `ar-entity`;
+3. the Core namespace and `version="0.1-draft5"` are correct;
+4. only defined Core elements and attributes occur;
+5. foreign elements occur only in explicit Extension Slots;
+6. singleton elements and containers do not repeat;
+7. required attributes and non-empty lexical values are present;
+8. Core child containment and cardinalities are satisfied;
+9. Core data type and boolean lexical values are permitted;
+10. Input and Output constraint wrappers satisfy their slot envelope;
+11. Attachment, Realization, Mapping, and Requirement body envelopes are valid;
+12. every Interface contains Attachment or Realization; and
+13. the uniqueness and reference rules in Section 58 hold.
+
+Core child order MUST NOT affect validity. A document using a non-canonical but otherwise permitted child order is valid.
+
+## 57.1 Unknown Content
+
+Validation applies the following matrix:
+
+| Content | Location | Core result |
+|---|---|---|
+| known Core element or attribute | permitted Core location | continue validation |
+| unknown Core-namespace element | anywhere | invalid |
+| unknown unqualified or Core attribute on Core element | anywhere | invalid |
+| foreign element | permitted Extension Slot | Core-valid if slot envelope is valid |
+| foreign element | outside an Extension Slot | invalid |
+| foreign attribute on a Core element | not an Extension Slot in Draft 5 | invalid |
+
+Recognizing a foreign Extension does not permit it outside its Core-defined slot. Failing to recognize a foreign Extension inside a valid slot does not make the document Core-invalid.
+
+## 57.2 Structural Validity and Semantic Evaluation
+
+Core validity does not require:
+
+- an Entity Identifier, Interface, or Capability;
+- a CPU, network connection, API, or Runtime implementation;
+- resolution of Capability Contracts, Profiles, or vocabulary terms;
+- Extension processor support;
+- Profile conformance;
+- Runtime availability; or
+- successful authentication, authorization, or execution.
+
+An empty passive Entity is Core-valid. Conversely, a semantically familiar or executable document is Core-invalid if it violates the Core grammar.
+
+# 58. Reference and Uniqueness Validation
+
+## 58.1 Typed Local ID Collections
+
+Local IDs MUST be unique within each typed collection:
+
+```text
+Subject.id
+Interface.id
+Capability.id
+```
+
+The collections are separate. The same lexical ID MAY occur once in each different typed collection without collision.
+
+ID comparison uses exact code-point equality after XML attribute-value processing. A validator MUST NOT case-fold, trim, URI-normalize, Unicode-normalize, or otherwise guess equivalence unless a future Core revision explicitly defines such normalization.
+
+## 58.2 Scoped Names
+
+Input names MUST be unique within their containing Invocation. Output names MUST be unique within their containing Result.
+
+Input and Output name collections are separate. The same name MAY be used once as an Input and once as an Output. Names in different Capabilities do not collide.
+
+## 58.3 Local References
+
+The following references MUST resolve within the same AR-XML document:
+
+```text
+Capability.subject-ref → Subject.id
+Identifier.subject-ref → Subject.id
+InterfaceUse.ref       → Interface.id
+```
+
+Reference matching uses the same exact equality rule as IDs. References MUST NOT resolve through network access, a Semantic Registry, Entity Resolver, label matching, or cross-document inference.
+
+Forward references are valid. A processor MUST therefore complete collection construction before reporting a reference as dangling.
+
+A dangling local reference is a Core structural validation error. A processor MUST NOT create a placeholder target or silently drop the referencing item.
+
+## 58.4 Permitted Repetition
+
+The following repetition is explicitly permitted:
+
+- multiple Identifiers with the same `type`;
+- multiple Properties with the same `type`;
+- multiple InterfaceUses in one Capability with the same `ref`;
+- different Capabilities referencing the same Interface; and
+- different Identifiers or Capabilities referencing the same Subject.
+
+Permitted repetition does not imply order, preference, aliasing, aggregation, equivalence, or conflict resolution.
+
+# 59. Extension Validation
+
+## 59.1 Separate Validation Layer
+
+Extension-specific validation occurs after or alongside Core slot-envelope validation but produces a separate result.
+
+For each foreign semantic root, a processor conceptually determines:
+
+```text
+Extension recognized?
+Extension processor supported?
+Extension subtree valid under that Extension?
+```
+
+An Extension processor MUST NOT alter the Core validation result, relax Core cardinality, or reinterpret Core attributes. It validates only the foreign semantics assigned to its slot.
+
+## 59.2 Recognized Extensions
+
+For a recognized and supported Extension, the processor MUST apply the Extension specification associated with the root's namespace URI, local name, and slot context.
+
+An Extension validation failure SHOULD identify the foreign root, slot, Extension specification or version, and violated rule. It does not retroactively make Core structure invalid; it makes the Extension instance invalid for the applicable Extension conformance class.
+
+A processor MUST NOT claim conformance to an Extension merely because it can preserve or display its XML.
+
+## 59.3 Unknown or Unsupported Extensions
+
+For an unknown or unsupported foreign root in a valid Extension Slot:
+
+- Core validation remains valid;
+- Extension-specific validity is not established;
+- the subtree SHOULD be preserved as opaque data;
+- no semantic meaning may be guessed; and
+- applicable Runtime or conformance evaluation uses the specified unknown state.
+
+In particular, an unknown Requirement body produces `RequirementEvaluation = UNKNOWN` when evaluation is required. Unknown Realization, Mapping, and constraint semantics are handled by Part VIII.
+
+## 59.4 Extension Processor Isolation
+
+Extension processors MUST treat foreign subtree content as untrusted input. They MUST NOT execute scripts, fetch arbitrary resources, access credentials, or invoke Capabilities merely to validate Extension syntax.
+
+An Extension may define explicit resolution behavior, but resolution remains subject to Runtime policy and MUST remain distinguishable from validation and execution.
+
+# 60. Preservation and Exposure
+
+## 60.1 AR-DOM Construction
+
+After successful Core validation, a processor constructs or exposes an implementation-independent AR-DOM representing the Core Information Model.
+
+AR-DOM MUST preserve:
+
+- all Core information items and their lexical values required by the model;
+- collection membership;
+- document order where needed for faithful reserialization, without assigning preference;
+- local IDs and references;
+- the AR-XML retrieval location or document base as separate Runtime context when available; and
+- foreign Extension subtrees according to the preservation rules in Section 36.
+
+AR-DOM is not the browser DOM and MUST NOT expose untrusted XML by inserting it into HTML.
+
+## 60.2 Description and Derived State
+
+The exposed Entity description MUST remain separate from derived data, including:
+
+- resolved Contract and Profile definitions;
+- resolution provenance;
+- projection validation states;
+- Profile conformance states;
+- Requirement evaluations;
+- Runtime support and availability;
+- selected routes;
+- credentials and authorization state; and
+- invocation or execution results.
+
+A processor MAY expose these through associated evaluation objects or APIs, but MUST NOT mutate the issuer-authored AR-DOM to make derived state appear declared.
+
+Resolved Contract fields MUST NOT be injected into missing Capability fields. Profile constraints MUST NOT be serialized back as Entity declarations unless an application explicitly creates and revalidates a new document.
+
+## 60.3 Invalid Documents
+
+A processor MUST NOT expose an invalid document as a conforming AR-DOM. It MAY expose parse or validation diagnostics and a non-conforming inspection representation, provided that representation is clearly distinguished from valid AR-DOM.
+
+Partial parsing, editor recovery, or best-effort inspection MUST NOT be used for conformance, projection validation, Profile conformance, availability, or invocation.
+
+## 60.4 Reserialization
+
+A serializer SHOULD emit canonical Core child order from Section 21 while preserving collection membership and Extension semantics. Reordering collection items MUST NOT be used to communicate preference.
+
+If a processor cannot preserve an unknown Extension subtree sufficiently for its claimed serialization mode, it MUST disclose the loss and MUST NOT claim lossless round-trip behavior.
+
+## 60.5 Exposure Is Not Execution
+
+Exposing an AR-DOM, Capability, Interface, InterfaceUse, resolved definition, or availability state is observational. It MUST NOT initiate Capability execution.
+
+Side-effecting execution begins only after an explicit Application or Human request through a Runtime invocation operation.
 
 # Part VIII — Runtime Evaluation
 
