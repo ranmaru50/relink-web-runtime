@@ -806,7 +806,390 @@ A Capability Contract MUST NOT contain Interface, InterfaceUse, Attachment, Real
 
 # Part II — XML Serialization
 
-Sections 19–30 are reserved for the staged XML Serialization draft.
+# 19. XML Namespace and Version
+
+The AR-XML Core 0.1 namespace is:
+
+```text
+https://relink.dev/ns/arxml/core/0.1
+```
+
+Draft 5 documents MUST use this namespace as the namespace name of every Core element. Examples use it as the default namespace.
+
+The root `version` attribute is REQUIRED and its value for this draft is exactly:
+
+```text
+0.1-draft5
+```
+
+The namespace identifies the Core 0.1 vocabulary family; `version` makes the Draft 5 grammar machine-distinguishable from earlier grammars that used the same provisional namespace. A processor MUST NOT interpret `version="0.1"`, `version="0.1-draft4"`, or an absent version as Draft 5.
+
+Extension elements MUST use a non-Core namespace. Namespace prefix spelling has no semantic significance. A namespace declaration is not an information-model attribute.
+
+Core processors MUST perform namespace-aware XML processing. Matching an element by local name while ignoring its namespace is non-conforming.
+
+# 20. Root Element
+
+The document element MUST be `ar-entity` in the Core namespace. No Core wrapper is permitted around it.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5">
+  <!-- Core children, if any -->
+</ar-entity>
+```
+
+An empty Entity is valid:
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5" />
+```
+
+The root permits only the Core children defined in Section 21 and the required unqualified `version` attribute. Unknown Core-namespace children and unknown unqualified or Core-namespace attributes are invalid.
+
+Foreign namespaced children are not accepted directly under `ar-entity`. They are permitted only in the explicit Extension Slots defined by Part III.
+
+# 21. Core Containers and Child Order
+
+## 21.1 Singleton Containers
+
+The following optional collection containers may occur directly under `ar-entity`, each at most once:
+
+```text
+identifiers
+properties
+subjects
+profiles
+interfaces
+capabilities
+```
+
+`category` is an optional singleton value element, not a collection container, and may occur at most once.
+
+Repeating a singleton container is invalid even when one occurrence is empty. An empty collection container is valid and has the same collection cardinality as absence. Canonical serializers SHOULD omit empty collection containers.
+
+Nested singleton containers defined by this Part, including `requirements`, `invocation`, `inputs`, `result`, `outputs`, `representations`, `interface-uses`, `attachment`, `realization`, `mapping`, and `constraints`, may each occur no more than once within their owning element unless a later section explicitly states otherwise.
+
+## 21.2 Order-insensitive Validation
+
+The order of permitted Core child elements is not semantically significant for Core validation. A validator MUST accept permitted children in any order, subject to cardinality and containment rules.
+
+Collection item order is preserved as document data but MUST NOT imply preference, priority, recency, fallback, or execution order unless an applicable non-Core specification explicitly defines such semantics.
+
+## 21.3 Canonical Serializer Order
+
+A canonical Draft 5 serializer MUST emit root children in this order when present:
+
+```text
+category
+identifiers
+properties
+subjects
+profiles
+interfaces
+capabilities
+```
+
+Within a Capability it MUST emit:
+
+```text
+requirements
+invocation
+interface-uses
+```
+
+Within an Interface it MUST emit:
+
+```text
+attachment
+realization
+requirements
+```
+
+Canonical order provides stable output; it does not change the order-insensitive validation rule and does not assign preference to collection items.
+
+## 21.4 Closed Core Content
+
+Core elements that contain only attributes MUST NOT contain element children or non-whitespace character data. Core container elements MUST NOT contain non-whitespace character data. The `category` element is the only Core element in this Part whose value is element character data.
+
+Unless explicitly declared by this specification:
+
+- an unknown Core-namespace element is invalid;
+- an unknown unqualified attribute on a Core element is invalid;
+- an unknown Core-namespace attribute is invalid; and
+- a foreign namespaced element is invalid outside an Extension Slot.
+
+Foreign subtree content inside an Extension Slot is governed by Part III rather than by Core child grammar.
+
+# 22. Category Serialization
+
+Category is serialized as the character content of `category`:
+
+```xml
+<category>environment.sensor</category>
+```
+
+`category` MUST contain a non-empty value after excluding XML markup-only whitespace. It MUST NOT contain child elements or attributes.
+
+Core does not otherwise normalize Category content. Producers SHOULD avoid leading or trailing whitespace. Vocabulary-specific comparison and normalization are outside Core unless an applicable Profile defines them.
+
+# 23. Identifier Serialization
+
+Identifiers are serialized in the optional `identifiers` container:
+
+```xml
+<identifiers>
+  <identifier
+    type="https://example.org/identifier-schemes/asset-id/1"
+    value="A-1042" />
+
+  <identifier
+    type="https://example.org/identifier-schemes/serial/1"
+    value="S-77"
+    subject-ref="sensor-module" />
+</identifiers>
+```
+
+Each `identifier` MUST have the unqualified attributes `type` and `value`. It MAY have `subject-ref`. No other Core or unqualified attributes or Core children are permitted.
+
+`type` and `value` MUST be non-empty. When present, `subject-ref` MUST be non-empty and MUST match the `id` of a `subject` in the same document. A forward reference is valid; a dangling reference is invalid after whole-document validation.
+
+More than one `identifier` MAY use the same `type`. Identifier order has no Core preference semantics.
+
+# 24. Property Serialization
+
+Properties are serialized in the optional `properties` container:
+
+```xml
+<properties>
+  <property
+    type="https://example.org/properties/manufacturer/1"
+    value="Example Devices" />
+
+  <property
+    type="https://example.org/properties/rated-voltage/1"
+    value="5"
+    unit="V" />
+</properties>
+```
+
+Each `property` MUST have the unqualified attributes `type` and `value`. It MAY have `unit`. No other Core or unqualified attributes or Core children are permitted by this Part.
+
+`type` and `value` MUST be non-empty. When present, `unit` MUST be non-empty. Core preserves lexical values and does not coerce them into a numeric, boolean, date, location, or other Runtime type without an applicable semantic definition.
+
+More than one `property` MAY use the same `type`. Property order has no Core preference or recency semantics.
+
+# 25. Subject Serialization
+
+Subjects are serialized in the optional `subjects` container:
+
+```xml
+<subjects>
+  <subject
+    id="sensor-module"
+    type="https://example.org/subject-types/sensor/1" />
+</subjects>
+```
+
+Each `subject` MUST have the unqualified `id` attribute and MAY have `type`. It MUST NOT contain child elements or non-whitespace character data.
+
+`id` MUST be non-empty and unique within the document's Subject collection. `type`, when present, MUST be non-empty. Subject IDs and Interface IDs or Capability IDs occupy separate typed collections; the same lexical value MAY occur in different typed collections.
+
+Subject serialization does not permit nested `ar-entity`, `subjects`, relationship, component, or hierarchy content.
+
+# 26. Capability Serialization
+
+Capabilities are serialized in the optional `capabilities` container:
+
+```xml
+<capabilities>
+  <capability
+    id="temperature-read"
+    type="https://example.org/capabilities/temperature/read/1"
+    subject-ref="sensor-module">
+
+    <requirements />
+    <invocation />
+    <interface-uses />
+  </capability>
+</capabilities>
+```
+
+Each `capability` MUST have the unqualified attributes `id` and `type`. It MAY have `subject-ref`. `id` MUST be non-empty and unique within the document's Capability collection. `type` MUST be a non-empty exact-versioned absolute Capability Contract identifier.
+
+When present, `subject-ref` MUST match a Subject ID in the same document. When absent, the described Entity is the subject.
+
+The only Core children of `capability` are optional singleton `requirements`, `invocation`, and `interface-uses`. All three MAY be absent. A Capability without Invocation and a Capability without InterfaceUse are valid.
+
+# 27. Invocation and Result Serialization
+
+## 27.1 Invocation and Inputs
+
+Invocation is serialized as the optional `invocation` child of a Capability. An empty element is valid:
+
+```xml
+<invocation />
+```
+
+Inputs, when present, are serialized in one `inputs` container:
+
+```xml
+<invocation>
+  <inputs>
+    <input
+      name="on"
+      type="boolean"
+      required="true" />
+  </inputs>
+</invocation>
+```
+
+Each `input` MUST have `name` and `type`. It MAY have `required`, `format`, and `unit`. Input `name` values MUST be non-empty and unique within that Invocation. `type` MUST be one of `string`, `number`, `integer`, `boolean`, `binary`, `object`, or `array`.
+
+If `required` is absent its value is `false`. If present, its lexical value MUST be exactly `true` or `false`. `format` and `unit`, when present, MUST be non-empty.
+
+An `input` MAY contain one optional `constraints` Extension Slot. The slot contains foreign namespaced constraint elements as defined by Part III. No other children are permitted.
+
+## 27.2 Result and Outputs
+
+Result is serialized as the optional `result` child of `invocation`. An empty Result is valid.
+
+```xml
+<result>
+  <outputs>
+    <output
+      name="temperature"
+      type="number"
+      unit="Cel" />
+  </outputs>
+
+  <representations>
+    <representation media-type="application/json" />
+  </representations>
+</result>
+```
+
+`result` MAY contain one `outputs` container and one `representations` container. Each `output` MUST have `name` and `type` and MAY have `format` and `unit`. Output `name` values MUST be non-empty and unique within that Result. Output `type`, `format`, and `unit` follow the Input rules above, except Output has no Core `required` attribute.
+
+An `output` MAY contain one optional `constraints` Extension Slot. No other children are permitted.
+
+Draft 5 Core has no `errors` child in `result`. An `errors` element in the Core namespace is invalid.
+
+## 27.3 Representations
+
+Each `representation` MUST have exactly one Core-defined attribute, `media-type`, whose non-empty value is an IANA media type:
+
+```xml
+<representations>
+  <representation media-type="application/json" />
+  <representation media-type="text/plain" />
+</representations>
+```
+
+A `representation` MUST NOT contain Core or foreign child elements. Representation order does not express preference.
+
+# 28. Requirement Serialization
+
+Requirements are serialized in an optional `requirements` container owned by either a Capability or an Interface:
+
+```xml
+<requirements>
+  <require type="https://example.org/requirements/authentication/1">
+    <auth:oauth2
+      xmlns:auth="https://example.org/ns/auth/1"
+      scope="light.write" />
+  </require>
+</requirements>
+```
+
+Each `require` MUST have the unqualified `type` attribute. `type` MUST be non-empty. No Core `kind` or `scope` attribute is defined.
+
+The `require` element is an Extension Slot. It MAY be empty. If it contains semantic data, it MUST contain exactly one foreign namespaced semantic root; that foreign subtree is processed under Part III. Non-whitespace character data directly inside `require` is invalid.
+
+Placement determines scope. The identical XML shape under a Capability declares a Capability prerequisite; under an Interface it declares an Interface prerequisite.
+
+# 29. Interface and InterfaceUse Serialization
+
+## 29.1 Interface
+
+Interfaces are serialized in the optional root-level `interfaces` container:
+
+```xml
+<interfaces>
+  <interface id="web-api">
+    <realization>
+      <http:api
+        xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+        base="./api/" />
+    </realization>
+  </interface>
+</interfaces>
+```
+
+Each `interface` MUST have the unqualified `id` attribute. It MUST be non-empty and unique within the Interface collection. The only Core children are optional singleton `attachment`, optional singleton `realization`, and optional singleton `requirements`.
+
+At least one of `attachment` or `realization` MUST be present. Therefore `<interface id="x"/>` and an Interface containing only `requirements` are invalid.
+
+`attachment` and `realization` are explicit Extension wrappers. Each wrapper, when present, MUST contain exactly one foreign namespaced semantic root and no direct non-whitespace character data.
+
+An Attachment-only Interface is valid:
+
+```xml
+<interface id="display-port">
+  <attachment>
+    <phys:connector
+      xmlns:phys="https://example.org/ns/physical/1"
+      type="hdmi" />
+  </attachment>
+</interface>
+```
+
+## 29.2 InterfaceUse
+
+InterfaceUses are serialized inside a Capability's optional `interface-uses` container:
+
+```xml
+<interface-uses>
+  <interface-use ref="web-api">
+    <mapping>
+      <http:operation
+        xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+        method="POST"
+        path="light/state" />
+    </mapping>
+  </interface-use>
+</interface-uses>
+```
+
+Each `interface-use` MUST have the unqualified `ref` attribute. `ref` MUST be non-empty and match an Interface ID in the same document. A forward reference is permitted; a dangling reference is invalid after whole-document validation.
+
+`interface-use` MAY contain one `mapping` wrapper. `mapping`, when present, MUST contain exactly one foreign namespaced semantic root and no direct non-whitespace character data.
+
+A plain reference is valid:
+
+```xml
+<interface-use ref="display-port" />
+```
+
+More than one InterfaceUse in the same Capability MAY have the same `ref`. InterfaceUse order does not express preference.
+
+# 30. Profile Claim Serialization
+
+Profile Claims are serialized in the optional `profiles` container:
+
+```xml
+<profiles>
+  <conforms-to href="https://example.org/profiles/reference-lab/1" />
+</profiles>
+```
+
+Each `conforms-to` MUST have the unqualified `href` attribute and no child elements or non-whitespace character data. `href` MUST be a non-empty exact-versioned absolute Profile identifier. Relative references and moving version aliases such as `latest` are invalid as normative Profile identity.
+
+Profile Claim order does not express preference, verification status, or certification level.
 
 # Part III — Extension Model
 
