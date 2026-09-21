@@ -4901,7 +4901,420 @@ AI or LLM assistance MAY explain diagnostics or propose repairs, but determinist
 
 # Appendix D. Draft 4 → Draft 5 Changes
 
-_To be specified in a later staged update._
+This appendix summarizes changes from `docs/specs/arxml-core-0.1-draft4.md` on the repository's `main` branch to Draft 5. It is informative and intended for reviewers, implementers, and migration-tool authors.
+
+Draft 5 is not syntax-compatible with Draft 4. A Draft 4 document must not be accepted as Draft 5 by changing only the root version string. Migration is an explicit transformation followed by complete Draft 5 validation and, where applicable, Contract projection and Profile conformance evaluation.
+
+## D.1 Change Classification
+
+| Classification | Meaning |
+|---|---|
+| Retained | The central concept remains, although wording or validation may be more precise |
+| Clarified | Draft 5 makes an existing separation or behavior normative and machine-testable |
+| Restructured | The concept remains but its Core information model or XML location changes |
+| Added | Draft 5 introduces a new Core concept or processing rule |
+| Removed | Draft 4 Core content is not present in Draft 5 Core |
+| Deferred | The topic remains valid for future work but is intentionally outside Draft 5 Core |
+
+These classifications do not assert that two serializations are automatically interchangeable.
+
+## D.2 High-level Summary
+
+| Area | Draft 4 | Draft 5 | Classification |
+|---|---|---|---|
+| Root | `ar-entity` | `ar-entity` | Retained |
+| Root version | `version="0.1"` | `version="0.1-draft5"` | Restructured |
+| Core namespace | `https://relink.dev/ns/arxml/core/0.1` | Same provisional Core 0.1 namespace | Retained with exact version pairing |
+| Entity model | Category, Profile Claims, Capabilities | Adds Identifiers, Properties, Subjects, Entity-level Interfaces | Added and restructured |
+| Capability interaction shape | Inputs and Result directly under Capability | Optional request-oriented Invocation contains Inputs and Result | Restructured |
+| Interfaces | Inline per Capability with HTTP attributes | Shared Entity Interfaces plus Capability InterfaceUses | Restructured |
+| HTTP | Baseline binding described in Core | Standard Interface Extension in a foreign namespace | Restructured |
+| HTTP address | One `endpoint` | Interface `base` plus operation `path` | Restructured |
+| Result | Outputs, Representations, Errors | Outputs and Representations; no Core Errors collection | Removed/deferred |
+| Extensions | Separate namespaces required, limited slot detail | Closed Core plus explicit Extension Slots and opaque preservation | Added and clarified |
+| Contracts | Versioned semantic source and projection concepts | Exact-versioned identity, explicit projection, deterministic comparison states | Clarified and expanded |
+| Profiles | Versioned constraint set and issuer claim | Resolution, requirements, Extension policy, and three-state conformance | Expanded |
+| Resolution | Contract lookup sources described | Entity Resolver separated from Semantic Registry; conflicts defined | Added and clarified |
+| Runtime states | Contract, projection, availability emphasized | Adds Requirement, Support, Profile resolution and conformance domains | Expanded |
+| Validation | General parse/validation distinction | Closed structural grammar, cardinality, uniqueness, references, Extension layers | Expanded |
+| Conformance | Informal PoC baseline | Named conformance classes | Added |
+| Privacy | Primarily security-oriented guidance | Separate comprehensive security and privacy sections | Expanded |
+
+## D.3 Root, Entity, and Identity Model
+
+The root remains `ar-entity`; Draft 5 does not add an `ar-document` or multi-Entity wrapper. Draft 4's conceptual `ARDocument` label therefore must not be migrated into a serialized wrapper.
+
+The Draft 4 root example used:
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1" />
+```
+
+Draft 5 requires:
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5" />
+```
+
+Changing this attribute is necessary but not sufficient for migration.
+
+Draft 5 adds three Entity description areas that Draft 4 did not model:
+
+- typed Identifiers with optional Subject scope;
+- typed Properties with optional units; and
+- lightweight Subjects referenced by Identifier or Capability declarations.
+
+Migration must not synthesize these items from a Draft 4 Category, Capability ID, document URL, HTTP endpoint, or retrieval location. In particular, Draft 5 makes the following separation explicit:
+
+```text
+Identifier
+≠ Locator
+≠ Canonical Entity Identity
+≠ Credential
+```
+
+Draft 5 also makes passive and physical Entities explicitly valid without CPU, network, API, Interface, or Capability. Draft 4 allowed the information model to describe non-physical and physical Entities, but did not define the empty passive Entity and connector-only cases with Draft 5's structural precision.
+
+Relations and component hierarchy remain outside Core. New Subjects are not a replacement relation graph and must not be populated by inferring containment from Draft 4 structure.
+
+## D.4 Capability, Invocation, and Subject Scoping
+
+Draft 4 placed `inputs` and `result` directly under `capability`. Draft 5 introduces an optional `invocation` wrapper:
+
+```text
+Draft 4
+Capability
+├─ Inputs
+└─ Result
+
+Draft 5
+Capability
+└─ Invocation?
+   ├─ Inputs
+   └─ Result?
+```
+
+For a Draft 4 Capability that clearly describes request-oriented interaction, a migration may wrap its Inputs and Result in `invocation`. The tool must still validate the projection against the exact Capability Contract. It must not add Invocation solely because an inline Interface existed when the semantic interaction pattern is ambiguous.
+
+Draft 5 explicitly permits:
+
+- a Capability without Invocation;
+- an empty Invocation;
+- an Invocation without Result;
+- an empty Result; and
+- a Capability without InterfaceUse.
+
+These states are not automatically equivalent. A migration must preserve whether Draft 4 declared Inputs or Result and must report any meaning it cannot preserve.
+
+Draft 5 adds optional `Capability.subjectRef`. When absent, the described Entity itself is the subject. A Runtime-selected target remains invocation Input data and must not be migrated into a Subject or `subjectRef` without explicit source semantics.
+
+The Core structural data types remain:
+
+```text
+string | number | integer | boolean | binary | object | array
+```
+
+Input `required` still defaults to `false`; Input names remain scoped to an Invocation, and Output names remain scoped to a Result. Draft 5 makes the scoped uniqueness checks normative and deterministic.
+
+## D.5 Result, Representation, and Errors
+
+The Draft 4 separation of semantic Output from wire Representation is retained and strengthened:
+
+```text
+Result ≠ Representation
+```
+
+Representations still describe the Result as a whole, may carry multiple Outputs, use IANA media types, and are not ordered by preference. Draft 5 retains the principle that materially different summary, translation, or simplified content is not automatically an alternative Representation of the same Result.
+
+Draft 4 included a Core `errors` collection below Result. Draft 5 removes that collection from the Entity-side Core grammar. A Draft 4 `errors` element is an unknown Core element and is invalid in Draft 5.
+
+There is no deterministic mechanical migration for Draft 4 Core errors. Semantic error definitions and transport-to-semantic-error mappings require an applicable versioned Capability Contract or Extension. A migration tool must preserve the source information externally or report it as unmapped; it must not silently drop the errors or convert HTTP statuses into semantic errors.
+
+Draft 5 continues to distinguish transport, Interface, Representation, Contract, and semantic outcomes, but expresses this through processing and diagnostics rather than a Core Result `errors` collection.
+
+## D.6 Interface Model Restructuring
+
+Draft 4 attached inline Interfaces to each Capability:
+
+```xml
+<capability
+  id="action"
+  type="https://example.org/capabilities/action/1">
+  <interfaces>
+    <interface
+      type="http"
+      method="POST"
+      endpoint="/api/action" />
+  </interfaces>
+</capability>
+```
+
+Draft 5 places shared Interfaces at Entity level and references them from Capabilities:
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  version="0.1-draft5">
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="action"
+      type="https://example.org/capabilities/action/1">
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation
+              method="POST"
+              path="action" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+The restructuring establishes:
+
+```text
+Interface
+= shared attachment / realization context
+
+InterfaceUse
+= Capability-specific reference and optional mapping
+```
+
+A migration may coalesce Draft 4 inline Interfaces only when it can prove that their shared Realization data is semantically identical. Similar endpoints or string prefixes are insufficient proof. Otherwise it should create distinct Entity Interfaces.
+
+Draft 5 adds Attachment for physical, spatial, or contact-oriented access boundaries. An Interface may contain Attachment, Realization, or both, but not neither. An Attachment-only connector Interface is valid and need not have a Capability.
+
+Interface and InterfaceUse order still does not express preference. Draft 5 additionally permits one Capability to contain multiple InterfaceUses with the same `ref`; they remain distinct routes.
+
+## D.7 HTTP Baseline Changes
+
+HTTP is no longer expressed using Core Interface attributes. It is a Standard Interface Extension using:
+
+- `http:api` in an Interface Realization; and
+- `http:operation` in an InterfaceUse Mapping.
+
+The Draft 4 fields map conceptually as follows, but require URL and sharing analysis:
+
+| Draft 4 field | Draft 5 location | Migration note |
+|---|---|---|
+| `interface/@type="http"` | HTTP Extension semantic roots | Do not preserve as a Core enum |
+| `interface/@endpoint` | `http:api/@base` plus `http:operation/@path` | Split deterministically under URL resolution rules |
+| `interface/@method` | `http:operation/@method` | Method syntax and Runtime support are separate |
+| `interface/@encoding="json"` | Baseline method/request mapping plus Contract/Representation declarations | No generic Core encoding attribute |
+
+Draft 4 described `GET` and `POST` as the Core 0.1 baseline methods. Draft 5 does not restrict valid HTTP method syntax to those two. A Runtime may support only a subset and reports unsupported behavior through `Support` rather than declaring an otherwise valid document Core-invalid.
+
+Draft 5 uses `base + path` as the canonical HTTP model. A relative `base` resolves against the AR-XML retrieval URL, not the Host Application URL. Security policy is applied after resolution and redirects.
+
+The GET scalar baseline remains limited to `string`, `number`, `integer`, and `boolean`; generic query serialization for `object`, `array`, and `binary` remains outside the baseline.
+
+Draft 5 defines JSON-object request mapping for applicable `POST`, `PUT`, and `PATCH` operations. It does not introduce an arbitrary header or general mapping DSL.
+
+The most visible response-mapping incompatibility is single-output JSON:
+
+```text
+Draft 4 single JSON Output
+→ top-level scalar permitted
+
+Draft 5 baseline JSON Result
+→ top-level object keyed by Output name
+```
+
+For an Output named `temperature`, Draft 5 requires:
+
+```json
+{
+  "temperature": 21.4
+}
+```
+
+The Draft 4 scalar `21.4` shortcut is not a Draft 5 baseline JSON Result. Draft 4's generic single-output `text/*` and binary/media whole-body shortcuts are also not generalized as Draft 5 Core HTTP baseline rules; an applicable versioned Extension or mapping specification is required where such behavior is needed.
+
+HTTP `2xx`, `204`, Content-Type validation, unknown JSON member handling, and missing declared Output handling remain conceptually aligned, with Draft 5 more explicitly separating HTTP-level, Representation-level, and semantic outcomes.
+
+## D.8 Requirements and Extension Model
+
+Draft 4 introduced Requirements as declarations separate from Runtime Context, and distinguished an authentication Requirement from an authentication mechanism. Draft 5 retains and formalizes those principles.
+
+Draft 5 Requirement changes include:
+
+- `type` is a Semantic Identifier rather than a closed Core `kind` enum;
+- placement determines Capability or Interface scope;
+- an optional foreign Extension body carries typed Requirement data;
+- unknown Requirement semantics produce `RequirementEvaluation = UNKNOWN`; and
+- authentication and authorization remain distinct prerequisites and enforcement concerns.
+
+A Draft 4 value such as `type="authentication"` must not be assumed to be an exact globally governed semantic identifier. Migration requires a selected Requirement vocabulary and must report the mapping source.
+
+Draft 5 defines explicit Extension Slots:
+
+| Slot | Draft 5 purpose |
+|---|---|
+| Property slot | Extension-defined Entity characteristics or state |
+| Requirement body | Data for the typed Requirement |
+| Attachment | Physical, spatial, or contact-oriented boundary |
+| Realization | Concrete shared interaction mechanism |
+| Mapping | Capability-specific use of an Interface |
+| Constraint area | Extension-defined Input or Output constraints |
+
+Unknown foreign roots are Core-valid only in the correct slot. Unknown Core elements and attributes, foreign attributes on Core elements, and foreign elements outside a slot are invalid. Draft 4's general statement that Extensions use another namespace is therefore replaced by a closed, machine-validatable placement model.
+
+## D.9 Contracts, Profiles, and Semantic Resolution
+
+Draft 4 already established Capability Contract as the normative semantic source, prohibited redefinition and weakening, permitted Contract-defined narrowing, and introduced `RESOLVED`, `UNRESOLVED`, `VALIDATED`, `UNVALIDATED`, and `CONFLICT` concepts. Draft 5 retains these foundations and makes their algorithms normative.
+
+Draft 5 requires exact-versioned absolute identifiers for Capability Contracts and Profiles. Moving aliases such as `latest` are not normative identity. Definitions are not structurally merged into AR-DOM; omitted Entity projection fields remain omitted.
+
+Projection comparison now explicitly covers Invocation shape, named Inputs and Outputs, Core types, requiredness, formats, units, Requirements, Representations, and Extension constraints. Known contradiction produces `CONFLICT`; unknown comparison semantics produce `UNVALIDATED`; known allowed narrowing produces `VALIDATED` only when every applicable comparison succeeds.
+
+Profile is expanded from the Draft 4 conceptual versioned constraint set into a defined information model covering Capability, Property, Identifier, Interface, Requirement, and Extension policy constraints. Initial Capability presence is limited to `required` and `optional`.
+
+Profile evaluation now uses:
+
+```text
+ProfileResolution:
+  RESOLVED | UNRESOLVED
+
+ProfileConformance:
+  CONFORMANT | NON_CONFORMANT | UNDETERMINED
+```
+
+Unknown required semantics or unresolved definitions produce `UNDETERMINED`, not a guessed `NON_CONFORMANT`. Profile Claim remains distinct from Verified Conformance and Certification.
+
+Draft 5 introduces the explicit resolver separation:
+
+```text
+Entity Resolver
+= Entity identity → AR-XML location
+
+Semantic Registry
+= Semantic Identifier → semantic definition
+```
+
+Conflicting definitions for the same exact identifier must not use silent first-wins behavior. Network dereferencing remains optional, and Draft 5 does not mandate a centralized registry.
+
+## D.10 Validation, AR-DOM, and Runtime Evaluation
+
+Draft 4 distinguished parse errors, validation errors, Contract resolution failures, conformance conflicts, availability, and invocation errors. Draft 5 turns that guidance into a staged load model:
+
+```text
+Resolve / Fetch / Parse / Validate / Expose
+```
+
+Loading never invokes a Capability. Contract or Profile resolution may occur during or after load, but is separate from Core structural validity and from execution.
+
+Draft 5 adds deterministic Core rules for:
+
+- namespace and exact Draft version;
+- closed Core content;
+- order-insensitive child validation and canonical serialization order;
+- singleton containers and wrapper cardinality;
+- required lexical values and Core data types;
+- Extension Slot envelopes;
+- typed local-ID uniqueness;
+- scoped Input and Output name uniqueness;
+- local reference integrity; and
+- the Interface Attachment-or-Realization invariant.
+
+AR-DOM now explicitly preserves Core information, collection membership, local IDs and references, and foreign Extension subtrees. It excludes resolved definitions, evaluation states, Credentials, route selection, invocation state, and execution results.
+
+Runtime evaluation expands the Draft 4 state model to seven independent domains:
+
+```text
+ContractResolution
+ProjectionValidation
+RequirementEvaluation
+Support
+ProfileResolution
+ProfileConformance
+Availability
+```
+
+Each InterfaceUse is evaluated as a route. Known conflict, unsatisfied mandatory Requirement, unsupported required feature, or deterministic policy block yields `UNAVAILABLE`. Required uncertainty yields `UNKNOWN`; otherwise the route is `READY`. Capability aggregation is `any READY`, otherwise `any UNKNOWN`, otherwise `UNAVAILABLE`.
+
+Draft 4 allowed invocation policy discretion for unresolved Contracts. Draft 5 baseline evaluation is stricter: unresolved or unvalidated required semantics prevent a route from becoming `READY` and yield uncertainty unless a known blocker already yields `UNAVAILABLE`.
+
+## D.11 Security, Privacy, and Conformance
+
+Draft 5 retains Draft 4's treatment of AR-XML and Runtime data as untrusted, its credential-origin separation, browser and Runtime policy layering, and the requirement for explicit initiating intent.
+
+It expands those rules to cover:
+
+- XML external entity and resource-exhaustion defenses;
+- SSRF, redirect, DNS rebinding, scheme, origin, and protected-network policy;
+- semantic-definition substitution, downgrade, conflicts, and cache poisoning;
+- Extension processor isolation;
+- retry, replay, idempotency, and physical safety;
+- Identifier correlation, Subject association, location, telemetry, and registry-query privacy;
+- opaque Extension privacy; and
+- deterministic security and conformance without mandatory AI or LLM processing.
+
+Draft 5 adds named conformance classes for Core Documents, Core Processors, Extension Processors, Runtime Evaluators, HTTP Extension Processors, and Invoking Runtimes. A claim against one class does not imply the others.
+
+## D.12 Migration Checklist
+
+A Draft 4 to Draft 5 migration tool or review should perform at least these steps:
+
+1. Parse and preserve the original Draft 4 resource without modifying it.
+2. Record provenance and every transformation decision.
+3. Keep `ar-entity` as the document root and set the exact Draft 5 version only on the transformed document.
+4. Move request-oriented Inputs and Result under an explicit Invocation.
+5. Remove no Draft 4 Result error declaration silently; report it for Contract or Extension mapping.
+6. Lift inline Interfaces to the Entity-level Interfaces collection.
+7. Assign unique Interface IDs and create Capability InterfaceUses with valid local references.
+8. Convert HTTP binding information into HTTP Realization and Mapping data.
+9. Split each legacy endpoint into `base` and `path` without changing URL resolution semantics.
+10. replace the single-output JSON scalar shortcut with the Draft 5 object mapping where the baseline applies.
+11. map Requirement types only through an explicit semantic vocabulary decision.
+12. avoid inventing Identifiers, Subjects, Properties, Canonical Entity Identity, trust, or Profile conformance.
+13. preserve all uncertain or unmapped source information in a migration report.
+14. validate the new XML under the complete Draft 5 Core grammar and applicable Extensions.
+15. resolve exact Contracts and Profiles independently where available.
+16. report ProjectionValidation and ProfileConformance separately from Core validity.
+
+A migration that cannot make a deterministic choice must stop, request policy or user input, or emit an explicit unresolved migration diagnostic. It must not guess by natural-language similarity, endpoint shape, common convention, or AI output while claiming deterministic conformance.
+
+## D.13 Concepts Retained from Draft 4
+
+Despite the syntax changes, Draft 5 preserves several central Draft 4 decisions:
+
+- Capability Contract is the normative semantic source;
+- Entity Capability is a local projection, not the Contract itself;
+- semantic weakening and redefinition are forbidden;
+- known permitted narrowing may be compatible;
+- Semantic Identifier identity does not require network dereferencing;
+- Profile constrains Contracts without redefining them;
+- Profile Claim is not Verified Conformance or Certification;
+- Core data types describe shape rather than domain meaning;
+- Result and Representation are distinct;
+- Representation order is not preference;
+- Requirement declaration is not current Runtime state;
+- HTTP status is not a semantic Capability error;
+- HTTP `2xx` is HTTP-level success and `204` is conditional on Result shape;
+- Cross-Origin success remains subject to browser and Runtime policy;
+- Credentials are managed outside AR-XML;
+- Availability, authorization, and execution are distinct;
+- `READY` does not guarantee success or safety; and
+- side-effecting Capabilities must not be invoked merely to test availability.
+
+Draft 5 therefore rebuilds the syntax and processing model without discarding the semantic separations that were already sound in Draft 4.
 
 # Appendix E. Non-goals
 
