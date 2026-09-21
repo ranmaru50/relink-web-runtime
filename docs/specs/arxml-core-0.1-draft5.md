@@ -1437,7 +1437,293 @@ Extension identification
 
 # Part IV — Capability Contracts
 
-Sections 37–41 are reserved for the staged Capability Contracts draft.
+# 37. Capability Contract Model
+
+A Capability Contract is the versioned normative semantic source for one kind of Capability. It defines what the Capability means independently of any Entity, Interface, transport, endpoint, Runtime, or current availability state.
+
+The conceptual model is:
+
+```text
+CapabilityContract
+├─ identifier                 1
+├─ invocation?                0..1
+│  ├─ inputs*                 0..*
+│  └─ result?                 0..1
+│     └─ outputs*             0..*
+├─ requirements*              0..*
+├─ constraints*               0..*
+└─ extension semantics*       0..*
+```
+
+The Contract `identifier` is its exact-versioned Semantic Identifier. Contract Invocation, Input, Result, Output, Requirement, and constraint concepts have the same semantic roles as their Entity-side counterparts, but the Contract is normative and the Entity declaration is a projection.
+
+A Contract MAY omit Invocation. If it contains Invocation, that Invocation MAY contain no Inputs and no Result. The absence of Invocation MUST NOT be generalized into event, observation, subscription, or stream semantics.
+
+A Contract Input definition may normatively define:
+
+- name;
+- Core data type;
+- requiredness;
+- format;
+- unit;
+- constraints; and
+- Extension semantics.
+
+A Contract Output definition may normatively define:
+
+- name;
+- Core data type;
+- format;
+- unit;
+- constraints; and
+- Extension semantics.
+
+Contract Requirements are semantic prerequisites. Contract constraints and Extension semantics MUST define deterministic comparison behavior if they are intended to participate in conformant automated projection validation.
+
+Human-readable explanation MAY accompany a Contract, but prose, labels, examples, or AI interpretation MUST NOT replace machine-readable normative fields required for deterministic interoperability.
+
+## 37.1 Excluded Implementation Information
+
+A Capability Contract MUST NOT contain Entity implementation routing information, including:
+
+- Interface or InterfaceUse;
+- Attachment, Realization, or Mapping;
+- HTTP methods, paths, endpoints, or headers;
+- BLE services or characteristics;
+- connector instances;
+- Entity-local IDs or Subject references;
+- credentials; or
+- current Runtime state.
+
+Such information belongs to an Entity-side projection, Interface Extension, Runtime Context, or credential system as applicable.
+
+This specification defines the normative Contract information model and its use in AR-XML processing. A concrete Contract document serialization or registry protocol MAY be defined separately, but MUST preserve these semantics.
+
+# 38. Contract Identity and Resolution
+
+## 38.1 Exact Versioned Identity
+
+Every Capability Contract MUST have an exact-versioned absolute Semantic Identifier. An Entity-side `capability/@type` MUST identify that exact Contract.
+
+```xml
+<capability
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  id="temperature-read"
+  type="https://example.org/capabilities/temperature/read/1">
+  <invocation />
+</capability>
+```
+
+An identifier such as `https://example.org/capabilities/temperature/read/latest` MUST NOT be used as normative Contract identity. A discovery service MAY offer a latest-version query, but it must return an exact identifier before deterministic resolution or validation.
+
+Two different exact-versioned identifiers denote different Contract identities even when a registry reports compatibility. A processor MUST NOT substitute one version for another without an explicit rule and application policy outside Core validation.
+
+## 38.2 Identity Is Not Location
+
+A Contract identifier identifies semantic content; it is not necessarily a network location. URI syntax does not require HTTP dereferencing.
+
+A Semantic Registry MAY resolve a Contract from built-in definitions, a local registry, cache, application-provided registry, installed Extension or plugin, or network source. Resolution source does not change Contract identity.
+
+```text
+Contract identifier
+≠ network location
+≠ retrieval requirement
+≠ trust assertion
+```
+
+## 38.3 Resolution Result
+
+Contract resolution has two Core evaluation states:
+
+```text
+RESOLVED
+UNRESOLVED
+```
+
+`RESOLVED` means that exactly one usable semantic definition has been selected for the exact identifier under the active registry policy. `UNRESOLVED` means no usable definition was selected, including when no definition is available or conflicting definitions prevent deterministic selection.
+
+If multiple non-equivalent definitions claim the same exact identifier, a resolver MUST NOT silently select the first result. It MUST report the conflict and produce `UNRESOLVED` unless an external trust policy deterministically rejects all but one candidate before semantic resolution.
+
+An unresolved Contract does not make a structurally valid AR-XML document invalid. The Capability remains exposed as description data, but its projection cannot be fully validated.
+
+Resolution does not authenticate the Contract publisher or Entity issuer, establish trust, grant authorization, or prove Runtime support.
+
+# 39. Entity-side Capability Projection
+
+An Entity-side Capability is an explicit local implementation projection of the Capability Contract identified by `capability/@type`.
+
+```text
+Capability Contract
+= normative semantic source
+
+Entity-side Capability
+= explicit local implementation projection
+```
+
+Projection content consists only of information explicitly present in the AR-XML Capability. A processor MUST NOT copy, inject, or structurally merge omitted Contract fields into AR-DOM as though they appeared in the Entity document.
+
+Resolved Contract data MAY be exposed separately and used for validation or caller assistance. The processor MUST preserve the distinction between:
+
+- issuer-authored Entity projection data;
+- resolved Contract definition data; and
+- derived validation results.
+
+Entity-local `id`, `subject-ref`, InterfaceUses, Mappings, and Interface Requirements are implementation description and are not members of the Capability Contract. They are not compared as Contract fields.
+
+Capability Requirements, Invocation, Inputs, Result, Outputs, Representations where constrained by the Contract, and constraint Extension data are projection material. They MUST NOT redefine or weaken Contract semantics.
+
+A structurally valid Capability may omit Invocation or InterfaceUses. Structural validity is independent of projection compatibility. For example, omitting Invocation is Core-valid but is a projection conflict if the resolved Contract requires an Invocation projection.
+
+There is no implicit fallback from missing Entity projection data to Contract data. If required projection information is absent, validation reports the applicable state; invocation code MUST NOT pretend the missing information was serialized in AR-XML.
+
+# 40. Projection Compatibility
+
+## 40.1 General Rule
+
+Projection validation compares an Entity-side Capability with the exact resolved Contract identified by its `type`.
+
+The Entity projection MUST preserve Contract meaning. It MAY narrow Contract semantics only when the Contract explicitly permits that kind of narrowing and the processor understands the applicable comparison rules.
+
+```text
+redefinition
+→ CONFLICT
+
+semantic weakening or widening
+→ CONFLICT
+
+known Contract-permitted narrowing
+→ compatible
+
+unknown comparison semantics
+→ UNVALIDATED
+```
+
+Similarity of names, natural-language descriptions, common usage, or AI-generated equivalence is not sufficient for compatibility.
+
+## 40.2 Invocation Shape
+
+If a Contract requires Invocation and the Entity projection omits Invocation, the projection is `CONFLICT`. If a Contract has no Invocation, an Entity projection MUST NOT add a request-oriented Invocation unless the Contract explicitly permits it.
+
+An Entity may project an empty Invocation only when that shape is compatible with the Contract. Empty Invocation does not satisfy a Contract that requires named Inputs or Result content.
+
+## 40.3 Inputs
+
+Inputs are matched by exact name. Unless the Contract explicitly declares an extensibility rule:
+
+- a missing required Contract Input is `CONFLICT`;
+- an additional Entity Input not defined by the Contract is `CONFLICT`;
+- a different Core data type is `CONFLICT`;
+- weakening requiredness is `CONFLICT`;
+- strengthening requiredness is compatible only when the Contract explicitly permits that narrowing;
+- incompatible format or unit is `CONFLICT`; and
+- an unknown format, unit, or constraint comparison is `UNVALIDATED` unless another known conflict exists.
+
+Processors MUST NOT apply implicit type coercion during projection validation. In particular:
+
+```text
+boolean → string
+→ CONFLICT
+
+integer → number
+→ not assumed compatible
+```
+
+A Contract may explicitly define a permitted subtype or coercion relationship, but a processor may use it only when it implements that deterministic rule.
+
+## 40.4 Result and Outputs
+
+Contract Outputs are matched by exact name. Unless an explicit Contract rule states otherwise:
+
+- a missing Contract Output is `CONFLICT`;
+- an additional Entity Output is `CONFLICT`;
+- a different Core data type is `CONFLICT`;
+- incompatible format or unit is `CONFLICT`; and
+- unknown constraint comparison is `UNVALIDATED` unless another known conflict exists.
+
+Result and Representation remain distinct. If a Contract or its Extension semantics constrain permitted Representations, an Entity may select a subset only when that selection is an allowed narrowing. Representation document order is never part of projection compatibility.
+
+## 40.5 Requirements
+
+An Entity projection MUST NOT omit, weaken, or contradict a Contract Requirement. Additional Entity Capability Requirements are compatible only when the Contract permits that form of narrowing and their semantics can be deterministically compared.
+
+Interface Requirements are not Contract projection fields. They may add route-specific prerequisites without changing Capability Contract meaning, and are evaluated separately for each InterfaceUse route.
+
+Authentication and authorization Requirement comparison does not authenticate a caller, grant authorization, or validate credentials.
+
+## 40.6 Constraints
+
+For each understood constraint, the processor MUST use the comparison relation defined by its Contract or Extension specification.
+
+Examples:
+
+```text
+Contract range: 0..100
+Entity range: 0..80
+Contract explicitly permits range narrowing
+→ compatible
+
+Contract range: 0..100
+Entity range: -10..100
+→ CONFLICT
+
+Contract constraint: understood
+Entity constraint: comparison semantics unknown
+→ UNVALIDATED
+```
+
+A processor MUST NOT treat lexical similarity as semantic subset comparison. Unknown constraint semantics are not proof of conflict and are not permission to assume compatibility.
+
+# 41. Projection Validation States
+
+Projection validation produces exactly one state for each Entity-side Capability relative to its identified Contract:
+
+```text
+VALIDATED
+UNVALIDATED
+CONFLICT
+```
+
+**VALIDATED** means the exact Contract resolved and every applicable projection comparison was deterministically evaluated as equal or as a Contract-permitted narrowing.
+
+**UNVALIDATED** means compatibility could not be fully determined. Causes include an unresolved Contract, an unsupported constraint evaluator, unknown Extension semantics, or another comparison for which the processor lacks a deterministic rule.
+
+**CONFLICT** means at least one known semantic contradiction, redefinition, weakening, widening, or prohibited projection difference was detected.
+
+State aggregation follows this precedence:
+
+```text
+if any known comparison is conflicting
+→ CONFLICT
+
+else if Contract is unresolved
+     or any required comparison is unknown
+→ UNVALIDATED
+
+else
+→ VALIDATED
+```
+
+A known conflict is not hidden by another unknown comparison. Conversely, lack of an evaluator does not by itself prove conflict.
+
+Examples:
+
+```text
+required Input missing
+→ CONFLICT
+
+boolean projected as string
+→ CONFLICT
+
+known allowed narrowing
+→ VALIDATED
+
+unknown constraint comparison semantics
+→ UNVALIDATED
+```
+
+Projection state is derived Runtime evaluation data, not AR-XML description data. A processor SHOULD expose the state with diagnostics identifying the compared Contract, affected field or constraint, and reason without mutating the Capability declaration.
+
+`VALIDATED` does not imply Profile conformance, Runtime support, availability, authorization, certification, or execution success. `CONFLICT` makes routes for that Capability unavailable under Part VIII. `UNVALIDATED` contributes uncertainty rather than automatic availability or automatic rejection.
 
 # Part V — Profiles
 
