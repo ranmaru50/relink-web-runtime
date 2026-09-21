@@ -1811,11 +1811,11 @@ A Profile definition MAY constrain:
 - Properties and Identifiers;
 - Interface, InterfaceUse, Attachment, Realization, and Mapping characteristics;
 - Requirement policy; and
-- permitted, required, or prohibited Extensions.
+- required or explicitly prohibited Extensions; unspecified Extensions remain allowed.
 
 Every normative constraint intended for automated conformance evaluation MUST have deterministic machine-readable semantics. Human-readable prose MAY explain a Profile but MUST NOT be the sole source for a required automated comparison.
 
-Profile evaluation is open-world by default. An Entity declaration that a Profile does not mention is allowed and does not affect conformance unless the Profile explicitly applies a deterministic restriction to that declaration class or scope. This default applies to additional Capabilities, Properties, Identifiers, Interfaces, Profile Claims, Requirements, and Extension content. A Profile restriction MUST state whether it prohibits presence or requires validation when present, within the policies defined by this model. Candidate aggregation for Capability, Property, and Identifier items is fixed by Sections 44–45; the baseline defines no custom cardinality or matching-rule field.
+Profile evaluation is open-world by default. An Entity declaration that a Profile does not mention is allowed and does not affect conformance unless the Profile explicitly applies a deterministic restriction defined by this model to that declaration class or scope. This default applies to additional Capabilities, Properties, Identifiers, Interfaces, Profile Claims, Requirements, and Extension content. A Profile restriction MUST state whether it prohibits presence or requires validation when present, within the policies defined by this model. For Extension content, only the identified required or prohibited rules in Section 47.2 apply; no declaration-class-wide closed policy exists. Candidate aggregation for Capability, Property, and Identifier items is fixed by Sections 44–45; the baseline defines no custom cardinality or matching-rule field.
 
 This specification defines the Profile information model and evaluation semantics. A concrete Profile document serialization or registry protocol MAY be defined separately, but MUST preserve these semantics.
 
@@ -1881,9 +1881,9 @@ Matching candidates are Entity-side Capabilities whose exact Contract identifier
 
 For `required`, the evaluator MUST aggregate candidates existentially: any satisfying candidate satisfies the item; otherwise, any candidate with unknown required matching or comparison semantics makes the item `UNDETERMINED`; otherwise, no candidates or all candidates known to fail makes the item `NON_CONFORMANT`. A failing candidate does not override another satisfying or indeterminate candidate. Candidate membership that cannot be decided MUST remain indeterminate rather than being silently excluded.
 
-For `optional`, both absence and presence are outside the baseline required subset. Projection conflicts, unresolved Contracts, and failed or unknown comparisons for an optional Capability MUST be reported separately when evaluated, but MUST NOT by themselves change baseline Profile conformance. An Entity meeting the required subset can therefore be `CONFORMANT` even when an optional Capability has `ProjectionValidation = CONFLICT`. This does not validate that projection or make its routes available. An independently declared required constraint, including an explicit presence-conditional constraint, still applies to its stated scope; optional presence alone MUST NOT create such a constraint.
+For `optional`, both absence and presence are outside the baseline required subset. Projection conflicts, unresolved Contracts, and failed or unknown comparisons for an optional Capability MUST be reported separately when evaluated, but MUST NOT by themselves change baseline Profile conformance. An Entity meeting the required subset can therefore be `CONFORMANT` even when an optional Capability has `ProjectionValidation = CONFLICT`. This does not validate that projection or make its routes available. Draft 5 defines no presence-conditional constraint for an optional Capability, and a Profile evaluator MUST NOT infer one from prose, presence, or another item.
 
-Custom candidate cardinalities, universal quantification over matching candidates, and alternative matching algorithms are deferred to a future Profile Extension with an explicit information model. Draft 5 defines no field or Extension slot for those overrides; a prose rule or a companion serialization MUST NOT introduce one as baseline behavior. This applies to Capability, Property, and Identifier candidate aggregation. It does not change the required/optional distinction or the treatment of independently required constraints. Additional Entity Capabilities that do not match the item remain allowed under the open-world default unless the Profile explicitly restricts additional declarations.
+Custom candidate cardinalities, universal quantification over matching candidates, and alternative matching algorithms are deferred to a future Profile Extension with an explicit information model. Draft 5 defines no field or Extension slot for those overrides; a prose rule or a companion serialization MUST NOT introduce one as baseline behavior. This applies to Capability, Property, and Identifier candidate aggregation. It does not change the required/optional distinction. Presence-conditional constraints and other condition models are likewise deferred until an explicit machine-readable Profile information model defines them. Additional Entity Capabilities that do not match the item remain allowed under the open-world default unless the Profile explicitly restricts additional declarations.
 
 ## 44.2 Capability Contract and Projection
 
@@ -1981,16 +1981,17 @@ If a required Requirement type or body is unknown to the evaluator, conformance 
 A Profile's optional Extension policy MAY identify:
 
 - Extension namespaces or semantic roots that are required;
-- Extension namespaces or roots that are permitted;
-- Extension namespaces or roots that are prohibited;
-- slots in which they may be used; and
-- Extension-specific validation or support requirements.
+- Extension namespaces or roots that are explicitly prohibited;
+- the Core Extension Slots to which an identified required or prohibited rule applies; and
+- Extension-specific validation or support requirements for an identified required Extension.
 
-Extension policy MUST NOT permit foreign child elements outside a Core Extension Slot or make an invalid slot envelope valid. Foreign metadata attributes remain subject to Section 32.3.
+Extension policy is open-world in Draft 5. An Extension not mentioned by the Profile is allowed and MUST NOT affect conformance merely because it is unlisted. The absence of a required/prohibited rule is not an implicit prohibition. Draft 5 defines no closed policy, exhaustive allowlist, or `permitted` whitelist whose presence excludes unlisted Extensions. Such a policy is deferred to a future Profile Extension with an explicit machine-readable information model; prose or a companion serialization MUST NOT introduce it as baseline behavior.
+
+Extension policy MUST NOT permit foreign child elements outside a Core Extension Slot or make an invalid slot envelope valid. Foreign metadata attributes remain subject to Section 32.3. A slot restriction on an identified rule does not close that slot to other Extensions.
 
 The policy MUST distinguish document presence, Extension-specific validity, and Runtime support. Requiring an Extension declaration does not prove that a Runtime implements it.
 
-If the Profile requires semantics from an unknown Extension, conformance is `UNDETERMINED`, not guessed `CONFORMANT` or `NON_CONFORMANT`. If the Profile deterministically prohibits the Extension and it is present, the result is `NON_CONFORMANT` even if the evaluator does not understand the Extension's internal semantics.
+If the Profile requires semantics from an unknown Extension, conformance is `UNDETERMINED`, not guessed `CONFORMANT` or `NON_CONFORMANT`. If the Profile deterministically prohibits an identified Extension and it is present in the rule's applicable slot, the result is `NON_CONFORMANT` even if the evaluator does not understand the Extension's internal semantics. Every other unmentioned Extension remains allowed by the open-world default.
 
 # 48. Profile Narrowing Rules
 
@@ -2065,7 +2066,7 @@ else
 → CONFORMANT
 ```
 
-Once the Profile is resolved, aggregation uses required item results after candidate aggregation under Sections 44–45, together with independently required Profile constraints. Optional-item diagnostics are excluded. A known violation of one required item takes precedence over unrelated unknown evaluations; failure of one candidate within an existential item does not. A processor SHOULD expose diagnostics for every evaluated requirement rather than only the aggregate result.
+Once the Profile is resolved, aggregation uses required item results after candidate aggregation under Sections 44–45, together with required Interface, Requirement, and Extension policies defined by Sections 46–47. Optional-item diagnostics are excluded, and no presence-conditional constraint is synthesized for an optional item. A known violation of one required item takes precedence over unrelated unknown evaluations; failure of one candidate within an existential item does not. A processor SHOULD expose diagnostics for every evaluated requirement rather than only the aggregate result.
 
 The following examples illustrate required-subset aggregation, assuming all other required items are satisfied and the Profile resolves unless the row states otherwise:
 
@@ -3548,7 +3549,7 @@ A conforming **Profile Evaluator** MUST:
 - use exact Contract/Profile identity and the usable-definition rules in Sections 38 and 43;
 - expose ProfileResolution separately from ProfileConformance;
 - evaluate required Capability, Property, and Identifier items with the fixed existential matching and candidate aggregation rules in Sections 44–45, without custom cardinality or quantifier overrides;
-- exclude optional-item diagnostics from baseline required-subset aggregation, while evaluating independently required constraints in their declared scope;
+- exclude optional-item diagnostics from baseline required-subset aggregation and never synthesize a presence-conditional constraint for an optional item;
 - apply the open-world default and placement-scoped Requirement policies;
 - reject known invalid Profile definitions as `UNRESOLVED` with conformance `UNDETERMINED`, rather than blaming the Entity;
 - preserve unknown required semantics as `UNDETERMINED` and avoid assuming compatible narrowing;
@@ -5013,7 +5014,7 @@ Profile resolution and Profile conformance are separate:
 |---|---|---|
 | `PROFILE.UNRESOLVED` | `ProfileResolution = UNRESOLVED` | Exact Profile definition is unavailable, conflicting, invalid, or rejected |
 | `PROFILE.MISSING_REQUIRED_CAPABILITY` | `ProfileConformance = NON_CONFORMANT` | Deterministically required Capability is absent |
-| `PROFILE.PROHIBITED_OR_INCOMPATIBLE_FEATURE` | `NON_CONFORMANT` | A required Profile item or independently required constraint is known to fail after candidate aggregation |
+| `PROFILE.PROHIBITED_OR_INCOMPATIBLE_FEATURE` | `NON_CONFORMANT` | A required Profile item or an explicit Interface, Requirement, or Extension policy defined by Sections 46–47 is known to fail |
 | `PROFILE.UNKNOWN_REQUIRED_SEMANTICS` | `UNDETERMINED` | Required Extension or comparison cannot be evaluated |
 | `PROFILE.UNVALIDATED_PROJECTION` | `UNDETERMINED` | Required item has no satisfying candidate and a candidate projection remains indeterminate |
 
