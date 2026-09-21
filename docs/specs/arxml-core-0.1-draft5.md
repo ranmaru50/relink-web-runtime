@@ -95,10 +95,10 @@
   - [75. HTTP Response and Result Mapping](#75-http-response-and-result-mapping)
 - [Part X — Conformance Classes](#part-x--conformance-classes)
   - [76. Conformance Overview](#76-conformance-overview)
-  - [77. Core Document Conformance](#77-core-document-conformance)
-  - [78. Core Processor Conformance](#78-core-processor-conformance)
-  - [79. Extension Processor Conformance](#79-extension-processor-conformance)
-  - [80. Runtime and HTTP Extension Conformance](#80-runtime-and-http-extension-conformance)
+  - [77. AR-XML Producer and Document Conformance](#77-ar-xml-producer-and-document-conformance)
+  - [78. AR-XML Consumer Conformance](#78-ar-xml-consumer-conformance)
+  - [79. Extension Conformance](#79-extension-conformance)
+  - [80. Runtime and Profile Evaluator Conformance](#80-runtime-and-profile-evaluator-conformance)
 - [Part XI — Examples](#part-xi--examples)
   - [81. Empty Passive Entity](#81-empty-passive-entity)
   - [82. Properties-only Entity](#82-properties-only-entity)
@@ -2168,7 +2168,7 @@ An application MAY constrain which registries are consulted. Failure to consult 
 
 ## 53.3 Cache
 
-A cache MAY satisfy resolution for an exact-versioned identifier. It SHOULD retain definition provenance and integrity metadata. Cache freshness policy MUST NOT transform a mutable alias into exact identity.
+A cache MAY satisfy resolution for an exact-versioned identifier. Provenance, integrity metadata, expiry, and storage layout are implementation details, not mandatory Core cache fields. Cache freshness policy MUST NOT transform a mutable alias into exact identity.
 
 If a cached candidate conflicts with another acceptable candidate for the same exact identifier, Section 54 applies; cache order does not authorize silent first-wins behavior.
 
@@ -3195,14 +3195,13 @@ Draft 5 defines these principal classes:
 
 | Conformance class | Conforming subject | Primary responsibility |
 |---|---|---|
-| Core Document | one AR-XML resource | obey Core XML structure and reference rules |
-| Core Processor | parser, validator, AR-DOM implementation, or serializer | process Core deterministically and safely |
-| Extension Processor | implementation of named Extension roots | validate and interpret a specific Extension version |
-| Runtime Evaluator | Runtime evaluation implementation | produce separated evaluation states and route aggregation |
-| HTTP Extension Processor | HTTP Extension implementation | process `http:api`, `http:operation`, and claimed baseline mappings |
-| Invoking Runtime | Runtime capable of explicit interaction requests | preserve initiating intent and execute only by explicit request |
+| AR-XML Producer | authoring tool or serializer | produce structurally valid AR-XML and preserve declared semantics |
+| AR-XML Consumer | parser, validator, or AR-DOM consumer | process Core deterministically and preserve model boundaries |
+| Runtime | evaluation and interaction implementation | expose separated states and execute only by explicit request |
+| Extension | specification and implementation of an identified Extension | define and process named semantics within Core slots |
+| Profile Evaluator | Profile conformance implementation | evaluate the required subset deterministically and report uncertainty |
 
-A conforming implementation MAY claim more than one class. Conformance to one class does not imply conformance to another.
+A conforming implementation MAY claim more than one class. Conformance to one class does not imply conformance to another. These are the five baseline classes. Core Document validity is a document property, not a sixth implementation class. The terms Core Processor, Extension Processor, Runtime Evaluator, HTTP Extension Processor, and Invoking Runtime below describe operations or feature subsets within these classes; they do not replace or add baseline classes.
 
 Examples:
 
@@ -3224,9 +3223,9 @@ Conformance claims MUST identify Draft 5 or the exact specification version and 
 
 Test results, verified conformance, and certification are distinct from a self-declared conformance claim. This specification does not create a certification authority.
 
-# 77. Core Document Conformance
+# 77. AR-XML Producer and Document Conformance
 
-An AR-XML resource conforms as a **Core Document** when it satisfies every applicable Core requirement, including:
+A conforming **AR-XML Producer** MUST emit documents satisfying every applicable Core structural requirement and MUST preserve declared semantics when serializing AR-DOM. Its output is a Core-valid document when it satisfies the following requirements:
 
 - well-formed XML;
 - Core `ar-entity` as the document element;
@@ -3258,16 +3257,16 @@ An unknown Core element, unknown Core or unqualified attribute, foreign element 
 
 Non-canonical Core child order does not make an otherwise valid document non-conforming.
 
-# 78. Core Processor Conformance
+# 78. AR-XML Consumer Conformance
 
-A **Core Processor** MUST implement the Core requirements applicable to its advertised operations.
+A conforming **AR-XML Consumer** MUST implement the Core parsing and validation requirements below and preserve the information model for its advertised exposure operations. “Core Processor” is a descriptive role for these operations. Serializer requirements in Section 78.3 apply to the AR-XML Producer class.
 
 ## 78.1 Parser and Validator
 
 A conforming Core parser and validator MUST:
 
 - parse XML namespace-aware using a configuration suitable for untrusted input;
-- recognize the Core namespace and exact Draft 5 version;
+- recognize the Core namespace and `version="0.1"` under an explicitly selected Draft 5 processing context;
 - reject unknown Core content rather than silently discard it;
 - validate order-insensitively while enforcing cardinality and containment;
 - enforce typed uniqueness, scoped-name uniqueness, and local references;
@@ -3294,9 +3293,9 @@ Canonical child order does not authorize reordering collection members to imply 
 
 An implementation may claim parser, validator, AR-DOM, or serializer functionality separately, but MUST state the supported operation when a general Core Processor claim would be ambiguous.
 
-# 79. Extension Processor Conformance
+# 79. Extension Conformance
 
-An **Extension Processor** claim applies to explicitly identified Extension namespace versions, semantic roots, and supported slot contexts.
+An **Extension** conformance claim MUST identify the Extension specification, namespace version, semantic roots, and supported slot contexts. An Extension specification MUST satisfy Part III, including explicit slot grammar, deterministic semantics, and preservation of Core meaning. An implementation claiming the Extension class performs the Extension Processor operations below; the claim MUST state whether it concerns a specification, its implementation, or both.
 
 A conforming Extension Processor MUST:
 
@@ -3318,17 +3317,17 @@ Extension validity is not Core validity. A foreign subtree can be inside a Core-
 
 Extension specifications MAY define additional named processor classes, but MUST NOT weaken these Core separation requirements.
 
-# 80. Runtime and HTTP Extension Conformance
+# 80. Runtime and Profile Evaluator Conformance
 
 ## 80.1 Runtime Evaluator
 
-A conforming **Runtime Evaluator** MUST:
+A conforming **Runtime** implementing evaluation (the Runtime Evaluator role) MUST:
 
 - keep description data separate from evaluation state;
 - expose the state domains and values defined in Part VIII without collapsing them into a boolean;
 - distinguish unresolved, unknown, unsupported, unsatisfied, and conflicting conditions;
 - apply known-blocker precedence for InterfaceUse route evaluation;
-- aggregate Capability Availability as `any READY`, otherwise `any UNKNOWN`, otherwise `UNAVAILABLE`;
+- generate Core Availability only for Capabilities with Invocation, and aggregate their routes as `any READY`, otherwise `any UNKNOWN`, otherwise `UNAVAILABLE`;
 - keep Profile conformance independent of Availability;
 - avoid using document order as implicit route preference;
 - provide sufficient diagnostics to distinguish known blockers from uncertainty; and
@@ -3338,7 +3337,7 @@ A Runtime Evaluator MAY implement only a subset of Interface Extensions. Unsuppo
 
 ## 80.2 Invoking Runtime
 
-A conforming **Invoking Runtime** MUST also:
+A conforming **Runtime** implementing execution (the Invoking Runtime role) MUST also:
 
 - require an explicit Application or Human request before Capability execution;
 - preserve initiating intent through route selection and asynchronous work;
@@ -3392,6 +3391,23 @@ An implementation conformance statement SHOULD identify:
 - test-suite version, when a conformance test suite is used.
 
 A Profile Claim in an Entity document is not an implementation conformance statement for the Runtime.
+
+## 80.6 Profile Evaluator
+
+A conforming **Profile Evaluator** MUST:
+
+- establish Core document validity separately from semantic conformance;
+- use exact Contract/Profile identity and the usable-definition rules in Sections 38 and 43;
+- expose ProfileResolution separately from ProfileConformance;
+- evaluate required items with the default matching and candidate aggregation rules in Sections 44–45 unless the Profile explicitly defines another deterministic rule;
+- exclude optional-item diagnostics from baseline required-subset aggregation, while evaluating independently required constraints in their declared scope;
+- apply the open-world default and placement-scoped Requirement policies;
+- reject known invalid Profile definitions as `UNRESOLVED` with conformance `UNDETERMINED`, rather than blaming the Entity;
+- preserve unknown required semantics as `UNDETERMINED` and avoid assuming compatible narrowing;
+- keep Profile Claim, verified evaluation, certification, Runtime Support, and Availability separate; and
+- evaluate without required AI inference or automatic Capability execution.
+
+Profile Evaluator conformance does not require invocation support or network resolution. Unsupported semantic features MUST be disclosed and handled through the defined uncertainty states.
 
 # Part XI — Examples
 
@@ -3874,7 +3890,17 @@ An Entity Resolver may map a Reference Lab Entity identity or application refere
 
 # 92. Security Considerations
 
-AR-XML describes Entities, semantic contracts, interaction surfaces, and possible invocation mappings. A description may influence network access or physical behavior when an Application explicitly invokes a Capability. Implementations MUST therefore treat every AR-XML document, resolved semantic definition, Extension subtree, Runtime response, and registry result as untrusted input unless an independent trust policy establishes otherwise.
+**Normative Core boundary.** The applicable Producer, Consumer, Runtime, Extension, and Profile Evaluator requirements are limited here to the following:
+
+- Consumers MUST perform secure namespace-aware XML processing as specified in Section 92.1.
+- Producers MUST NOT embed Credentials or reusable secrets in AR-XML; consumers MUST NOT treat Requirement data as Credentials.
+- Loading, resolution, validation, exposure, and evaluation MUST NOT invoke a described Capability. Execution MUST originate from an explicit Application or Human request.
+- Claims, resolution, availability, authentication, authorization, and execution MUST remain distinct; issuer data MUST NOT become verified truth merely through parsing.
+- Deterministic interoperability and conformance MUST NOT require AI or LLM inference.
+
+The following introductory discussion and Sections 92.2–92.8 are **informative implementation guidance**. They preserve deployment advice on network targets, cache protection, redirects, retries, replay, isolation, and physical safety without adding Core conformance gates. Where they restate another section, that section remains the normative source; deployment policy and its enforcement remain outside Core.
+
+AR-XML describes Entities, semantic contracts, interaction surfaces, and possible invocation mappings. A description may influence network access or physical behavior when an Application explicitly invokes a Capability. Implementations must therefore treat every AR-XML document, resolved semantic definition, Extension subtree, Runtime response, and registry result as untrusted input unless an independent trust policy establishes otherwise.
 
 Core validity is not a security decision. A document can be structurally valid while containing deceptive issuer claims, dangerous operation mappings, hostile endpoint locations, privacy-sensitive data, or semantics that the consumer should not trust. Similarly, a resolved Capability Contract or Profile is not trusted merely because its identifier is syntactically valid or its definition is available.
 
@@ -3888,7 +3914,7 @@ Core processors MUST enforce the closed Core vocabulary defined by this specific
 
 ## 92.2 Claims, Trust, and Semantic Definitions
 
-Identifiers, Properties, Profile Claims, Interface declarations, and Capability projections are issuer-declared data. They MUST NOT be treated as verified identity, ownership, authority, certification, current state, or permission without evidence evaluated outside AR-XML.
+Identifiers, Properties, Profile Claims, Interface declarations, and Capability projections are issuer-declared data. They must not be treated as verified identity, ownership, authority, certification, current state, or permission without evidence evaluated outside AR-XML.
 
 In particular:
 
@@ -3898,15 +3924,15 @@ In particular:
 - a `READY` Availability result does not prove authorization, remote acceptance, safe execution, or successful outcome; and
 - support for an Extension does not establish trust in documents that use that Extension.
 
-Semantic Registry implementations MUST guard against definition substitution, cache poisoning, downgrade, and conflicting definitions. They MUST preserve exact versioned identity and MUST NOT apply silent first-wins behavior when different definitions claim the same identifier. Registry and cache entries SHOULD retain source, retrieval time, integrity information when available, and the trust decision that admitted the definition. Applications MAY require signatures, digests, authenticated delivery, local approval, or another provenance policy; such mechanisms are outside Core.
+Semantic Registry implementations must guard against definition substitution, cache poisoning, downgrade, and conflicting definitions. They must preserve exact versioned identity and must not apply silent first-wins behavior when different definitions claim the same identifier. Registry and cache entries should retain source, retrieval time, integrity information when available, and the trust decision that admitted the definition. Applications may require signatures, digests, authenticated delivery, local approval, or another provenance policy; such mechanisms are outside Core.
 
-Network retrieval of semantic definitions is optional. A Runtime MUST NOT weaken its trust policy merely because a definition cannot be obtained from a preferred source. Failure to resolve or trust a definition produces an unresolved or policy-specific failure state; it does not justify guessing its semantics.
+Network retrieval of semantic definitions is optional. A Runtime must not weaken its trust policy merely because a definition cannot be obtained from a preferred source. Failure to resolve or trust a definition produces an unresolved or policy-specific failure state; it does not justify guessing its semantics.
 
 ## 92.3 Resolution and Network Target Security
 
-Entity resolution, semantic resolution, and Capability execution are separate activities and SHOULD use separate policy boundaries. An Entity Resolver maps Entity identity to an AR-XML location. A Semantic Registry maps a semantic identifier to a semantic definition. Neither operation authorizes later execution.
+Entity resolution, semantic resolution, and Capability execution are separate activities and should use separate policy boundaries. An Entity Resolver maps Entity identity to an AR-XML location. A Semantic Registry maps a semantic identifier to a semantic definition. Neither operation authorizes later execution.
 
-Any network location obtained from an Entity Resolver, semantic definition, Interface Realization, Mapping, redirect, or Extension MUST be validated against Application and deployment policy before access. Implementations SHOULD defend against server-side request forgery and related target-confusion attacks, including:
+Any network location obtained from an Entity Resolver, semantic definition, Interface Realization, Mapping, redirect, or Extension must be validated against Application and deployment policy before access. Implementations should defend against server-side request forgery and related target-confusion attacks, including:
 
 - disallowed URI schemes or ports;
 - loopback, link-local, private, multicast, metadata-service, and otherwise protected address ranges;
@@ -3915,45 +3941,45 @@ Any network location obtained from an Entity Resolver, semantic definition, Inte
 - authority confusion caused by user information, Unicode, percent encoding, or normalization differences; and
 - relative URL resolution against an attacker-controlled or incorrect base.
 
-The HTTP baseline resolves a relative `http:api` `base` against the AR-XML retrieval URL. This deterministic rule does not make the resulting origin trusted. A Runtime MUST apply its target policy after URL resolution and again after every redirect. Applications SHOULD use origin allowlists, transport requirements, redirect limits, and network isolation appropriate to the deployment.
+The HTTP baseline resolves a relative `http:api` `base` against the AR-XML retrieval URL. This deterministic rule does not make the resulting origin trusted. A Runtime must apply its target policy after URL resolution and again after every redirect. Applications should use origin allowlists, transport requirements, redirect limits, and network isolation appropriate to the deployment.
 
-Document retrieval, semantic resolution, Availability evaluation, and `ARRuntime.load()` MUST NOT invoke a described Capability or send mapped Capability Inputs as a probe. A Runtime MAY perform explicitly configured retrieval needed to resolve or fetch descriptions, but it MUST keep that traffic distinguishable from Capability execution.
+Document retrieval, semantic resolution, Availability evaluation, and `ARRuntime.load()` must not invoke a described Capability or send mapped Capability Inputs as a probe. A Runtime may perform explicitly configured retrieval needed to resolve or fetch descriptions, but it must keep that traffic distinguishable from Capability execution.
 
 ## 92.4 Credentials, Authentication, and Authorization
 
-An AR-XML document MUST NOT contain passwords, private keys, bearer tokens, API secrets, refresh tokens, session cookies, or other reusable secrets. Requirement data may identify an authentication or authorization mechanism, credential class, audience, or policy, but it MUST NOT embed the Credential itself.
+An AR-XML document must not contain passwords, private keys, bearer tokens, API secrets, refresh tokens, session cookies, or other reusable secrets. Requirement data may identify an authentication or authorization mechanism, credential class, audience, or policy, but it must not embed the Credential itself.
 
-Credentials are supplied and managed by the Runtime, Host Application, operating environment, or user agent under an independent policy. A Runtime SHOULD apply least privilege, scope Credentials to the intended origin and operation, prevent forwarding across unapproved redirects, and avoid exposing them to Extension processors or diagnostic output. Ambient browser credentials and cookies require explicit cross-origin and request-forgery protections; their presence MUST NOT be inferred solely from an Interface declaration.
+Credentials are supplied and managed by the Runtime, Host Application, operating environment, or user agent under an independent policy. A Runtime should apply least privilege, scope Credentials to the intended origin and operation, prevent forwarding across unapproved redirects, and avoid exposing them to Extension processors or diagnostic output. Ambient browser credentials and cookies require explicit cross-origin and request-forgery protections; their presence must not be inferred solely from an Interface declaration.
 
-Successful authentication does not imply authorization. Requirement evaluation does not replace enforcement by the target system. An Application MUST expect the remote system or physical controller to make its own authorization decision at execution time.
+Successful authentication does not imply authorization. Requirement evaluation does not replace enforcement by the target system. An Application must expect the remote system or physical controller to make its own authorization decision at execution time.
 
 ## 92.5 Explicit Execution and Side Effects
 
-`ARRuntime.load()` consists of Resolve, Fetch, Parse, Validate, and Expose. It MUST NOT automatically execute a Capability. Availability evaluation, Profile validation, preview generation, route discovery, and UI enumeration likewise MUST NOT cause a side-effecting invocation.
+`ARRuntime.load()` consists of Resolve, Fetch, Parse, Validate, and Expose. It must not automatically execute a Capability. Availability evaluation, Profile validation, preview generation, route discovery, and UI enumeration likewise must not cause a side-effecting invocation.
 
-Execution begins only from an explicit request by an Application or Human. An Invoking Runtime MUST preserve that initiating intent through route selection, asynchronous processing, redirects, authentication challenges, and retries. It MUST NOT convert background discovery, prefetch, or validation into an execution request.
+Execution begins only from an explicit request by an Application or Human. An Invoking Runtime must preserve that initiating intent through route selection, asynchronous processing, redirects, authentication challenges, and retries. It must not convert background discovery, prefetch, or validation into an execution request.
 
-Applications SHOULD require additional confirmation, policy approval, rate limits, or safety interlocks for operations that can affect people, property, money, access control, or the physical environment. AR-XML does not establish that an operation is safe merely because it is described by a Capability Contract or evaluates as `READY`.
+Applications should require additional confirmation, policy approval, rate limits, or safety interlocks for operations that can affect people, property, money, access control, or the physical environment. AR-XML does not establish that an operation is safe merely because it is described by a Capability Contract or evaluates as `READY`.
 
-Retries can duplicate side effects. A Runtime MUST NOT assume idempotency from an HTTP method, Capability name, or semantic similarity alone. Automatic retry is permitted only when the applicable contract, Extension semantics, or Application policy establishes safe retry behavior. Implementations SHOULD protect against replay where freshness or one-time authorization matters.
+Retries can duplicate side effects. A Runtime must not assume idempotency from an HTTP method, Capability name, or semantic similarity alone. Automatic retry is permitted only when the applicable contract, Extension semantics, or Application policy establishes safe retry behavior. Implementations should protect against replay where freshness or one-time authorization matters.
 
 ## 92.6 Invocation and Result Handling
 
-Before serialization, an Invoking Runtime MUST validate supplied Inputs under all Core, resolved Contract, Profile, Extension, and Application rules it implements. Unknown or unvalidated constraints MUST remain visible to the caller and MUST NOT be treated as satisfied. A Runtime SHOULD enforce size limits, timeouts, cancellation, response limits, and bounded concurrency for invocation processing.
+Before serialization, an Invoking Runtime must validate supplied Inputs under all Core, resolved Contract, Profile, Extension, and Application rules it implements. Unknown or unvalidated constraints must remain visible to the caller and must not be treated as satisfied. A Runtime should enforce size limits, timeouts, cancellation, response limits, and bounded concurrency for invocation processing.
 
-Transport success is not semantic success. HTTP `2xx` indicates HTTP-level success only. Conversely, a non-`2xx` response MUST NOT be reclassified as a successful Capability outcome merely because a response body can be parsed.
+Transport success is not semantic success. HTTP `2xx` indicates HTTP-level success only. Conversely, a non-`2xx` response must not be reclassified as a successful Capability outcome merely because a response body can be parsed.
 
-All response representations are untrusted. Implementations MUST validate media type, representation size, syntax, and semantic shape before exposing typed Outputs. JSON objects, XML content, binary data, text, URLs, and error messages MUST be handled using format-appropriate safe parsers and output encoding. A Runtime MUST NOT inject returned text or markup into an executable HTML, script, command, template, or query context without the protections required by that context.
+All response representations are untrusted. Implementations must validate media type, representation size, syntax, and semantic shape before exposing typed Outputs. JSON objects, XML content, binary data, text, URLs, and error messages must be handled using format-appropriate safe parsers and output encoding. A Runtime must not inject returned text or markup into an executable HTML, script, command, template, or query context without the protections required by that context.
 
-Representation order is not a trust ranking. Content-Type alone is not proof that content is safe or authentic. If a returned representation does not match the selected or negotiated Representation, the Runtime MUST report the mismatch rather than coercing it through heuristic interpretation.
+Representation order is not a trust ranking. Content-Type alone is not proof that content is safe or authentic. If a returned representation does not match the selected or negotiated Representation, the Runtime must report the mismatch rather than coercing it through heuristic interpretation.
 
 ## 92.7 Extension Processor and Plugin Isolation
 
 An Extension processor may interpret Attachment, Realization, Mapping, Requirement, Property, Constraint, or other extension-defined data. Supporting an Extension can therefore expand the Runtime's attack surface.
 
-Extension processors SHOULD run with the least privileges needed for their declared function. Merely validating or preserving an Extension MUST NOT grant it unrestricted file, network, process, device, UI, or Credential access. Extension validation SHOULD be deterministic and free of externally visible side effects. Executable scripts or code embedded in an Extension subtree are not executed by Core processing.
+Extension processors should run with the least privileges needed for their declared function. Merely validating or preserving an Extension must not grant it unrestricted file, network, process, device, UI, or Credential access. Extension validation should be deterministic and free of externally visible side effects. Executable scripts or code embedded in an Extension subtree are not executed by Core processing.
 
-A Runtime MUST distinguish:
+A Runtime must distinguish:
 
 - recognizing an Extension namespace;
 - validating its syntax;
@@ -3967,53 +3993,55 @@ Success at one stage does not imply success or permission at a later stage.
 
 Capabilities may control devices or processes that can cause physical harm even when the described Entity has no CPU or network interface of its own. An Interface may lead through a gateway, adapter, Human procedure, or other external realization. The absence of an obvious network endpoint is therefore not evidence that execution is harmless.
 
-This specification does not define hazard analysis, emergency-stop behavior, interlocks, operator qualification, safe motion, medical safety, industrial control safety, or functional-safety certification. Applications operating in such domains MUST apply the relevant independent safety rules before invocation. Runtime Availability states are informational inputs to that decision, not safety approvals.
+This specification does not define hazard analysis, emergency-stop behavior, interlocks, operator qualification, safe motion, medical safety, industrial control safety, or functional-safety certification. Applications operating in such domains must apply the relevant independent safety rules before invocation. Runtime Availability states are informational inputs to that decision, not safety approvals.
 
-AI or LLM processing MAY assist user interfaces, authoring, or diagnostics, but deterministic validation, security policy enforcement, conformance classification, and authorization MUST NOT depend on probabilistic AI interpretation. An AI-generated mapping, target, Input, or explanation MUST be treated as untrusted until accepted through the same explicit and deterministic controls as any other input.
+AI or LLM processing may assist user interfaces, authoring, or diagnostics, but deterministic validation, security policy enforcement, conformance classification, and authorization must not depend on probabilistic AI interpretation. An AI-generated mapping, target, Input, or explanation must be treated as untrusted until accepted through the same explicit and deterministic controls as any other input.
 
 # 93. Privacy Considerations
 
+**Informative implementation guidance.** This section adds no Core conformance requirements for legal basis, consent mechanisms, retention, disclosure policy, telemetry, or deployment controls. Core requirements concerning secrets, issuer claims, explicit invocation, and separation of description from Runtime state remain normative in their defining sections.
+
 An AR-XML document can reveal substantially more than a transport endpoint. Identifiers, Properties, Subjects, Profile Claims, Capability names, Interface details, Requirements, semantic identifiers, and extension data may identify a person or organization, expose device characteristics, describe accessibility or health-related functions, reveal operational state, or advertise an attack surface. A document remains privacy-sensitive even when it describes a passive or offline Entity.
 
-Publishers and processors SHOULD apply data minimization, purpose limitation, access control, retention limits, and deletion policies appropriate to the deployment. They SHOULD avoid publishing data merely because the Core model permits it. Distribution of a document SHOULD be no broader than necessary for its intended use.
+Publishers and processors should apply data minimization, purpose limitation, access control, retention limits, and deletion policies appropriate to the deployment. They should avoid publishing data merely because the Core model permits it. Distribution of a document should be no broader than necessary for its intended use.
 
 ## 93.1 Identifiers, Subjects, Properties, and Claims
 
-Core does not automatically interpret an Identifier as a person's identity, but stable Identifier values can still enable correlation across documents, registries, locations, and time. Combining several non-unique Identifiers or Properties can produce a unique fingerprint. Implementations SHOULD avoid exposing full stable identifiers when a scoped, rotated, pseudonymous, or user-mediated reference would meet the same purpose.
+Core does not automatically interpret an Identifier as a person's identity, but stable Identifier values can still enable correlation across documents, registries, locations, and time. Combining several non-unique Identifiers or Properties can produce a unique fingerprint. Implementations should avoid exposing full stable identifiers when a scoped, rotated, pseudonymous, or user-mediated reference would meet the same purpose.
 
-`subjectRef` is a semantic reference, not a privacy boundary. A lightweight Subject may still represent a person, body part, room, asset, or component whose association with the described Entity is sensitive. Processors MUST apply access and disclosure policy to the referenced data rather than assuming that Subject data is harmless because it is not a nested Entity.
+`subjectRef` is a semantic reference, not a privacy boundary. A lightweight Subject may still represent a person, body part, room, asset, or component whose association with the described Entity is sensitive. Processors must apply access and disclosure policy to the referenced data rather than assuming that Subject data is harmless because it is not a nested Entity.
 
-Properties are issuer-declared characteristics or state, not absolute truth. Nevertheless, collecting, indexing, or redistributing them may have privacy consequences. Profile Claims can expose memberships, roles, product classes, accessibility features, or claimed certifications. Consumers MUST NOT present such claims as verified facts, and publishers SHOULD consider whether the claim itself should be disclosed.
+Properties are issuer-declared characteristics or state, not absolute truth. Nevertheless, collecting, indexing, or redistributing them may have privacy consequences. Profile Claims can expose memberships, roles, product classes, accessibility features, or claimed certifications. Consumers must not present such claims as verified facts, and publishers should consider whether the claim itself should be disclosed.
 
 ## 93.2 Location and Runtime Context
 
 Core intentionally does not define direct latitude or longitude fields. Stable declared location may be represented by a Geo Extension or another typed Property, while a moving Entity's current position is generally Runtime Context or the result of a Capability such as `position.read`. This separation does not make location data non-sensitive.
 
-Precise, repeated, historical, inferred, or real-time location can reveal habits, occupancy, identity, and safety-relevant information. Location producers and consumers SHOULD minimize precision, frequency, retention, and audience; establish a purpose and legal basis where applicable; and obtain user control or consent when required. Cached location MUST retain appropriate freshness metadata so that a stale value is not silently presented as current.
+Precise, repeated, historical, inferred, or real-time location can reveal habits, occupancy, identity, and safety-relevant information. Location producers and consumers should minimize precision, frequency, retention, and audience; establish a purpose and legal basis where applicable; and obtain user control or consent when required. Cached location must retain appropriate freshness metadata so that a stale value is not silently presented as current.
 
-An Application MUST NOT infer consent to retrieve current location from the presence of a location-related Property, Capability, Contract, or Profile Claim. Reading a current position is an invocation and requires the same explicit request, Requirement evaluation, and authorization handling as other Capabilities.
+An Application must not infer consent to retrieve current location from the presence of a location-related Property, Capability, Contract, or Profile Claim. Reading a current position is an invocation and requires the same explicit request, Requirement evaluation, and authorization handling as other Capabilities.
 
 ## 93.3 Invocation Data and Telemetry
 
-Capability Inputs and Outputs can contain personal data even when the Capability type appears routine. Query parameters may be recorded in browser history, intermediary logs, server logs, analytics systems, and referrer data. HTTP mappings SHOULD avoid placing sensitive values in a URL unless the Contract and deployment explicitly require it and appropriate controls exist. Transport confidentiality and integrity SHOULD be used whenever invocation data, Credentials, identifiers, or operational details require protection.
+Capability Inputs and Outputs can contain personal data even when the Capability type appears routine. Query parameters may be recorded in browser history, intermediary logs, server logs, analytics systems, and referrer data. HTTP mappings should avoid placing sensitive values in a URL unless the Contract and deployment explicitly require it and appropriate controls exist. Transport confidentiality and integrity should be used whenever invocation data, Credentials, identifiers, or operational details require protection.
 
-Applications and Runtimes SHOULD collect and retain only the Inputs, Outputs, errors, timing data, and network metadata needed for the stated purpose. Diagnostic records SHOULD prefer structural information such as semantic identifier, state, validation category, and AR-DOM path. They SHOULD redact or omit Credential material, Identifier values, Property values, Input and Output values, response bodies, URLs containing sensitive queries, and opaque Extension payloads unless those values are necessary and protected.
+Applications and Runtimes should collect and retain only the Inputs, Outputs, errors, timing data, and network metadata needed for the stated purpose. Diagnostic records should prefer structural information such as semantic identifier, state, validation category, and AR-DOM path. They should redact or omit Credential material, Identifier values, Property values, Input and Output values, response bodies, URLs containing sensitive queries, and opaque Extension payloads unless those values are necessary and protected.
 
-Semantic Results belong to an invocation outcome, not to the Entity description. A Runtime MUST NOT silently persist a Result as a Property or republish it in AR-XML. Any such transformation is a separate Application action subject to provenance, freshness, consent, and retention policy.
+Semantic Results belong to an invocation outcome, not to the Entity description. A Runtime must not silently persist a Result as a Property or republish it in AR-XML. Any such transformation is a separate Application action subject to provenance, freshness, consent, and retention policy.
 
 ## 93.4 Resolution and Registry Privacy
 
 Resolution requests can disclose what Entity, Capability Contract, Profile, or Extension a user or Application is interested in. Repeated requests can reveal inventory, behavior, location, or organizational relationships even when the retrieved definition is public.
 
-Resolvers and Semantic Registries SHOULD support privacy-preserving deployment choices such as built-in definitions, local registries, caches, Application-provided registries, and installed plugins. Network resolution is not mandatory. When network resolution is used, implementations SHOULD minimize transmitted context, avoid sending the full Entity document unless explicitly required, partition caches where cross-user correlation is a concern, and apply retention and logging controls to requested identifiers.
+Resolvers and Semantic Registries should support privacy-preserving deployment choices such as built-in definitions, local registries, caches, Application-provided registries, and installed plugins. Network resolution is not mandatory. When network resolution is used, implementations should minimize transmitted context, avoid sending the full Entity document unless explicitly required, partition caches where cross-user correlation is a concern, and apply retention and logging controls to requested identifiers.
 
-An exact versioned absolute identifier is semantic identity, not consent to contact every network location suggested by its URI form. Dereferencing policy MUST remain separate from identifier comparison and validation.
+An exact versioned absolute identifier is semantic identity, not consent to contact every network location suggested by its URI form. Dereferencing policy must remain separate from identifier comparison and validation.
 
 ## 93.5 Unknown Extensions and Derived Information
 
-An unknown Extension subtree can contain personal or confidential data even when Core preserves it opaquely. Opaque preservation, copying, canonical serialization, logging, signing, or forwarding are all data processing actions. Implementations SHOULD treat unknown Extension content as potentially sensitive and SHOULD avoid unnecessary inspection or propagation.
+An unknown Extension subtree can contain personal or confidential data even when Core preserves it opaquely. Opaque preservation, copying, canonical serialization, logging, signing, or forwarding are all data processing actions. Implementations should treat unknown Extension content as potentially sensitive and should avoid unnecessary inspection or propagation.
 
-Deterministic interoperability does not require behavioral or personal inference beyond declared semantics. Implementations MUST NOT require AI or LLM inference to decide privacy-sensitive meaning, conformance, or disclosure policy. Applications using AI to summarize or enrich AR-XML SHOULD disclose that processing where appropriate, minimize submitted data, and avoid deriving sensitive attributes without a separate lawful and user-visible basis.
+Deterministic interoperability does not require behavioral or personal inference beyond declared semantics. Implementations must not require AI or LLM inference to decide privacy-sensitive meaning, conformance, or disclosure policy. Applications using AI to summarize or enrich AR-XML should disclose that processing where appropriate, minimize submitted data, and avoid deriving sensitive attributes without a separate lawful and user-visible basis.
 
 AR-XML conformance does not establish compliance with any privacy, data-protection, communications, sector-specific, or records-retention law. Publishers, registry operators, Runtime providers, and Applications remain responsible for the obligations that apply to their processing and deployment.
 
@@ -4109,7 +4137,9 @@ Core does not reserve short prefixes such as `http`, `phys`, `auth`, or `geo`. E
 
 AR-XML does not require a mandatory centralized registry. Deterministic resolution may use built-in definitions, a local registry, a cache, an Application-provided registry, an installed Extension or plugin, a network service, or a policy-controlled combination of these sources.
 
-This section defines requirements on registry behavior, not a registry protocol, server API, package format, discovery service, or governance organization.
+The normative Core registry boundary is the resolution model in Part VI: built-in, local, cache, Application, plugin, and network sources are permitted; source priority is Runtime policy; exact identities MUST be preserved; conflicting acceptable definitions MUST NOT use silent first-wins; and resolution MUST remain separate from trust, authentication, authorization, and execution. Cache design is an implementation detail. Registry protocol, discovery, registration records, lifecycle, governance, federation, and trust mechanisms are outside Core.
+
+Sections 95.1–95.5 below are **informative implementation guidance**, retaining the rationale and operational options without defining mandatory registry fields or new Core conformance gates. Statements summarizing resolution rules refer back to Part VI.
 
 ## 95.1 Registry Roles
 
@@ -4133,11 +4163,11 @@ Semantic Registry
 = Semantic Identifier → semantic definition
 ```
 
-A registry MUST NOT treat an Entity Identifier as a document locator unless a separately configured Entity Resolver rule defines that mapping. A registry also MUST NOT execute a Capability, supply Credentials, authenticate a publisher, authorize a caller, or certify conformance merely because it returned a definition.
+A registry must not treat an Entity Identifier as a document locator unless a separately configured Entity Resolver rule defines that mapping. A registry also must not execute a Capability, supply Credentials, authenticate a publisher, authorize a caller, or certify conformance merely because it returned a definition.
 
 ## 95.2 Registration Records and Exact Identity
 
-A registry record SHOULD preserve at least:
+A registry record should preserve at least:
 
 - the exact Semantic Identifier;
 - the semantic resource kind;
@@ -4148,35 +4178,35 @@ A registry record SHOULD preserve at least:
 - lifecycle status such as active, deprecated, or withdrawn; and
 - the trust or admission policy under which the definition is usable.
 
-Registry metadata is not part of the semantic definition unless the applicable specification explicitly says so. Retrieval time, popularity, source priority, or lifecycle status MUST NOT silently change Contract or Profile meaning.
+Registry metadata is not part of the semantic definition unless the applicable specification explicitly says so. Retrieval time, popularity, source priority, or lifecycle status must not silently change Contract or Profile meaning.
 
-Normative Capability Contract and Profile identities MUST be exact-versioned absolute identifiers. A moving alias such as `latest` MAY be offered for discovery, but the registry MUST return or select an exact identifier before deterministic validation. The alias itself MUST NOT be stored in AR-XML as normative Contract or Profile identity.
+Normative Capability Contract and Profile identities must be exact-versioned absolute identifiers. A moving alias such as `latest` may be offered for discovery, but the registry must return or select an exact identifier before deterministic validation. The alias itself must not be stored in AR-XML as normative Contract or Profile identity.
 
-Once published, a definition associated with an exact identifier SHOULD be immutable. Any normative semantic change requires a new exact identifier. Correcting transport metadata, registry indexing, or an editorial description MAY retain the identifier only when it cannot change deterministic interpretation or conformance results.
+Once published, a definition associated with an exact identifier should be immutable. Any normative semantic change requires a new exact identifier. Correcting transport metadata, registry indexing, or an editorial description may retain the identifier only when it cannot change deterministic interpretation or conformance results.
 
 ## 95.3 Conflicts and Multiple Sources
 
-Multiple registry sources may return candidates for the same exact identifier. If the candidates are semantically or bytewise equivalent under a defined comparison rule, a registry MAY coalesce them while preserving provenance. If they conflict, the registry MUST NOT use silent first-wins, source order, document order, cache timing, or lexical preference as an implicit decision rule.
+Multiple registry sources may return candidates for the same exact identifier. If the candidates are semantically or bytewise equivalent under a defined comparison rule, a registry may coalesce them while preserving provenance. If they conflict, the registry must not use silent first-wins, source order, document order, cache timing, or lexical preference as an implicit decision rule.
 
-A policy MAY deterministically reject untrusted candidates before semantic resolution. After that policy is applied, resolution is `RESOLVED` only when exactly one usable definition remains. Otherwise it is `UNRESOLVED`, and the processor SHOULD report the conflicting sources without exposing sensitive registry or credential data.
+A policy may deterministically reject untrusted candidates before semantic resolution. After that policy is applied, resolution is `RESOLVED` only when exactly one usable definition remains. Otherwise it is `UNRESOLVED`, and the processor should report the conflicting sources without exposing sensitive registry or credential data.
 
-Implementations SHOULD defend against namespace or identifier squatting, malicious re-registration, cache poisoning, rollback, downgrade, stale entries, and substitution. Appropriate controls may include authenticated publication, signatures, content digests, append-only logs, administrator approval, pinned definitions, or trusted local packages. Core does not mandate one trust mechanism.
+Implementations should defend against namespace or identifier squatting, malicious re-registration, cache poisoning, rollback, downgrade, stale entries, and substitution. Appropriate controls may include authenticated publication, signatures, content digests, append-only logs, administrator approval, pinned definitions, or trusted local packages. Core does not mandate one trust mechanism.
 
 ## 95.4 Caching and Offline Operation
 
-Caching is permitted but MUST preserve exact identity, source, and applicable trust policy. A cache MUST NOT answer an exact identifier with a newer, older, or allegedly compatible definition. Cache invalidation and retention policy are deployment concerns, but stale or withdrawn status SHOULD be observable to the Application when it can affect policy.
+Caching is permitted but must preserve exact identity, source, and applicable trust policy. A cache must not answer an exact identifier with a newer, older, or allegedly compatible definition. Cache invalidation and retention policy are deployment concerns, but stale or withdrawn status should be observable to the Application when it can affect policy.
 
-Negative caching MAY reduce repeated failed lookups, provided it is bounded and does not turn a temporary failure into a permanent `UNRESOLVED` result. A cached definition MUST NOT become trusted solely because it was cached successfully in the past.
+Negative caching may reduce repeated failed lookups, provided it is bounded and does not turn a temporary failure into a permanent `UNRESOLVED` result. A cached definition must not become trusted solely because it was cached successfully in the past.
 
-Offline operation is a first-class deployment mode. A conforming processor MAY resolve all supported semantics from built-in, local, cached, or Application-provided sources. Network access is never required solely because a Semantic Identifier uses an HTTP or HTTPS URI form.
+Offline operation is a first-class deployment mode. A conforming processor may resolve all supported semantics from built-in, local, cached, or Application-provided sources. Network access is never required solely because a Semantic Identifier uses an HTTP or HTTPS URI form.
 
 ## 95.5 Registry Extensibility and Governance
 
-A registry MAY support resource kinds beyond those defined by Draft 5, but unknown kinds MUST NOT be coerced into a known kind. Resource-kind dispatch, definition validation, and processor support SHOULD be explicit and versioned.
+A registry may support resource kinds beyond those defined by Draft 5, but unknown kinds must not be coerced into a known kind. Resource-kind dispatch, definition validation, and processor support should be explicit and versioned.
 
-Registry governance SHOULD define identifier allocation, maintainer authority, review policy, immutability, deprecation, dispute handling, archival availability, and security response. Federated registries SHOULD make authority and precedence rules visible rather than presenting federation order as semantic truth.
+Registry governance should define identifier allocation, maintainer authority, review policy, immutability, deprecation, dispute handling, archival availability, and security response. Federated registries should make authority and precedence rules visible rather than presenting federation order as semantic truth.
 
-Core does not recreate external identifier systems or standards. GTIN, VIN, MAC, IPv6, IMEI, OPC UA, AAS, WoT, and other domain identifiers remain governed by their respective specifications. A registry definition may reference such a scheme, but MUST NOT silently redefine it under an AR-XML-specific enum.
+Core does not recreate external identifier systems or standards. GTIN, VIN, MAC, IPv6, IMEI, OPC UA, AAS, WoT, and other domain identifiers remain governed by their respective specifications. A registry definition may reference such a scheme, but must not silently redefine it under an AR-XML-specific enum.
 
 # 96. Evolution and Compatibility
 
@@ -5287,7 +5317,7 @@ It expands those rules to cover:
 - opaque Extension privacy; and
 - deterministic security and conformance without mandatory AI or LLM processing.
 
-Draft 5 adds named conformance classes for Core Documents, Core Processors, Extension Processors, Runtime Evaluators, HTTP Extension Processors, and Invoking Runtimes. A claim against one class does not imply the others.
+Draft 5 defines five baseline conformance classes: AR-XML Producer, AR-XML Consumer, Runtime, Extension, and Profile Evaluator. Core Document validity is evaluated separately; HTTP mapping and invocation are explicit feature claims within the applicable classes. A claim against one class does not imply the others.
 
 ## D.12 Migration Checklist
 
