@@ -2974,7 +2974,7 @@ HTTP elements MUST NOT appear directly in a Capability Contract. An HTTP method,
 
 The HTTP Extension does not redefine Capability Inputs, Outputs, Requirements, or constraints. It maps an already-defined semantic Invocation to HTTP.
 
-This baseline defines deterministic behavior for common request and JSON Result mappings. It does not define:
+This baseline defines common semantic request and JSON Result mappings. GET permits wire-equivalent serializations under Section 74.2, but does not cover receiver-specific lexical conventions or query-name collisions. Such cases MUST NOT be claimed as supported by the baseline merely through an implicit deployment agreement. It does not define:
 
 - an arbitrary header mapping DSL;
 - cookies or credential storage;
@@ -3143,15 +3143,21 @@ boolean
 Lexical forms are:
 
 - `string`: the string value;
-- `number`: a numeric lexical form supported by the selected HTTP query mapping and applicable numeric constraints;
-- `integer`: an integral numeric lexical form under that mapping; and
+- `number`: a numeric lexical form preserving the supplied numeric value and applicable numeric constraints, subject to the wire-equivalence boundary below;
+- `integer`: an integral numeric lexical form preserving the supplied integer value under the same boundary; and
 - `boolean`: exactly `true` or `false`.
 
-The Core primitive vocabulary does not choose a canonical numeric spelling, precision, or exponent policy for query values. An HTTP mapping or deployment requiring a particular numeric convention specifies it separately; it does not redefine Core `number` or `integer`.
+The Core primitive vocabulary does not choose a canonical numeric spelling, precision, or exponent policy for query values. The GET baseline permits different numeric spellings only when they preserve the same typed Input value at the receiver. If an API requires a particular spelling, treats numerically equal spellings differently, or applies a receiver-specific numeric convention, that requirement is outside this baseline. For example, `1` and `1.0` are interchangeable only where both decode to the same permitted numeric Input value with the same operation meaning; this is not a universal equivalence assertion for arbitrary APIs.
 
-Names and scalar values are encoded through the ordinary URI query-parameter handling of the selected HTTP stack. This baseline specifies the semantic name-to-parameter mapping; it does not prescribe parameter sorting, a single space encoding, a fixed percent-escape set, hexadecimal letter case, or a canonical byte string. Parameter order has no semantic preference. Any serialization convention needed by the receiving API is an HTTP mapping or deployment agreement, not an additional Core grammar rule.
+The baseline permits multiple wire-equivalent query serializations. Here, wire equivalence means that parameter decoding and typed Input interpretation produce the same Input names and values, preserve existing locator parameters, and do not change the operation meaning. It does not require byte-identical requests, parameter sorting, a single space encoding, a fixed percent-escape set, or hexadecimal letter case. Parameter order expresses no preference.
 
-An existing query in the resolved operation URI remains locator data. Mapping present Inputs into that query follows the selected HTTP query convention; no Inputs means no Input parameters are added. If an existing query name collides with an Input name, replacement, repetition, or rejection behavior must be specified by that mapping agreement. This draft does not choose a universal collision policy; descriptions intended to use the portable scalar baseline should avoid such collisions. Query mapping operates on the query component, never on the fragment.
+Use of an HTTP stack's query encoder alone does not establish wire equivalence. In particular, `+` and `%20` are not universally interchangeable: a receiver may interpret `+` literally. Likewise, a lexical distinction significant to the receiver, including a byte-level signature requirement, is outside the baseline even if another API would ignore it. A Runtime MUST NOT silently choose a receiver-specific convention or treat an undocumented deployment agreement as baseline semantics.
+
+An existing query in the resolved operation URI remains locator data. Present Inputs add parameters without changing the meaning of existing parameters; no Inputs means no Input parameters are added. A name collision between an existing decoded query parameter and a present Input is outside the baseline. A baseline-only Runtime MUST report the required collision-handling feature as `Support = UNSUPPORTED`; it MUST NOT choose replacement, repetition, or silent omission. Query mapping operates on the query component, never on the fragment.
+
+The same support boundary applies when receiver-sensitive numeric spelling or other receiver-specific encoding is required: a baseline-only Runtime MUST report that required mapping feature as `UNSUPPORTED`, making the affected route `UNAVAILABLE` under Section 66. Unknown compatibility or unknown query-decoding semantics produces `Support = UNKNOWN`, not an assumed equivalence or `READY`. These are mapping-support outcomes, not Core validity failures. Evaluation MUST NOT probe the Capability by executing it to establish equivalence.
+
+Additional conventions require separately specified, versioned Mapping Extension semantics explicitly identifiable from the Mapping subtree, using the Extension model in Part III. This baseline introduces no convention selector on `http:operation` and no generic mapping DSL. A conforming baseline-only implementation does not claim support for those additional features. A processor implementing an identified Extension evaluates that Extension's support separately; a document-external agreement alone MUST NOT be promoted to baseline conformance.
 
 Example values:
 
@@ -3482,7 +3488,7 @@ An HTTP Runtime claiming the corresponding baseline mapping feature MUST impleme
 
 | Feature claim | Required behavior |
 |---|---|
-| HTTP GET scalar request mapping | `string`, `number`, `integer`, and `boolean` Inputs mapped to query parameters |
+| HTTP GET scalar request mapping | `string`, `number`, `integer`, and `boolean` Inputs mapped to query parameters within Section 74.2's wire-equivalence and no-collision boundary |
 | HTTP JSON object request mapping | `POST`, `PUT`, and `PATCH` Inputs mapped to one JSON object |
 | HTTP JSON Result mapping | top-level JSON object keyed by Output name, including for one Output |
 | HTTP status classification | every `2xx` is HTTP-level success; non-`2xx` is Interface-level non-success |
@@ -3490,7 +3496,7 @@ An HTTP Runtime claiming the corresponding baseline mapping feature MUST impleme
 | HTTP response media-type matching | exact baseline type/subtype comparison and parameter handling under Section 75.2; no sniffing fallback |
 | HTTP no-Result response | ignore body for semantic interpretation on valid `2xx`; no invented Outputs |
 
-An implementation MUST NOT claim a mapping feature when it uses an incompatible scalar shortcut, changes the semantic Input names or types during query mapping, uses a generic header DSL as though it were the baseline, or infers semantic errors from HTTP status. HTTP baseline conformance does not require byte-identical query serialization; deployments needing a particular wire convention identify that convention separately.
+An implementation MUST NOT claim a mapping feature when it uses an incompatible scalar shortcut, changes the semantic Input names or types during query mapping, uses a generic header DSL as though it were the baseline, or infers semantic errors from HTTP status. HTTP baseline conformance permits wire-equivalent query serialization under Section 74.2, not arbitrary receiver-dependent encodings. A baseline-only Runtime MUST report required receiver-specific lexical conventions or query-name collision handling as `UNSUPPORTED`, and unknown compatibility as `UNKNOWN`. Additional versioned Mapping Extension semantics must be explicitly identifiable from the Mapping subtree; an implicit deployment agreement does not establish baseline conformance.
 
 An HTTP Extension Processor is not required to implement every valid HTTP method. For a syntactically valid but unimplemented method or mapping feature it MUST report `UNSUPPORTED`, not declare the AR-XML Core document invalid.
 
