@@ -4454,7 +4454,187 @@ Exposing or traversing any of these views is observational. It does not invoke a
 
 # Appendix B. Cardinality Table
 
-_To be specified in a later staged update._
+This appendix is an informative consolidated index of cardinalities defined by the normative body. It introduces no new elements, attributes, or occurrence rules. If a row conflicts with the applicable normative section, the normative section takes precedence.
+
+## B.1 Notation
+
+| Notation | Meaning |
+|---|---|
+| `1` | Exactly one; required |
+| `0..1` | Zero or one; optional singleton |
+| `0..*` | Zero or more |
+| `1..*` | One or more |
+| `exactly 1 when present` | The owner or wrapper is optional, but its required content count is one when the owner exists |
+
+The **XML occurrence** columns count direct XML children or attributes in the stated parent. The **AR-DOM cardinality** columns count information-model items after successful Core parsing and validation.
+
+Collection wrappers are optional singletons even when their item collections have cardinality `0..*`. An absent wrapper and a present empty wrapper therefore expose the same empty Core collection, subject to any preservation requirements for the serializer's claimed mode.
+
+## B.2 Document Root and Entity Children
+
+| Parent | XML name | Kind | XML occurrence | AR-DOM item | AR-DOM cardinality | Normative note |
+|---|---|---|---:|---|---:|---|
+| XML document | `ar-entity` | Core element | `1` | `AREntity` | `1` | Sole document element; no Core wrapper is permitted |
+| `ar-entity` | `version` | unqualified attribute | `1` | document version | `1` | Exactly `0.1-draft5` |
+| `ar-entity` | `category` | Core element | `0..1` | Category | `0..1` | Non-empty character value |
+| `ar-entity` | `identifiers` | Core container | `0..1` | Identifiers collection | `0..*` | Container may be empty |
+| `ar-entity` | `properties` | Core container and Extension Slot | `0..1` | Properties and Property Extensions | `0..*` | Core and foreign items may be interleaved |
+| `ar-entity` | `subjects` | Core container | `0..1` | Subjects collection | `0..*` | Container may be empty |
+| `ar-entity` | `profiles` | Core container | `0..1` | ProfileClaims collection | `0..*` | Container may be empty |
+| `ar-entity` | `interfaces` | Core container | `0..1` | Interfaces collection | `0..*` | Container may be empty |
+| `ar-entity` | `capabilities` | Core container | `0..1` | Capabilities collection | `0..*` | Container may be empty |
+
+No foreign element is permitted directly under `ar-entity`. No Entity child listed above is required, so the empty `ar-entity` form is valid.
+
+## B.3 Entity Collection Items
+
+| XML parent | XML item | XML occurrence | Required Core information | Optional Core information | Item constraints |
+|---|---|---:|---|---|---|
+| `identifiers` | `identifier` | `0..*` | `type`, `value` | `subject-ref` | Repeated `type` allowed; `subject-ref` targets a Subject |
+| `properties` | `property` | `0..*` | `type`, `value` | `unit` | Repeated `type` allowed |
+| `properties` | foreign Property root | `0..*` | foreign expanded name and subtree | Extension-defined | Each direct foreign child is one Property Extension item |
+| `subjects` | `subject` | `0..*` | `id` | `type` | `id` unique within Subjects |
+| `profiles` | `conforms-to` | `0..*` | `href` | none | `href` is an exact-versioned absolute Profile identifier |
+| `interfaces` | `interface` | `0..*` | `id`; Attachment or Realization | Attachment, Realization, Requirements | `id` unique within Interfaces |
+| `capabilities` | `capability` | `0..*` | `id`, `type` | `subject-ref`, Requirements, Invocation, InterfaceUses | `id` unique within Capabilities |
+
+`Identifier.subjectRef` and `Capability.subjectRef` each have AR-DOM cardinality `0..1`. When absent, the described Entity itself is the subject; no implicit Subject item is created.
+
+## B.4 Capability, Invocation, and Result
+
+| XML parent | XML child or attribute | Kind | XML occurrence | AR-DOM cardinality | Notes |
+|---|---|---|---:|---:|---|
+| `capability` | `id` | attribute | `1` | `1` | Non-empty local ID |
+| `capability` | `type` | attribute | `1` | `1` | Exact-versioned absolute Capability Contract identifier |
+| `capability` | `subject-ref` | attribute | `0..1` | `0..1` | Targets a local Subject |
+| `capability` | `requirements` | container | `0..1` | Requirements `0..*` | May be empty |
+| `capability` | `invocation` | element | `0..1` | `0..1` | May be empty |
+| `capability` | `interface-uses` | container | `0..1` | InterfaceUses `0..*` | May be empty |
+| `invocation` | `inputs` | container | `0..1` | Inputs `0..*` | May be empty |
+| `invocation` | `result` | element | `0..1` | `0..1` | May be empty |
+| `inputs` | `input` | item | `0..*` | `0..*` | `name` unique within this Invocation |
+| `result` | `outputs` | container | `0..1` | Outputs `0..*` | May be empty |
+| `result` | `representations` | container | `0..1` | Representations `0..*` | May be empty |
+| `outputs` | `output` | item | `0..*` | `0..*` | `name` unique within this Result |
+| `representations` | `representation` | item | `0..*` | `0..*` | Order does not express preference |
+| `interface-uses` | `interface-use` | item | `0..*` | `0..*` | Duplicate `ref` values are allowed |
+
+The following states are all structurally distinguishable and valid unless a resolved Contract produces a projection conflict:
+
+```text
+Capability without Invocation
+Capability with empty Invocation
+Invocation without Result
+Invocation with empty Result
+Capability without InterfaceUse
+Capability with an empty interface-uses container
+```
+
+Draft 5 defines no Core `errors` child under Result.
+
+## B.5 Input, Output, and Representation Fields
+
+| Owner | Core field | XML form | Cardinality | Default or constraint |
+|---|---|---|---:|---|
+| Input | `name` | attribute | `1` | Non-empty; unique among sibling Inputs |
+| Input | `type` | attribute | `1` | One Core structural data type |
+| Input | `required` | attribute | `0..1` | Defaults to `false`; lexical value `true` or `false` |
+| Input | `format` | attribute | `0..1` | Non-empty when present |
+| Input | `unit` | attribute | `0..1` | Non-empty when present |
+| Input | Constraints | `constraints` wrapper | `0..1` | Wrapper contains `1..*` foreign constraint roots |
+| Output | `name` | attribute | `1` | Non-empty; unique among sibling Outputs |
+| Output | `type` | attribute | `1` | One Core structural data type |
+| Output | `format` | attribute | `0..1` | Non-empty when present |
+| Output | `unit` | attribute | `0..1` | Non-empty when present |
+| Output | Constraints | `constraints` wrapper | `0..1` | Wrapper contains `1..*` foreign constraint roots |
+| Representation | `mediaType` | `media-type` attribute | `1` | Non-empty IANA media type |
+
+Input and Output have no Core value child. Runtime Input values and returned Output values belong to invocation state, not AR-DOM description cardinality.
+
+## B.6 Interface and InterfaceUse
+
+| XML parent | XML child or attribute | Kind | XML occurrence | Content cardinality | Notes |
+|---|---|---|---:|---:|---|
+| `interface` | `id` | attribute | `1` | `1` | Non-empty and unique within Interfaces |
+| `interface` | `attachment` | wrapper | `0..1` | exactly `1` foreign root when present | Attachment Extension Slot |
+| `interface` | `realization` | wrapper | `0..1` | exactly `1` foreign root when present | Realization Extension Slot |
+| `interface` | `requirements` | container | `0..1` | `require` `0..*` | May be empty |
+| `interface-use` | `ref` | attribute | `1` | `1` | Targets a local Interface |
+| `interface-use` | `mapping` | wrapper | `0..1` | exactly `1` foreign root when present | Mapping Extension Slot |
+
+The Interface conditional cardinality is:
+
+```text
+count(attachment) + count(realization) >= 1
+```
+
+Because each is individually `0..1`, an Interface has Attachment only, Realization only, or both. An Interface with neither is invalid even when it contains Requirements.
+
+An Interface may be unreferenced by every Capability. Conversely, an InterfaceUse is always owned by one Capability and references one Interface in the same document.
+
+## B.7 Requirements and Extension Slots
+
+| Slot or owner | Core envelope occurrence | Foreign semantic-root count | Direct character data | Core note |
+|---|---:|---:|---|---|
+| Property slot in `properties` | container `0..1` | `0..*` | whitespace only outside Core Property values | Foreign roots coexist with Core `property` items |
+| `require` | item `0..*` in its Requirements container | `0..1` | whitespace only | `type` attribute required |
+| `attachment` | wrapper `0..1` per Interface | exactly `1` | whitespace only | Wrapper invalid when empty |
+| `realization` | wrapper `0..1` per Interface | exactly `1` | whitespace only | Wrapper invalid when empty |
+| `mapping` | wrapper `0..1` per InterfaceUse | exactly `1` | whitespace only | Wrapper invalid when empty |
+| `constraints` | wrapper `0..1` per Input or Output | `1..*` | whitespace only | Multiple independent constraint roots allowed |
+
+The grammar inside each foreign semantic root is not cardinality-constrained by Core. It is validated by the applicable Extension specification. Foreign elements outside these slots and foreign attributes on Core elements are invalid in Draft 5.
+
+Each `require` has exactly one non-empty `type` attribute and no Core `kind` or `scope` attribute. Requirement scope comes from its owner:
+
+| Owner | Requirement scope |
+|---|---|
+| Capability `requirements` | Capability prerequisite |
+| Interface `requirements` | Interface prerequisite |
+
+## B.8 Local Uniqueness and Reference Constraints
+
+| Scope | Unique value | Cardinality consequence |
+|---|---|---|
+| Subjects collection | `subject/@id` | At most one Subject target for a given Subject ID |
+| Interfaces collection | `interface/@id` | At most one Interface target for a given Interface ID |
+| Capabilities collection | `capability/@id` | At most one Capability for a given Capability ID |
+| One Invocation | `input/@name` | At most one Input with a given name |
+| One Result | `output/@name` | At most one Output with a given name |
+
+Typed local-ID spaces are independent. The same lexical value may occur once as a Subject ID, once as an Interface ID, and once as a Capability ID.
+
+| Reference field | Cardinality | Required target | Dangling result |
+|---|---:|---|---|
+| `Identifier.subjectRef` | `0..1` | one Subject in the same document | Core-invalid |
+| `Capability.subjectRef` | `0..1` | one Subject in the same document | Core-invalid |
+| `InterfaceUse.ref` | `1` | one Interface in the same document | Core-invalid |
+
+Forward references are permitted. Reference integrity is checked after the complete document is available.
+
+## B.9 Standard HTTP Extension Cardinalities
+
+| Extension root | Permitted Core slot | Root occurrence in slot | Required attributes | Optional Core-baseline attributes or children |
+|---|---|---:|---|---|
+| `http:api` | Realization | exactly `1` semantic root | `base` | none |
+| `http:operation` | Mapping | exactly `1` semantic root | `method`, `path` | none |
+
+An Interface may have only one Core Realization wrapper, and that wrapper has one semantic root. An Entity needing distinct HTTP realization contexts declares distinct Interfaces. Multiple Capability InterfaceUses may reference the same HTTP Interface, and one Capability may repeat the same Interface `ref` in distinct InterfaceUses.
+
+The HTTP Extension cardinalities do not restrict HTTP method syntax to `GET` and `POST`. Method implementation support is a Runtime property, not a document occurrence constraint.
+
+## B.10 Cardinality Is Not Preference or Availability
+
+Cardinality describes presence and multiplicity only. It does not assign priority, preference, fallback, recency, truth, Runtime support, or Availability. In particular:
+
+- multiple Identifiers or Properties of the same `type` are not ordered alternatives;
+- multiple Representations are not ranked by document order;
+- multiple Interfaces and InterfaceUses are not implicit fallback order;
+- a present Requirement is not necessarily satisfied;
+- a present Realization or Mapping is not necessarily supported; and
+- a present Capability is not necessarily invocable or available.
+
+These questions are resolved through the semantic, validation, and Runtime evaluation rules in the normative body, not by changing the cardinalities summarized here.
 
 # Appendix C. Validation Error Categories
 
