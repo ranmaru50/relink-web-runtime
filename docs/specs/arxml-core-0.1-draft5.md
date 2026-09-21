@@ -1254,11 +1254,11 @@ Draft 5 Core defines the following Extension Slots:
 | Attachment | direct child of `attachment` | exactly 1 | Physical, spatial, or contact-oriented access boundary |
 | Realization | direct child of `realization` | exactly 1 | Concrete interaction mechanism |
 | Mapping | direct child of `mapping` | exactly 1 | Capability-specific use of an Interface |
-| Constraint area | direct child of `constraints` | 1..* | Extension-defined constraints on an Input or Output |
+| Constraint area | direct child of `constraints` | 0..* | Extension-defined constraints on an Input or Output |
 
 `attachment`, `realization`, and `mapping` are explicit Core wrappers. If a wrapper is present but contains no foreign semantic root, it is invalid. If it contains more than one foreign semantic root, it is invalid.
 
-`constraints` is also an explicit Core wrapper. If present, it MUST contain at least one foreign namespaced constraint element. Multiple constraint roots are allowed because each root may state an independently evaluable constraint.
+`constraints` is also an explicit optional Core wrapper. When present, it MAY contain zero or more foreign namespaced constraint elements. Therefore an empty `<constraints/>` wrapper is Core-valid and represents the same empty constraint collection in AR-DOM as an absent wrapper; a serializer MAY preserve wrapper presence for round-tripping, while a canonical serializer SHOULD omit an empty wrapper. Multiple constraint roots are allowed because each root may state an independently evaluable constraint. This `0..*` content rule is specific to the Constraint area and does not relax the exactly-one rules for Attachment, Realization, or Mapping.
 
 The `properties` container is both the collection container for Core `property` elements and the Property Extension Slot. It MAY contain Core `property` children and foreign namespaced property roots in any order. Each foreign child is one Extension-defined property item; it does not become a Core `Property` and is not assigned implicit Core `type`, `value`, or `unit` fields.
 
@@ -4575,7 +4575,7 @@ AR-DOM preserves foreign Extension subtrees at the Core-defined slots:
 | Attachment | `Interface` | exactly one when wrapper is present |
 | Realization | `Interface` | exactly one when wrapper is present |
 | Mapping | `InterfaceUse` | exactly one when wrapper is present |
-| Constraint area | `Input` or `Output` | one or more when wrapper is present |
+| Constraint area | `Input` or `Output` | zero or more; wrapper may be empty |
 
 A preserved foreign root includes its expanded name and sufficient subtree information for the processor's claimed inspection or serialization mode. Namespace prefix spelling is not semantic identity. Attributes and descendants of the foreign root remain Extension-owned data. Foreign metadata attributes attached to Core elements are preserved separately with their owning element and expanded name under Section 32.3; they are not Core model fields.
 
@@ -4739,12 +4739,12 @@ Draft 5 defines no Core `errors` child under Result.
 | Input | `required` | attribute | `0..1` | Defaults to `true`; lexical value `true` or `false` |
 | Input | `format` | attribute | `0..1` | Non-empty when present |
 | Input | `unit` | attribute | `0..1` | Non-empty when present |
-| Input | Constraints | `constraints` wrapper | `0..1` | Wrapper contains `1..*` foreign constraint roots |
+| Input | Constraints | `constraints` wrapper | `0..1` | Wrapper contains `0..*` foreign constraint roots; empty wrapper is valid |
 | Output | `name` | attribute | `1` | Non-empty; unique among sibling Outputs |
 | Output | `type` | attribute | `1` | One Core structural data type |
 | Output | `format` | attribute | `0..1` | Non-empty when present |
 | Output | `unit` | attribute | `0..1` | Non-empty when present |
-| Output | Constraints | `constraints` wrapper | `0..1` | Wrapper contains `1..*` foreign constraint roots |
+| Output | Constraints | `constraints` wrapper | `0..1` | Wrapper contains `0..*` foreign constraint roots; empty wrapper is valid |
 | Representation | `mediaType` | `media-type` attribute | `1` | Non-empty RFC 9110 media-type syntax; no registry lookup |
 
 Input and Output have no Core value child. Runtime Input values and returned Output values belong to invocation state, not AR-DOM description cardinality.
@@ -4779,7 +4779,7 @@ An Interface may be unreferenced by every Capability. Conversely, an InterfaceUs
 | `attachment` | wrapper `0..1` per Interface | exactly `1` | whitespace only | Wrapper invalid when empty |
 | `realization` | wrapper `0..1` per Interface | exactly `1` | whitespace only | Wrapper invalid when empty |
 | `mapping` | wrapper `0..1` per InterfaceUse | exactly `1` | whitespace only | Wrapper invalid when empty |
-| `constraints` | wrapper `0..1` per Input or Output | `1..*` | whitespace only | Multiple independent constraint roots allowed |
+| `constraints` | wrapper `0..1` per Input or Output | `0..*` | whitespace only | Empty wrapper is valid; multiple independent constraint roots allowed |
 
 The grammar inside each foreign semantic root is not cardinality-constrained by Core. It is validated by the applicable Extension specification. Foreign child elements outside these slots are invalid. Foreign namespaced metadata attributes on Core elements are permitted under Section 32.3 and do not count toward child cardinalities.
 
