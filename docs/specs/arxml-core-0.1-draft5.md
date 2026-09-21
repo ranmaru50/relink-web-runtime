@@ -2873,7 +2873,296 @@ An invocation result does not rewrite the description. Applications MAY maintain
 
 # Part IX — Standard Extensions / HTTP
 
-Sections 71–75 are reserved for the staged HTTP Extension draft.
+# 71. HTTP Extension Scope
+
+HTTP is the first Standard Interface Extension for AR-XML Draft 5. It is not part of the Core Capability semantic model.
+
+The HTTP Extension namespace is:
+
+```text
+https://relink.dev/ns/arxml/http/0.1
+```
+
+This Part defines two foreign semantic roots:
+
+```text
+http:api
+→ Interface Realization
+
+http:operation
+→ InterfaceUse Mapping
+```
+
+`http:api` describes HTTP configuration shared by an Interface. `http:operation` describes how one Capability uses that Interface.
+
+HTTP elements MUST NOT appear directly in a Capability Contract. An HTTP method, path, URL, header, status code, or JSON mapping is implementation routing information, not normative Capability meaning.
+
+The HTTP Extension does not redefine Capability Inputs, Outputs, Requirements, or constraints. It maps an already-defined semantic Invocation to HTTP.
+
+This baseline defines deterministic behavior for common request and JSON Result mappings. It does not define:
+
+- an arbitrary header mapping DSL;
+- cookies or credential storage;
+- OAuth token acquisition;
+- HTTP status-to-semantic-error mapping;
+- multipart bodies;
+- streaming, subscription, or event semantics;
+- arbitrary object, array, or binary GET query serialization; or
+- every possible HTTP content negotiation strategy.
+
+An HTTP method permitted by this Extension is not necessarily implemented by a Runtime. Method and feature support are evaluated through the Part VIII `Support` state.
+
+# 72. HTTP Interface Realization
+
+An HTTP Interface uses `http:api` as the single semantic root of `realization`:
+
+```xml
+<interface
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  id="web-api">
+
+  <realization>
+    <http:api base="./api/" />
+  </realization>
+</interface>
+```
+
+`http:api` MUST have the unqualified `base` attribute. `base` is a non-empty absolute or relative URI reference identifying the shared HTTP base. It MUST NOT contain a query or fragment component.
+
+For the baseline concatenation model, `base` MUST end with `/`. A relative `base` is resolved against the AR-XML document retrieval URL using standard URI reference resolution. The Host Application document URL MUST NOT be used as the base unless it is also the AR-XML retrieval URL.
+
+Example:
+
+```text
+AR-XML retrieval URL:
+https://example.org/entities/lab/ar.xml
+
+http:api base:
+./api/
+
+resolved HTTP base:
+https://example.org/entities/lab/api/
+```
+
+If the AR-XML retrieval location is unavailable and `base` is relative, the Runtime cannot construct the target URL. The document may remain structurally valid, but the HTTP route cannot become `READY` until a base is supplied by explicit application context.
+
+The baseline defines no other `http:api` attributes or child elements. An HTTP Extension processor MUST reject unknown unqualified attributes or HTTP-namespace children under `http:api` unless a later compatible Extension revision defines them.
+
+Authentication is not encoded as an `http:api` secret or credential attribute. Shared authentication prerequisites belong in Interface Requirements; credentials remain under Runtime control.
+
+Cross-origin permission, DNS, TLS, CORS, proxy behavior, origin allowlists, and network access are Runtime or host-environment policy. An absolute or resolved URL does not guarantee that a request is allowed.
+
+# 73. HTTP Operation Mapping
+
+An HTTP Capability route uses `http:operation` as the single semantic root of `mapping`:
+
+```xml
+<interface-use
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  ref="web-api">
+
+  <mapping>
+    <http:operation
+      method="POST"
+      path="light/state" />
+  </mapping>
+</interface-use>
+```
+
+`http:operation` MUST have the unqualified attributes `method` and `path`.
+
+`method` MUST be a non-empty valid HTTP method token. The Extension does not limit methods to `GET` and `POST`. Standard methods SHOULD use their registered uppercase spelling. Method tokens are case-sensitive; a processor MUST NOT uppercase an unknown method and assume equivalence.
+
+`path` MUST be a non-empty relative URI reference. In this baseline it MUST NOT begin with `/` and MUST NOT contain a query or fragment component. These restrictions make the target construction exactly the resolved `base` plus the relative `path` under standard URI resolution.
+
+Example:
+
+```text
+resolved base:
+https://example.org/entities/lab/api/
+
+operation path:
+light/state
+
+request URL before Input query mapping:
+https://example.org/entities/lab/api/light/state
+```
+
+The referenced Interface MUST have an `http:api` Realization. An `http:operation` Mapping applied to an Interface with a different or absent Realization is invalid under this HTTP Extension.
+
+The baseline defines no other `http:operation` attributes or child elements. Authentication and authorization are Requirements, not Mapping attributes. Static or dynamic generic header mappings are outside this baseline.
+
+The same Capability MAY contain multiple InterfaceUses with HTTP operations, including multiple operations on the same HTTP Interface. Each is evaluated as a separate route; document order does not express preference.
+
+# 74. HTTP Request Mapping
+
+## 74.1 Common Rules
+
+Before serialization, the Runtime MUST validate supplied values against the Capability's effective Input semantics. A missing required Input or a value that fails known type or constraint validation MUST prevent the request.
+
+Input names are semantic keys. The baseline uses them directly as JSON object member names or GET query parameter names. It defines no renaming rule.
+
+An absent optional Input is omitted. Core defines no `null` shortcut; a JSON `null` value is not accepted for a Core Input unless an applicable semantic definition explicitly permits and maps it.
+
+Credentials, authorization headers, cookies, and ambient authentication are supplied by the Runtime or host environment according to policy. They MUST NOT be read from secrets embedded in AR-XML.
+
+## 74.2 GET Query Mapping
+
+For `method="GET"`, the baseline sends no request body. Present scalar Inputs map to query parameters:
+
+```text
+query parameter name  = Input name
+query parameter value = scalar lexical form
+```
+
+Supported GET baseline Input types are:
+
+```text
+string
+number
+integer
+boolean
+```
+
+Lexical forms are:
+
+- `string`: the string value;
+- `number`: a finite JSON-compatible decimal number, excluding `NaN` and infinities;
+- `integer`: a base-10 integer lexical form; and
+- `boolean`: exactly `true` or `false`.
+
+Names and values MUST be encoded using standard URL query percent-encoding. A canonical serializer sorts parameters by Input name using code-point order; parameter order has no semantic meaning.
+
+Example values:
+
+```text
+q = relink
+page = 2
+active = true
+```
+
+produce a query equivalent to:
+
+```text
+?active=true&page=2&q=relink
+```
+
+GET serialization for `object`, `array`, or `binary` is outside the baseline. If such an Input is present or required for a GET operation, a baseline-only Runtime reports the necessary mapping feature as `UNSUPPORTED`; it MUST NOT invent JSON-in-query, repeated-key, base64, or other serialization.
+
+## 74.3 JSON Object Request Mapping
+
+For `POST`, `PUT`, and `PATCH`, the baseline maps present Inputs to one JSON object:
+
+```text
+JSON member name  = Input name
+JSON member value = Input value represented by its Core data type
+```
+
+Example Inputs:
+
+```text
+on = true
+level = 0.75
+```
+
+produce:
+
+```json
+{
+  "on": true,
+  "level": 0.75
+}
+```
+
+The request `Content-Type` is `application/json`. JSON member order has no semantic significance. An Invocation with no present Inputs maps to `{}`.
+
+Core `string`, `number`, `integer`, `boolean`, `object`, and `array` values map to the corresponding JSON value kinds. Core `binary` has no baseline JSON request mapping and requires an additional mapping specification.
+
+Methods other than `GET`, `POST`, `PUT`, and `PATCH` are permitted in `http:operation`, but their request Input mapping is not defined by this baseline. A Runtime may support such a method through an additional versioned HTTP mapping specification; otherwise the route is `UNSUPPORTED` when Input serialization is required.
+
+## 74.4 No Generic Header DSL
+
+The baseline MUST NOT interpret Input names as HTTP header names and provides no arbitrary header-expression language. Standard protocol headers generated by the Runtime, including `Content-Type` and representation negotiation headers, are not semantic Input remapping.
+
+# 75. HTTP Response and Result Mapping
+
+## 75.1 HTTP-level Outcome
+
+Any HTTP status in the `2xx` class is an HTTP-level success. A non-`2xx` status is an HTTP Interface-level non-success in the baseline.
+
+HTTP status is not a Capability semantic error identifier:
+
+```text
+HTTP status
+≠ Capability semantic result
+≠ Capability semantic error
+```
+
+The baseline MUST NOT infer a domain error such as `control-denied`, `insufficient-funds`, or `emergency-stop-active` solely from an HTTP status. A separate versioned semantic error mapping specification is required.
+
+Network failure, timeout, TLS failure, CORS rejection, and malformed HTTP are transport or Interface failures, not Core validation failures.
+
+## 75.2 Representation Selection
+
+Representation selection is conceptually based on:
+
+```text
+caller preference
+∩ Runtime support
+∩ declared Entity Representations
+∩ applicable HTTP support
+```
+
+Representation document order MUST NOT express preference. A Runtime MAY generate standard HTTP `Accept` negotiation from an explicit selection policy; this is not a generic header mapping DSL.
+
+The baseline JSON Result mapping requires a declared `application/json` Representation when Result Outputs are present.
+
+The received `Content-Type` MUST be compatible with the selected declared Representation. An absent or incompatible required media type is a Representation failure unless explicit HTTP policy safely determines compatibility.
+
+## 75.3 Baseline JSON Result
+
+A JSON Result body MUST be a top-level JSON object. Each declared Output maps by exact name to one object member:
+
+```text
+JSON member name  = Output name
+JSON member value = Output value
+```
+
+For a single Output named `temperature`, the baseline response is still an object:
+
+```json
+{
+  "temperature": 21.4
+}
+```
+
+The scalar shortcut below is not a valid baseline JSON Result for that declaration:
+
+```json
+21.4
+```
+
+Every declared Output MUST have a corresponding object member. Each member value MUST satisfy the Output's Core data type and all understood semantic constraints.
+
+Unknown JSON object members MAY be ignored unless the Capability Contract, Profile, or applicable Extension deterministically prohibits them. Ignoring an unknown member does not add it to AR-DOM or the semantic Result.
+
+JSON member order has no semantic significance. Multiple Outputs use the same name-to-member rule.
+
+## 75.4 Empty Results and HTTP 204
+
+`204 No Content` is an HTTP-level success. It is compatible with an absent Result, an empty Result, or a Result declaring no Outputs.
+
+If one or more Outputs are declared, a `204` response or an otherwise absent body is a Result or Representation mapping failure, not successful semantic Output production.
+
+When no Outputs are declared, a Runtime MUST NOT invent an Output from a response body.
+
+## 75.5 Authentication and Authorization
+
+Shared HTTP authentication prerequisites SHOULD be declared as Interface Requirements. Capability-specific authorization prerequisites MAY be declared as Capability Requirements.
+
+The HTTP Extension does not issue, store, refresh, or forward credentials outside Runtime policy. `READY` does not guarantee that a server will authenticate or authorize the request.
 
 # Part X — Conformance Classes
 
