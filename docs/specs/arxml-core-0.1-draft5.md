@@ -638,7 +638,7 @@ array
 
 These types describe data shape, not domain meaning. A semantic name, Capability Contract, unit, format, or Extension supplies domain semantics. A processor MUST NOT infer, for example, that a `number` is a temperature or that a `string` uses `text/plain` representation.
 
-The Core `number` value space consists of finite mathematical decimal values. `integer` is the integral subset of that value space. `NaN`, positive and negative infinity, and implementation-specific floating-point sentinels are invalid Core values. Core does not impose a machine word size, IEEE-754 precision, or other implementation limit on these value spaces. An implementation MUST NOT silently round, truncate, or otherwise change a declared numeric value. If a Runtime cannot preserve the exact value at a selected Interface or Representation, it MUST report the mapping or support limitation rather than alter the value.
+`number` denotes a numeric scalar shape and `integer` denotes an integral numeric scalar shape. These primitive names do not prescribe an arbitrary-precision decimal value model, a machine word size, IEEE-754 independence, or a universal range and precision policy. Numeric ranges, precision, exceptional-value handling, and wire representations belong to applicable Capability Contracts, Profiles, datatype Extensions, and transport mappings. Runtime numeric limitations remain implementation support information; this Core vocabulary alone does not require arbitrary-precision arithmetic or exact-decimal storage.
 
 ## 16.2 Input
 
@@ -3006,7 +3006,7 @@ An HTTP Interface uses `http:api` as the single semantic root of `realization`:
 
 For the baseline `base + path` model, URI syntax and reference resolution MUST follow [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html), using the strict reference-resolution algorithm in Section 5.2. A present relative or empty `base` is resolved against the final AR-XML document retrieval URI; an omitted `base` uses that final URI directly. This retrieval URI MUST be absolute, and the resulting base context MUST use `http` or `https` with a non-empty host. For a redirected document retrieval, use the final retrieval URI, not the original request URI. The Host Application document URL MUST NOT be substituted for it.
 
-A trailing `/` is not required. It has the ordinary RFC 3986 path-merging effect: a directory-style base ends in `/`, whereas the last segment of a file-style base is replaced when resolving a relative operation path. A `base` URI reference MAY contain a query or fragment. Because the baseline operation `path` is non-empty and contains neither component, operation resolution replaces the base query and does not inherit its fragment; no base query parameters are merged into Invocation Inputs.
+A trailing `/` is not required. It has the ordinary RFC 3986 path-merging effect: a directory-style base ends in `/`, whereas the last segment of a file-style base is replaced when resolving a relative operation path. Both `base` and operation `path` are URI references that may contain a query or fragment. RFC 3986 determines query inheritance or replacement for each reference, including empty and query-only references. HTTP request-target construction excludes the resolved fragment; a fragment is not an Invocation Input.
 
 Validate URI syntax before resolution. Raw backslashes, raw non-ASCII characters, spaces, controls, and malformed percent escapes are invalid in these URI inputs; browser error recovery MUST NOT repair them into accepted baseline references. An internationalized name or non-ASCII path must be provided in an appropriate ASCII URI form before baseline processing. Apply RFC 3986 dot-segment removal to literal `.` and `..` segments without percent-decoding beforehand; `%2e` and `%2E` are not literal dot segments in this algorithm. These rules govern locators only and MUST NOT normalize Contract or Profile identity.
 
@@ -3025,7 +3025,7 @@ resolved HTTP base:
 https://example.org/entities/lab/api/
 ```
 
-If the final AR-XML retrieval URI is unavailable and `base` is omitted, empty, or relative, the Runtime cannot construct the target URL. The document may remain structurally valid, but the HTTP route is `UNAVAILABLE` for that evaluation because the required resolution context is absent. The HTTP baseline does not define an application-supplied replacement base or a precedence rule for one; an Application may reload or re-evaluate the resource with a known retrieval URL under its own policy. A non-`http`/`https` resolved scheme is an HTTP Extension validation failure and cannot produce a `READY` route.
+If an operation needs a base context and the final AR-XML retrieval URI is unavailable while `base` is omitted, empty, or relative, the Runtime cannot construct its target URL. The document may remain structurally valid, but that HTTP route is `UNAVAILABLE` for the evaluation because required resolution context is absent. An absolute operation URI can be resolved independently of an unavailable base context; its target still has to satisfy the HTTP scheme and host rules. The HTTP baseline does not define an application-supplied replacement base or a precedence rule for one; an Application may reload or re-evaluate the resource with a known retrieval URL under its own policy. A non-`http`/`https` resolved scheme is an HTTP Extension validation failure and cannot produce a `READY` route.
 
 A realization with no explicit base is valid:
 
@@ -3074,7 +3074,7 @@ An HTTP Capability route uses `http:operation` as the single semantic root of `m
 
 `method` MUST be a non-empty valid HTTP method token. The Extension does not limit methods to `GET` and `POST`. Standard methods SHOULD use their registered uppercase spelling. Method tokens are case-sensitive; a processor MUST NOT uppercase an unknown method and assume equivalence.
 
-`path` MUST be a non-empty relative reference with no scheme or authority. In this baseline it MUST NOT begin with `/` and MUST NOT contain a query or fragment component. Construct the target by resolving `path` against the resolved `base` using the same strict RFC 3986 Section 5.2 algorithm specified in Section 72. The notation `base + path` denotes that two-stage reference resolution, not raw string concatenation or browser URL repair.
+`path` MUST be present and be a URI-reference under RFC 3986. Its name does not restrict it to the path component of a URI: empty, relative-path, absolute-path, network-path, absolute-URI, query-bearing, and fragment-bearing references are permitted. Construct the target by resolving this reference against the base context using the RFC 3986 Section 5.2 algorithm specified in Section 72; an absolute operation URI does not depend on the base. The resolved HTTP target MUST use `http` or `https` with a non-empty host. Its fragment is excluded from the HTTP request target. The notation `base + path` denotes URI-reference resolution, not raw string concatenation or browser URL repair.
 
 Example:
 
@@ -3088,6 +3088,17 @@ light/state
 request URL before Input query mapping:
 https://example.org/entities/lab/api/light/state
 ```
+
+For base context `https://example.org/api/?mode=read`, these additional reference forms are valid:
+
+| Operation `path` | Resolved URI before Input mapping | HTTP target before Input mapping |
+|---|---|---|
+| `/api/x` | `https://example.org/api/x` | `https://example.org/api/x` |
+| `x?mode=write` | `https://example.org/api/x?mode=write` | `https://example.org/api/x?mode=write` |
+| `?mode=write` | `https://example.org/api/?mode=write` | `https://example.org/api/?mode=write` |
+| Empty string | `https://example.org/api/?mode=read` | `https://example.org/api/?mode=read` |
+| `#result` | `https://example.org/api/?mode=read#result` | `https://example.org/api/?mode=read` |
+| `https://other.example/action` | `https://other.example/action` | `https://other.example/action` |
 
 The referenced Interface MUST have an `http:api` Realization. An `http:operation` Mapping applied to an Interface with a different or absent Realization is invalid under this HTTP Extension.
 
@@ -3128,13 +3139,15 @@ boolean
 Lexical forms are:
 
 - `string`: the string value;
-- `number`: the canonical finite decimal form of the exact mathematical value, excluding `NaN` and infinities;
-- `integer`: the canonical base-10 integer form of the exact integral value; and
+- `number`: a numeric lexical form supported by the selected HTTP query mapping and applicable numeric constraints;
+- `integer`: an integral numeric lexical form under that mapping; and
 - `boolean`: exactly `true` or `false`.
 
-For this baseline, a canonical decimal has an optional leading minus (except for zero), no leading zeroes except zero itself, an optional fractional part with at least one digit, no exponent notation, and no trailing fractional zeroes; zero is written `0`. A value that cannot be written in this form without loss is not serializable by the baseline. Canonical integer form is an optional leading minus followed by `0` or a non-zero digit and digits, with no leading zeroes.
+The Core primitive vocabulary does not choose a canonical numeric spelling, precision, or exponent policy for query values. An HTTP mapping or deployment requiring a particular numeric convention specifies it separately; it does not redefine Core `number` or `integer`.
 
-The canonical query algorithm is deterministic. Sort present parameters by the exact code-point order of their Input names. Convert each name and value to UTF-8, leave only ASCII alphanumeric characters and `*`, `-`, `.`, `_` unescaped, encode U+0020 SPACE as `+`, and percent-encode every other byte using uppercase hexadecimal. Join each encoded name/value pair with `=`, join pairs with `&`, and append the result after `?`. Resolution of the non-empty, query-free operation path removes any base-context query under RFC 3986, so the operation target has no existing query to merge. If no Inputs are present, append neither `?` nor an empty query. Parameter order has no semantic meaning, but this algorithm defines the canonical serialized form for a given Input set.
+Names and scalar values are encoded through the ordinary URI query-parameter handling of the selected HTTP stack. This baseline specifies the semantic name-to-parameter mapping; it does not prescribe parameter sorting, a single space encoding, a fixed percent-escape set, hexadecimal letter case, or a canonical byte string. Parameter order has no semantic preference. Any serialization convention needed by the receiving API is an HTTP mapping or deployment agreement, not an additional Core grammar rule.
+
+An existing query in the resolved operation URI remains locator data. Mapping present Inputs into that query follows the selected HTTP query convention; no Inputs means no Input parameters are added. If an existing query name collides with an Input name, replacement, repetition, or rejection behavior must be specified by that mapping agreement. This draft does not choose a universal collision policy; descriptions intended to use the portable scalar baseline should avoid such collisions. Query mapping operates on the query component, never on the fragment.
 
 Example values:
 
@@ -3179,7 +3192,7 @@ produce:
 
 The request `Content-Type` is `application/json`. JSON member order has no semantic significance. An Invocation with no present Inputs maps to `{}`.
 
-Core `string`, `boolean`, `object`, and `array` values map to the corresponding JSON value kinds. Core `number` and `integer` values MUST map to JSON number syntax while preserving the exact mathematical value. If a Runtime cannot represent or serialize that value exactly, it MUST report the mapping as `UNSUPPORTED` or reject the value under its declared support policy; it MUST NOT round, truncate, or stringify the number. Core `binary` has no baseline JSON request mapping and requires an additional mapping specification.
+Core `string`, `number`, `integer`, `boolean`, `object`, and `array` values map to their corresponding JSON value kinds; an `integer` is represented by a JSON number with integral meaning. JSON serialization obeys JSON syntax, which does not provide `NaN` or infinity tokens. The baseline does not add an arbitrary-precision requirement or universal numeric range, exact-decimal, or rounding policy. Applicable numeric constraints and the Runtime's declared support determine whether a value is usable. Core `binary` has no baseline JSON request mapping and requires an additional mapping specification.
 
 Methods other than `GET`, `POST`, `PUT`, and `PATCH` are permitted in `http:operation`, but their request Input mapping is not defined by this baseline. A Runtime may support such a method through an additional versioned HTTP mapping specification; otherwise the route is `UNSUPPORTED` when Input serialization is required.
 
@@ -3262,7 +3275,7 @@ The scalar shortcut below is not a valid baseline JSON Result for that declarati
 21.4
 ```
 
-Every declared Output MUST have a corresponding object member. Each member value MUST satisfy the Output's Core data type and all understood semantic constraints. For `number` and `integer` Outputs, the decoded JSON number MUST preserve the exact mathematical value; inability to do so is a Result or Representation validation failure or an unsupported numeric feature, and MUST NOT be handled by rounding or truncation.
+Every declared Output MUST have a corresponding object member. Each member value MUST satisfy the Output's Core structural data type and all understood semantic constraints. Numeric decoding follows the selected JSON implementation and applicable numeric constraints; the baseline adds no arbitrary-precision or exact-decimal preservation requirement. A Runtime reports numeric support limitations separately from Core document validity.
 
 Unknown JSON object members MAY be ignored unless the Capability Contract, Profile, or applicable Extension deterministically prohibits them. Ignoring an unknown member does not add it to AR-DOM or the semantic Result.
 
@@ -3473,7 +3486,7 @@ An HTTP Runtime claiming the corresponding baseline mapping feature MUST impleme
 | HTTP response media-type matching | exact baseline type/subtype comparison and parameter handling under Section 75.2; no sniffing fallback |
 | HTTP no-Result response | ignore body for semantic interpretation on valid `2xx`; no invented Outputs |
 
-An implementation MUST NOT claim a mapping feature when it uses an incompatible scalar shortcut, undocumented query encoding, generic header DSL, or implicit semantic-error mapping.
+An implementation MUST NOT claim a mapping feature when it uses an incompatible scalar shortcut, changes the semantic Input names or types during query mapping, uses a generic header DSL as though it were the baseline, or infers semantic errors from HTTP status. HTTP baseline conformance does not require byte-identical query serialization; deployments needing a particular wire convention identify that convention separately.
 
 An HTTP Extension Processor is not required to implement every valid HTTP method. For a syntactically valid but unimplemented method or mapping feature it MUST report `UNSUPPORTED`, not declare the AR-XML Core document invalid.
 
