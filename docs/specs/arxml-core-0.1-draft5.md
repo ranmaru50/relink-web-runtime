@@ -2034,7 +2034,210 @@ UNDETERMINED + UNKNOWN availability
 
 # Part VI — Semantic Identification and Resolution
 
-Sections 50–55 are reserved for the staged Semantic Identification and Resolution draft.
+# 50. Semantic Identifiers
+
+A Semantic Identifier identifies a semantic definition or vocabulary term. It denotes identity; it does not by itself denote a retrieval location, prove ownership, authenticate a publisher, or require network access.
+
+Semantic Identifiers are used for, among other things:
+
+- Capability Contracts;
+- Profiles;
+- Identifier schemes;
+- Property types;
+- Subject types;
+- Requirement types;
+- Extension-defined constraints; and
+- other versioned vocabulary terms.
+
+Capability Contract and Profile identifiers MUST be exact-versioned absolute identifiers. Other semantic vocabularies SHOULD use stable absolute identifiers when cross-document interoperability or registry resolution is required.
+
+A processor MUST compare Semantic Identifiers using the equality rules defined by the applicable identifier scheme. In the absence of such rules, it MUST use exact code-point equality after XML attribute-value processing and MUST NOT invent equivalence through case folding, URI rewriting, percent-decoding, path normalization, redirects, labels, natural-language similarity, or AI inference.
+
+```text
+Semantic Identifier
+≠ Locator
+≠ Canonical Entity Identity
+≠ Credential
+```
+
+An identifier using `https` syntax may be dereferenceable, but dereferenceability remains optional. Failure to fetch that URI does not change the identifier's lexical identity.
+
+Semantic identification also does not establish that the identified definition is trusted or supported by the current Runtime.
+
+# 51. Exact Versioned Identity
+
+An exact-versioned identifier denotes one immutable semantic version. The version syntax is defined by the owning specification or registry; Core does not require Semantic Versioning or a particular path layout.
+
+The following properties are REQUIRED for Capability Contract and Profile identities:
+
+- the identifier is absolute;
+- it denotes one specific semantic version;
+- the identified normative meaning does not change incompatibly while retaining that identifier; and
+- a resolved definition self-identifies with the requested exact identifier.
+
+A moving label such as `latest`, `current`, a mutable branch name, or an unversioned family identifier is not exact-versioned normative identity. Such labels MAY be used for discovery, but discovery MUST yield an exact-versioned identifier before deterministic Contract resolution, Profile resolution, projection validation, or Profile conformance.
+
+An exact identifier is not a claim that the definition bytes can never be republished. If two non-equivalent semantic definitions claim the same exact identifier, they are conflicting definitions under Section 54.
+
+Compatibility metadata between versions does not merge their identities. A processor MUST NOT silently replace one exact identifier with another because it believes the versions are compatible.
+
+The following are distinct operations:
+
+```text
+discover a version
+select an exact identifier
+resolve the exact definition
+validate semantic compatibility
+```
+
+Applications MAY perform discovery and selection according to policy. Core validation and deterministic conformance operate on the resulting exact identity.
+
+# 52. Semantic Registry
+
+A Semantic Registry maps a Semantic Identifier to a semantic definition. It is a conceptual component; this specification does not require one network service, one storage format, or one global authority.
+
+Conceptually:
+
+```text
+resolve(semanticIdentifier, expectedDefinitionKind)
+→ RESOLVED(definition, provenance)
+  | UNRESOLVED(reason, candidates)
+```
+
+`expectedDefinitionKind` distinguishes, for example, a Capability Contract from a Profile or vocabulary definition. A returned definition MUST self-identify with the requested identifier and MUST be of the expected kind.
+
+A registry implementation SHOULD retain provenance sufficient to report:
+
+- which source supplied each candidate;
+- whether a cache was used;
+- which trust or application policy filtered candidates;
+- whether candidates were equivalent or conflicting; and
+- why the final result was resolved or unresolved.
+
+The semantic definition is exposed separately from AR-XML Entity description data. Resolving a Capability Contract MUST NOT insert its fields into the Entity's AR-DOM; resolving a Profile MUST NOT convert a Profile Claim into verified conformance.
+
+Registry lookup MAY be eager, lazy, or application-requested. A Core-valid document remains loadable when semantic definitions are unavailable.
+
+The registry MUST NOT execute a Capability, acquire credentials, authenticate an Entity, make an authorization decision, or select a Runtime route as a side effect of semantic resolution.
+
+# 53. Resolution Sources
+
+A Semantic Registry MAY obtain candidates from one or more sources, including:
+
+```text
+built-in definitions
+local registry
+cache
+application-provided registry
+installed Extension or plugin
+network source
+```
+
+No source category has universal priority defined by Core. Source order, allowlists, trust anchors, offline behavior, freshness, and network policy are Runtime or Application policy.
+
+A conforming policy MUST be deterministic for the same candidate set and policy inputs. It MUST NOT silently use arrival order or unspecified iteration order as semantic precedence.
+
+## 53.1 Built-in and Installed Sources
+
+Built-in definitions and installed Extensions or plugins MAY provide offline resolution. Installation establishes availability to the Runtime, not automatic trust in every document that references the definition.
+
+## 53.2 Local and Application-provided Registries
+
+Local and application-provided registries MAY supply private, deployment-specific, or test definitions. A definition's source does not alter its declared Semantic Identifier.
+
+An application MAY constrain which registries are consulted. Failure to consult an excluded source is policy behavior, not evidence that the semantic identifier is invalid.
+
+## 53.3 Cache
+
+A cache MAY satisfy resolution for an exact-versioned identifier. It SHOULD retain definition provenance and integrity metadata. Cache freshness policy MUST NOT transform a mutable alias into exact identity.
+
+If a cached candidate conflicts with another acceptable candidate for the same exact identifier, Section 54 applies; cache order does not authorize silent first-wins behavior.
+
+## 53.4 Network
+
+Network resolution is OPTIONAL, including when the Semantic Identifier is an HTTP or HTTPS URI. A Runtime MAY prohibit network resolution, restrict origins, require integrity metadata, or operate completely offline.
+
+Network failure, DNS failure, TLS failure, HTTP failure, CORS policy, or refusal to dereference produces an unavailable candidate source. It does not make the AR-XML document structurally invalid and does not prove that the Semantic Identifier is invalid.
+
+Semantic resolution over a network is a definition-retrieval operation. It is not Capability execution.
+
+# 54. Conflicting Definitions
+
+Multiple sources may return candidates for the same exact Semantic Identifier. A registry MUST determine whether the candidates are semantically equivalent under the definition format's specified equivalence or integrity rules.
+
+Byte-identical or normatively equivalent duplicates MAY be treated as one resolved definition while retaining all provenance. Definitions MUST NOT be treated as equivalent merely because titles, descriptions, version labels, selected fields, or examples look similar.
+
+When two acceptable candidates are non-equivalent and claim the same exact identifier:
+
+```text
+silent first-wins
+→ prohibited
+
+silent last-wins
+→ prohibited
+
+merge candidate fields
+→ prohibited
+
+guess intended definition
+→ prohibited
+```
+
+The registry MUST report a conflict and return `UNRESOLVED` unless an explicit trust or application policy deterministically excludes all but one candidate before semantic selection.
+
+Trust policy may filter candidates using configured source identity, signatures, integrity metadata, allowlists, or equivalent external evidence. Resolution itself does not define or imply that policy.
+
+A conflict diagnostic SHOULD identify the Semantic Identifier, expected definition kind, candidate sources, and available integrity or version metadata without exposing credentials or secrets.
+
+Conflicting Capability Contract definitions cause Contract resolution `UNRESOLVED` and projection `UNVALIDATED` unless an independent known Entity projection contradiction already yields `CONFLICT`. Conflicting Profile definitions cause Profile resolution `UNRESOLVED` and Profile conformance `UNDETERMINED`.
+
+A processor MUST NOT ask an AI or human-language heuristic to choose between conflicting normative definitions as part of conformant deterministic resolution.
+
+# 55. Entity Resolver Separation
+
+Entity resolution and semantic-definition resolution are separate responsibilities:
+
+```text
+Entity Resolver
+= entity identity or application reference → AR-XML location
+
+Semantic Registry
+= Semantic Identifier → semantic definition
+```
+
+An Entity Resolver locates an AR-XML representation. It does not:
+
+- resolve Capability Contracts or Profiles;
+- decide which semantic definition is authoritative;
+- authenticate the Entity or document issuer;
+- grant authorization;
+- evaluate Capability availability; or
+- execute a Capability.
+
+A Semantic Registry resolves semantic definitions. It does not locate an Entity's current AR-XML representation unless an application separately configures the same implementation for both roles. Even when one software component implements both roles, their inputs, outputs, state, diagnostics, and security policy MUST remain distinguishable.
+
+An Entity Identifier is not automatically a Locator or Canonical Entity Identity. An application or identity scheme must explicitly determine which identifier is used as Entity Resolver input.
+
+The AR-XML document retrieval URL is Runtime context. It may serve as the base for explicitly defined relative locator resolution, such as the HTTP Extension rules in Part IX, but it does not become an implicit Entity Identifier, Property, or Canonical Entity Identity.
+
+Conceptually, load remains:
+
+```text
+ARRuntime.load()
+= Resolve Entity / Fetch / Parse / Validate / Expose
+```
+
+Semantic definition resolution MAY occur during load, lazily after exposure, or on explicit application request. Whichever timing is chosen, it MUST NOT automatically invoke a Capability.
+
+The following separations always apply:
+
+```text
+Resolution ≠ Trust
+Resolution ≠ Authentication
+Resolution ≠ Authorization
+Resolution ≠ Availability
+Resolution ≠ Execution
+```
 
 # Part VII — Validation and Processing
 
