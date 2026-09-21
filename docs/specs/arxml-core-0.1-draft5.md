@@ -1507,7 +1507,7 @@ A Contract Output definition may normatively define:
 - constraints; and
 - Extension semantics.
 
-Contract Requirements are semantic prerequisites. Contract constraints and Extension semantics MUST define deterministic comparison behavior if they are intended to participate in conformant automated projection validation.
+Contract Requirements are universal normative prerequisites for the Capability. Entity Capability Requirements may add Entity-specific prerequisites under Section 40.5. The effective Capability prerequisites are the conjunction of Contract Requirements and Entity Requirements; this semantic evaluation does not structurally merge Contract data into the Entity document. Contract constraints and Extension semantics MUST define deterministic comparison behavior if they are intended to participate in conformant automated projection validation.
 
 Human-readable explanation MAY accompany a Contract, but prose, labels, examples, or AI interpretation MUST NOT replace machine-readable normative fields required for deterministic interoperability.
 
@@ -1613,7 +1613,7 @@ There is no implicit fallback from missing Entity projection data to Contract da
 
 Projection validation compares an Entity-side Capability with the exact resolved Contract identified by its `type`.
 
-The Entity projection MUST preserve Contract meaning. It MAY narrow Contract semantics only when the Contract explicitly permits that kind of narrowing and the processor understands the applicable comparison rules.
+The Entity projection MUST preserve Contract meaning. Changes to Contract-defined values or constraints MAY narrow them only when the Contract explicitly permits that kind of narrowing and the processor understands the applicable comparison rules. Entity-specific additional Requirements follow Section 40.5: their addition is compatible by default and does not require an advance Contract permission.
 
 ```text
 redefinition
@@ -1624,6 +1624,9 @@ semantic weakening or widening
 
 known Contract-permitted narrowing
 → compatible
+
+Entity-specific additional Requirement without removal, weakening, or contradiction
+→ compatible by default under Section 40.5
 
 unknown comparison semantics
 → UNVALIDATED
@@ -1675,7 +1678,13 @@ Result and Representation remain distinct. If a Contract or its Extension semant
 
 ## 40.5 Requirements
 
-An Entity projection MUST NOT omit, weaken, or contradict a Contract Requirement. Additional Entity Capability Requirements are compatible only when the Contract permits that form of narrowing and their semantics can be deterministically compared.
+An Entity projection MUST NOT omit, weaken, or contradict a Contract Requirement. A known omission, weakening, or contradiction is `CONFLICT`. Entity-specific additional Capability Requirements, including mandatory authentication or authorization prerequisites, are compatible by default; the Contract need not explicitly authorize their addition. Mere presence of an additional prerequisite MUST NOT be classified as a projection conflict or subjected to a Contract opt-in rule.
+
+Effective Capability Requirements are Contract Requirements plus Entity Capability Requirements, applied conjunctively. An Entity Requirement does not replace or cancel a Contract Requirement, and matching `type` identifiers alone do not establish equivalence or permit either declaration to be discarded. Processors MUST preserve each declaration's source and scope. This is semantic composition for evaluation, not structural inheritance: Contract data MUST NOT be inserted into AR-DOM, and the effective set does not repair an omitted Contract Requirement in an explicit projection.
+
+The default compatibility of additions does not override a known contradiction with Contract semantics. If a comparison needed to determine contradiction or weakening cannot be performed, ProjectionValidation is `UNVALIDATED` unless a known conflict takes precedence. Inability to evaluate whether a standalone additional prerequisite is currently satisfied is separately `RequirementEvaluation = UNKNOWN`; it does not itself establish a projection conflict or make every additional Requirement require a Contract comparison.
+
+Interoperability restrictions on additional Entity Requirements are evaluated through the Profile's additional Requirement policy in Section 47.1. A Profile may prohibit an otherwise compatible additional Requirement and produce `NON_CONFORMANT` without changing ProjectionValidation to `CONFLICT`. Profile silence permits additions.
 
 Interface Requirements are not Contract projection fields. They may add route-specific prerequisites without changing Capability Contract meaning, and are evaluated separately for each InterfaceUse route.
 
@@ -1714,7 +1723,7 @@ UNVALIDATED
 CONFLICT
 ```
 
-**VALIDATED** means the exact Contract resolved and every applicable projection comparison was deterministically evaluated as equal or as a Contract-permitted narrowing.
+**VALIDATED** means the exact Contract resolved and every applicable projection comparison was deterministically compatible: equal, a Contract-permitted narrowing, or an Entity-specific additional Requirement allowed by Section 40.5. Current prerequisite satisfaction and a Profile's additional Requirement policy are separate evaluations.
 
 **UNVALIDATED** means compatibility could not be fully determined. Causes include an unresolved Contract, an unsupported constraint evaluator, unknown Extension semantics, or another comparison for which the processor lacks a deterministic rule.
 
@@ -1750,6 +1759,15 @@ known allowed narrowing
 
 unknown constraint comparison semantics
 → UNVALIDATED
+
+Entity-specific additional authentication Requirement,
+no Contract semantics removed, weakened, or contradicted,
+all other required comparisons compatible
+→ VALIDATED, without Contract opt-in
+
+the same projection under a Profile prohibiting that additional Requirement
+→ ProjectionValidation remains VALIDATED;
+  ProfileConformance is NON_CONFORMANT for a required policy violation
 ```
 
 Projection state is derived Runtime evaluation data, not AR-XML description data. A processor SHOULD expose the state with diagnostics identifying the compared Contract, affected field or constraint, and reason without mutating the Capability declaration.
@@ -1942,9 +1960,9 @@ Profiles SHOULD constrain standardized Interface Extensions rather than reproduc
 
 A Profile MAY require the presence or absence of identified Requirement types, constrain understood Requirement data, or state policy for additional Requirements. Such policies are constraints within the applicable Capability or Interface requirement item; Draft 5 adds no independent top-level Requirement-policy collection. A companion Profile serialization defines their concrete encoding.
 
-Unless a Profile explicitly states otherwise, additional Capability or Interface Requirements are allowed. A Profile that restricts additional Requirements MUST identify the applicable owner scope and deterministic rule, such as `additional Requirements prohibited` or an explicit allowed type set. Silence in the Profile MUST NOT be interpreted as prohibition.
+Unless a Profile explicitly states otherwise, additional Capability or Interface Requirements are allowed. A Profile that restricts additional Requirements MUST identify the applicable owner scope and deterministic rule, such as `additional Requirements prohibited` or an explicit allowed type set. Silence in the Profile MUST NOT be interpreted as prohibition. Such a policy governs Profile interoperability, not whether the Contract grants permission to declare Entity-specific prerequisites. A known policy violation may yield `NON_CONFORMANT` while the Capability projection remains `VALIDATED`.
 
-A Profile MUST NOT remove, weaken, or contradict a Requirement imposed by a Capability Contract. It MAY add a stricter prerequisite only when the Contract permits that narrowing and the Requirement semantics are deterministically comparable.
+A Profile MUST NOT remove, weaken, or contradict a Requirement imposed by a Capability Contract. Tightening the content of an existing Contract Requirement follows the Contract-permitted narrowing rules and requires deterministic comparison. Requiring an Entity-specific additional prerequisite instead follows Section 40.5 and this Profile policy; its addition does not require advance Contract permission.
 
 Capability Requirements and Interface Requirements remain scoped by placement. A Profile MUST NOT treat a route-specific Interface Requirement as though it changed the semantic Capability Contract.
 
@@ -1970,7 +1988,7 @@ If the Profile requires semantics from an unknown Extension, conformance is `UND
 
 # 48. Profile Narrowing Rules
 
-A Profile may narrow a Capability Contract or other referenced semantic definition only when all of the following hold:
+A Profile may narrow the content of a Capability Contract or other referenced semantic definition only when all of the following hold. Policies for Entity-specific additional Requirements are governed separately by Sections 40.5 and 47.1; adding such a prerequisite does not redefine an existing Contract Requirement:
 
 1. the referenced exact definition is resolved;
 2. that definition permits the kind of narrowing;
@@ -2669,7 +2687,9 @@ Unknown Requirement type, unknown Requirement Extension data, unavailable eviden
 
 ## 64.2 Scope
 
-Capability Requirements apply to every InterfaceUse route for that Capability. Interface Requirements apply only to routes using that Interface.
+The effective Capability prerequisite set is the conjunction of resolved Contract Requirements and Entity Capability Requirements under Section 40.5. Both apply to every InterfaceUse route for that Capability. Interface Requirements add prerequisites only to routes using that Interface. Keep Contract, Entity Capability, and Interface declaration provenance separate; evaluation MUST NOT inject resolved Contract Requirements into AR-DOM.
+
+If the Contract is unresolved, known Entity and Interface Requirements may still be evaluated, but their results do not establish that all universal prerequisites are known or satisfied. ContractResolution remains an independent route-evaluation input under Section 66.
 
 For a route, applicable Requirement results aggregate as follows:
 
