@@ -3166,7 +3166,211 @@ The HTTP Extension does not issue, store, refresh, or forward credentials outsid
 
 # Part X — Conformance Classes
 
-Sections 76–80 are reserved for the staged Conformance Classes draft.
+# 76. Conformance Overview
+
+Conformance is claimed against a named class and specification version. A statement that a product or document is simply “AR-XML compliant” is incomplete unless its applicable class or classes are clear from context.
+
+Draft 5 defines these principal classes:
+
+| Conformance class | Conforming subject | Primary responsibility |
+|---|---|---|
+| Core Document | one AR-XML resource | obey Core XML structure and reference rules |
+| Core Processor | parser, validator, AR-DOM implementation, or serializer | process Core deterministically and safely |
+| Extension Processor | implementation of named Extension roots | validate and interpret a specific Extension version |
+| Runtime Evaluator | Runtime evaluation implementation | produce separated evaluation states and route aggregation |
+| HTTP Extension Processor | HTTP Extension implementation | process `http:api`, `http:operation`, and claimed baseline mappings |
+| Invoking Runtime | Runtime capable of explicit interaction requests | preserve initiating intent and execute only by explicit request |
+
+A conforming implementation MAY claim more than one class. Conformance to one class does not imply conformance to another.
+
+Examples:
+
+```text
+Core-valid Document
+≠ document whose Extensions are all supported
+
+Core Processor
+≠ HTTP Extension Processor
+
+HTTP Extension Processor
+≠ support for every HTTP method
+
+Runtime Evaluator
+≠ Invoking Runtime
+```
+
+Conformance claims MUST identify Draft 5 or the exact specification version and MUST NOT imply support beyond the claimed class and features.
+
+Test results, verified conformance, and certification are distinct from a self-declared conformance claim. This specification does not create a certification authority.
+
+# 77. Core Document Conformance
+
+An AR-XML resource conforms as a **Core Document** when it satisfies every applicable Core requirement, including:
+
+- well-formed XML;
+- Core `ar-entity` as the document element;
+- the Core 0.1 namespace and `version="0.1-draft5"`;
+- permitted Core elements, attributes, containment, and cardinalities;
+- singleton container rules;
+- required lexical values and Core data types;
+- explicit Extension Slot envelope rules;
+- Interface Attachment-or-Realization requirement;
+- typed local ID uniqueness;
+- Input and Output scoped-name uniqueness; and
+- all local-reference integrity rules.
+
+A Core Document MAY contain unknown foreign Extension roots in valid Extension Slots. It remains Core-conforming even when the current processor cannot validate or execute those Extensions.
+
+A Core Document need not contain a Category, Identifier, Property, Subject, Profile Claim, Interface, or Capability. An empty passive Entity can conform.
+
+Core Document conformance does not require:
+
+- Capability Contract or Profile resolution;
+- a `VALIDATED` projection;
+- Profile conformance;
+- Runtime or Extension support;
+- network accessibility;
+- authentication or authorization; or
+- an executable Capability.
+
+An unknown Core element, unknown Core or unqualified attribute, foreign element outside a slot, duplicate typed ID, dangling local reference, duplicate scoped Input or Output name, or empty Interface makes the document non-conforming.
+
+Non-canonical Core child order does not make an otherwise valid document non-conforming.
+
+# 78. Core Processor Conformance
+
+A **Core Processor** MUST implement the Core requirements applicable to its advertised operations.
+
+## 78.1 Parser and Validator
+
+A conforming Core parser and validator MUST:
+
+- parse XML namespace-aware using a configuration suitable for untrusted input;
+- recognize the Core namespace and exact Draft 5 version;
+- reject unknown Core content rather than silently discard it;
+- validate order-insensitively while enforcing cardinality and containment;
+- enforce typed uniqueness, scoped-name uniqueness, and local references;
+- validate Extension Slot envelopes without requiring Extension knowledge;
+- distinguish XML parse errors from Core validation errors;
+- accept unknown foreign roots in valid slots;
+- avoid Semantic Identifier network dereferencing as a prerequisite for Core validity;
+- construct or expose AR-DOM only for Core-valid documents; and
+- avoid Capability execution during parsing, validation, or exposure.
+
+Core parsing and validation MUST be deterministic and MUST NOT depend on AI or human interpretation.
+
+## 78.2 AR-DOM Exposure
+
+A Core Processor exposing AR-DOM MUST preserve the Core information model and keep issuer-authored description separate from resolved definitions and derived Runtime state.
+
+It SHOULD preserve unknown foreign subtrees as opaque data. If it advertises round-trip preservation, it MUST disclose any lexical information it cannot retain and MUST NOT silently drop Extension content.
+
+## 78.3 Serializer
+
+A conforming Draft 5 serializer MUST emit well-formed XML using the Core namespace and `version="0.1-draft5"`. It MUST emit only structures valid for the Core model and MUST use the canonical Core child order defined in Section 21.
+
+Canonical child order does not authorize reordering collection members to imply preference. A serializer MUST preserve semantic collection membership, local references, and Extension subtree meaning.
+
+An implementation may claim parser, validator, AR-DOM, or serializer functionality separately, but MUST state the supported operation when a general Core Processor claim would be ambiguous.
+
+# 79. Extension Processor Conformance
+
+An **Extension Processor** claim applies to explicitly identified Extension namespace versions, semantic roots, and supported slot contexts.
+
+A conforming Extension Processor MUST:
+
+- identify Extension elements by namespace URI and local name rather than prefix;
+- validate the Extension root only in permitted Core slots;
+- apply the Extension's declared grammar and semantics;
+- reject invalid known Extension content for that Extension conformance class;
+- preserve Core validation as a separate result;
+- avoid changing Core cardinality, reference, or semantic rules;
+- report unsupported Extension features through `Support` rather than invent behavior;
+- treat Extension content as untrusted input; and
+- avoid execution, credential access, or unrequested network activity during validation.
+
+An implementation that only stores, displays, or reserializes an unknown subtree MUST NOT claim semantic conformance to that Extension.
+
+An Extension Processor MUST identify feature limitations relevant to interoperability. For example, recognizing an Extension namespace while omitting a required constraint evaluator is not full support for that constraint.
+
+Extension validity is not Core validity. A foreign subtree can be inside a Core-valid slot yet fail its recognized Extension grammar. Conversely, an unknown Extension can remain Core-valid without an Extension-specific conformance result.
+
+Extension specifications MAY define additional named processor classes, but MUST NOT weaken these Core separation requirements.
+
+# 80. Runtime and HTTP Extension Conformance
+
+## 80.1 Runtime Evaluator
+
+A conforming **Runtime Evaluator** MUST:
+
+- keep description data separate from evaluation state;
+- expose the state domains and values defined in Part VIII without collapsing them into a boolean;
+- distinguish unresolved, unknown, unsupported, unsatisfied, and conflicting conditions;
+- apply known-blocker precedence for InterfaceUse route evaluation;
+- aggregate Capability Availability as `any READY`, otherwise `any UNKNOWN`, otherwise `UNAVAILABLE`;
+- keep Profile conformance independent of Availability;
+- avoid using document order as implicit route preference;
+- provide sufficient diagnostics to distinguish known blockers from uncertainty; and
+- never execute a Capability to test availability.
+
+A Runtime Evaluator MAY implement only a subset of Interface Extensions. Unsupported implementation capability is represented through `Support`; it is not a change to the specification's capability.
+
+## 80.2 Invoking Runtime
+
+A conforming **Invoking Runtime** MUST also:
+
+- require an explicit Application or Human request before Capability execution;
+- preserve initiating intent through route selection and asynchronous work;
+- validate Inputs under all implemented semantic rules before serialization;
+- apply Runtime and host security policy;
+- keep credential handling outside AR-DOM;
+- distinguish transport, Interface, Representation, Contract, and semantic outcomes; and
+- avoid rewriting the description with execution state or results.
+
+An Invoking Runtime need not support every described Interface or Capability. It MUST report support and availability accurately for the features it claims.
+
+## 80.3 HTTP Extension Processor
+
+A conforming **HTTP Extension Processor** MUST:
+
+- recognize the HTTP Extension namespace in Part IX;
+- validate `http:api` only in Realization and `http:operation` only in Mapping;
+- validate required `base`, `method`, and `path` attributes;
+- resolve relative `base` against the AR-XML retrieval URL rather than the Host Application URL;
+- construct the operation URL according to the baseline `base + path` rules;
+- treat method support separately from method syntax validity;
+- keep HTTP authentication and authorization in Requirement and Runtime policy; and
+- distinguish HTTP-level outcomes from semantic Capability outcomes.
+
+## 80.4 HTTP Baseline Mapping Features
+
+An HTTP Runtime claiming the corresponding baseline mapping feature MUST implement it exactly:
+
+| Feature claim | Required behavior |
+|---|---|
+| HTTP GET scalar request mapping | `string`, `number`, `integer`, and `boolean` Inputs mapped to query parameters |
+| HTTP JSON object request mapping | `POST`, `PUT`, and `PATCH` Inputs mapped to one JSON object |
+| HTTP JSON Result mapping | top-level JSON object keyed by Output name, including for one Output |
+| HTTP status classification | every `2xx` is HTTP-level success; non-`2xx` is Interface-level non-success |
+| HTTP 204 handling | success only as semantic no-content when no Output value is required |
+
+An implementation MUST NOT claim a mapping feature when it uses an incompatible scalar shortcut, undocumented query encoding, generic header DSL, or implicit semantic-error mapping.
+
+An HTTP Extension Processor is not required to implement every valid HTTP method. For a syntactically valid but unimplemented method or mapping feature it MUST report `UNSUPPORTED`, not declare the AR-XML Core document invalid.
+
+## 80.5 Conformance Reporting
+
+An implementation conformance statement SHOULD identify:
+
+- specification version;
+- claimed classes;
+- supported Extension namespaces and versions;
+- supported HTTP methods and mapping features;
+- implemented semantic resolvers and constraint evaluators;
+- relevant Runtime policy limitations; and
+- test-suite version, when a conformance test suite is used.
+
+A Profile Claim in an Entity document is not an implementation conformance statement for the Runtime.
 
 # Part XI — Examples
 
