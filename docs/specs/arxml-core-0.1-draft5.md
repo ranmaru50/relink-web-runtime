@@ -691,7 +691,7 @@ An Output is not a wire field until an applicable Mapping defines or the relevan
 
 ## 16.5 Representation
 
-A Representation declares a concrete media representation of the Result as a whole. It has a required `mediaType` value identifying an IANA media type and MAY contain only the additional Core information explicitly defined by Part II.
+A Representation declares a concrete media representation of the Result as a whole. It has a required `mediaType` value containing a non-empty media type conforming to RFC 9110 media-type syntax, as specified in Section 27.3, and MAY contain only the additional Core information explicitly defined by Part II.
 
 ```text
 Result ≠ Representation
@@ -710,10 +710,10 @@ A Requirement is a typed prerequisite declaration. It consists of:
 ```text
 Requirement
 ├─ type                   1
-└─ extension-defined data 0..1
+└─ extension-defined elements 0..*
 ```
 
-`type` is a non-empty Semantic Identifier identifying the Requirement semantics. The Core does not define a closed `kind` enumeration. An Extension-defined body, when present, supplies data governed by the Requirement definition and Extension processing rules.
+`type` is a non-empty Semantic Identifier identifying the Requirement semantics. The Core does not define a closed `kind` enumeration. The body contains zero or more foreign Extension elements supplying data governed by the Requirement definition and Extension processing rules. Multiple body elements belong to this one Requirement; Core does not collapse them into a single root or treat each as a separate Requirement.
 
 Requirement scope is determined by placement:
 
@@ -1085,7 +1085,9 @@ Draft 5 Core has no `errors` child in `result`. An `errors` element in the Core 
 
 ## 27.3 Representations
 
-Each `representation` MUST have exactly one Core-defined attribute, `media-type`, whose non-empty value is an IANA media type:
+Each `representation` MUST have exactly one Core-defined attribute, `media-type`, whose non-empty value conforms to the media-type syntax in [RFC 9110 Section 8.3.1](https://httpwg.org/specs/rfc9110.html#media.type). Core validation checks syntax, not IANA registration. Syntactically valid vendor, personal, and unregistered type/subtype names are not rejected merely because they are unregistered or unknown. Core validation MUST NOT require a registry lookup or depend on a local registration snapshot. Registration status, Runtime support, and availability are separate policy or Extension concerns; HTTP JSON baseline matching remains governed by Section 75.2.
+
+Examples:
 
 ```xml
 <representations>
@@ -1102,17 +1104,28 @@ Requirements are serialized in an optional `requirements` container owned by eit
 
 ```xml
 <requirements>
-  <require type="https://example.org/requirements/authentication/1">
+  <requirement type="https://example.org/requirements/authentication/1">
     <auth:oauth2
       xmlns:auth="https://example.org/ns/auth/1"
       scope="light.write" />
-  </require>
+  </requirement>
 </requirements>
 ```
 
-Each `require` MUST have the unqualified `type` attribute. `type` MUST be non-empty. No Core `kind` or `scope` attribute is defined.
+Each `requirement` MUST have the unqualified `type` attribute. `type` MUST be non-empty. No Core `kind` or `scope` attribute is defined.
 
-The `require` element is an Extension Slot. It MAY be empty. If it contains semantic data, it MUST contain exactly one foreign namespaced semantic root; that foreign subtree is processed under Part III. Non-whitespace character data directly inside `require` is invalid.
+The `requirement` element is an Extension Slot containing zero or more foreign namespaced Extension elements. It MAY be empty or contain multiple parameter elements, including elements from different foreign namespaces. Each subtree is processed under Part III; the Requirement definition governs their combined meaning. Non-whitespace character data directly inside `requirement` is invalid. The exactly-one-root rule for Attachment, Realization, and Mapping does not apply to Requirement bodies.
+
+For example, the following illustrates a Core-valid body with two Extension parameter elements; their domain meaning requires the identified Requirement and Extension definitions:
+
+```xml
+<requirement xmlns="https://relink.dev/ns/arxml/core/0.1"
+             xmlns:access="https://example.org/ns/access/1"
+             type="https://example.org/requirements/access-zone/1">
+  <access:zone value="front" />
+  <access:distance maximum="1" unit="m" />
+</requirement>
+```
 
 Placement determines scope. The identical XML shape under a Capability declares a Capability prerequisite; under an Interface it declares an Interface prerequisite.
 
@@ -1237,7 +1250,7 @@ Draft 5 Core defines the following Extension Slots:
 | Slot | XML location | Foreign semantic roots | Purpose |
 |---|---|---:|---|
 | Property slot | direct child of `properties` | 0..* | Extension-defined Entity characteristics or declared state |
-| Requirement body | direct child of `require` | 0..1 | Data for the Requirement identified by `require/@type` |
+| Requirement body | direct children of `requirement` | 0..* | Parameter elements for the Requirement identified by `requirement/@type` |
 | Attachment | direct child of `attachment` | exactly 1 | Physical, spatial, or contact-oriented access boundary |
 | Realization | direct child of `realization` | exactly 1 | Concrete interaction mechanism |
 | Mapping | direct child of `mapping` | exactly 1 | Capability-specific use of an Interface |
@@ -4418,7 +4431,7 @@ The XML collection wrappers `identifiers`, `properties`, `subjects`, `profiles`,
 | `ProfileClaim` | `href` | Exact-versioned absolute Profile identifier; claim is not verified conformance |
 | `Interface` | `id`, optional Attachment, optional Realization, Requirements | `id` is unique within Interfaces; Attachment or Realization is required |
 | `Capability` | `id`, `type`, optional `subjectRef`, Requirements, optional Invocation, InterfaceUses | `id` is unique within Capabilities; `type` identifies an exact Capability Contract |
-| `Requirement` | `type`, optional foreign body | Placement determines Capability or Interface scope |
+| `Requirement` | `type`, zero or more foreign body elements | Placement determines Capability or Interface scope |
 | `Invocation` | Inputs, optional Result | May be empty; presence never causes execution |
 | `Input` | `name`, `type`, `required`, optional `format`, optional `unit`, Constraints | `name` is unique within its Invocation; absent `required` means `true` |
 | `Result` | one or more Outputs, Representations | Present Result is non-empty; it is not a Runtime result value |
@@ -4448,7 +4461,7 @@ Capability
 ├─ requirements                   0..*
 │  └─ Requirement
 │     ├─ type                     1
-│     └─ extensionBody?           0..1
+│     └─ extensionBodyElements    0..*
 ├─ invocation?                    0..1
 │  ├─ inputs                      0..*
 │  │  └─ Input
@@ -4493,7 +4506,7 @@ Interface
 └─ requirements                   0..*
    └─ Requirement
       ├─ type                     1
-      └─ extensionBody?           0..1
+      └─ extensionBodyElements    0..*
 ```
 
 At least one of Attachment or Realization is present. An Attachment-only or Realization-only Interface is valid. Requirements alone do not make an Interface valid.
@@ -4509,7 +4522,7 @@ AR-DOM preserves foreign Extension subtrees at the Core-defined slots:
 | Slot | AR-DOM owner | Preserved foreign roots |
 |---|---|---:|
 | Property slot | `AREntity.properties` | zero or more |
-| Requirement body | `Requirement` | zero or one |
+| Requirement body | `Requirement` | zero or more |
 | Attachment | `Interface` | exactly one when wrapper is present |
 | Realization | `Interface` | exactly one when wrapper is present |
 | Mapping | `InterfaceUse` | exactly one when wrapper is present |
@@ -4683,7 +4696,7 @@ Draft 5 defines no Core `errors` child under Result.
 | Output | `format` | attribute | `0..1` | Non-empty when present |
 | Output | `unit` | attribute | `0..1` | Non-empty when present |
 | Output | Constraints | `constraints` wrapper | `0..1` | Wrapper contains `1..*` foreign constraint roots |
-| Representation | `mediaType` | `media-type` attribute | `1` | Non-empty IANA media type |
+| Representation | `mediaType` | `media-type` attribute | `1` | Non-empty RFC 9110 media-type syntax; no registry lookup |
 
 Input and Output have no Core value child. Runtime Input values and returned Output values belong to invocation state, not AR-DOM description cardinality.
 
@@ -4694,7 +4707,7 @@ Input and Output have no Core value child. Runtime Input values and returned Out
 | `interface` | `id` | attribute | `1` | `1` | Non-empty and unique within Interfaces |
 | `interface` | `attachment` | wrapper | `0..1` | exactly `1` foreign root when present | Attachment Extension Slot |
 | `interface` | `realization` | wrapper | `0..1` | exactly `1` foreign root when present | Realization Extension Slot |
-| `interface` | `requirements` | container | `0..1` | `require` `0..*` | May be empty |
+| `interface` | `requirements` | container | `0..1` | `requirement` `0..*` | May be empty |
 | `interface-use` | `ref` | attribute | `1` | `1` | Targets a local Interface |
 | `interface-use` | `mapping` | wrapper | `0..1` | exactly `1` foreign root when present | Mapping Extension Slot |
 
@@ -4713,7 +4726,7 @@ An Interface may be unreferenced by every Capability. Conversely, an InterfaceUs
 | Slot or owner | Core envelope occurrence | Foreign semantic-root count | Direct character data | Core note |
 |---|---:|---:|---|---|
 | Property slot in `properties` | container `0..1` | `0..*` | whitespace only outside Core Property values | Foreign roots coexist with Core `property` items |
-| `require` | item `0..*` in its Requirements container | `0..1` | whitespace only | `type` attribute required |
+| `requirement` | item `0..*` in its Requirements container | `0..*` | whitespace only | `type` attribute required; multiple foreign parameter elements allowed |
 | `attachment` | wrapper `0..1` per Interface | exactly `1` | whitespace only | Wrapper invalid when empty |
 | `realization` | wrapper `0..1` per Interface | exactly `1` | whitespace only | Wrapper invalid when empty |
 | `mapping` | wrapper `0..1` per InterfaceUse | exactly `1` | whitespace only | Wrapper invalid when empty |
@@ -4721,7 +4734,7 @@ An Interface may be unreferenced by every Capability. Conversely, an InterfaceUs
 
 The grammar inside each foreign semantic root is not cardinality-constrained by Core. It is validated by the applicable Extension specification. Foreign child elements outside these slots are invalid. Foreign namespaced metadata attributes on Core elements are permitted under Section 32.3 and do not count toward child cardinalities.
 
-Each `require` has exactly one non-empty `type` attribute and no Core `kind` or `scope` attribute. Requirement scope comes from its owner:
+Each `requirement` has exactly one non-empty `type` attribute and no Core `kind` or `scope` attribute. Requirement scope comes from its owner:
 
 | Owner | Requirement scope |
 |---|---|
@@ -5167,7 +5180,7 @@ The Draft 4 separation of semantic Output from wire Representation is retained a
 Result ≠ Representation
 ```
 
-Representations still describe the Result as a whole, may carry multiple Outputs, use IANA media types, and are not ordered by preference. Draft 5 retains the principle that materially different summary, translation, or simplified content is not automatically an alternative Representation of the same Result.
+Representations still describe the Result as a whole, may carry multiple Outputs, use syntactically valid media types without requiring registration lookup, and are not ordered by preference. Draft 5 retains the principle that materially different summary, translation, or simplified content is not automatically an alternative Representation of the same Result.
 
 Draft 4 included a Core `errors` collection below Result. Draft 5 removes that collection from the Entity-side Core grammar. A Draft 4 `errors` element is an unknown Core element and is invalid in Draft 5.
 
@@ -5296,7 +5309,7 @@ Draft 5 Requirement changes include:
 
 - `type` is a Semantic Identifier rather than a closed Core `kind` enum;
 - placement determines Capability or Interface scope;
-- an optional foreign Extension body carries typed Requirement data;
+- `requirements` contains `requirement` items whose bodies carry zero or more foreign Extension parameter elements;
 - unknown Requirement semantics produce `RequirementEvaluation = UNKNOWN`; and
 - authentication and authorization remain distinct prerequisites and enforcement concerns.
 
