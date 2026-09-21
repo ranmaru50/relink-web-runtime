@@ -379,7 +379,7 @@ A declared wire or media representation of a Result. Its order does not imply pr
 A typed prerequisite declaration with Extension-defined data. Placement determines scope: a Capability Requirement is a Capability prerequisite; an Interface Requirement is an Interface prerequisite.
 
 **Result**  
-The semantic result contract of an Invocation, containing one or more Outputs and zero or more Representations. Result and Representation are distinct.
+The semantic return description of an Invocation. An Entity-side Result contains one or more Outputs and zero or more Representations. The separate Capability Contract definition model permits zero or more listed Outputs under Section 37. Result and Representation are distinct.
 
 **Runtime**  
 A processor that may load AR-XML, expose AR-DOM, resolve definitions, evaluate routes, and perform explicitly requested invocations according to its implemented capabilities and policies.
@@ -660,7 +660,7 @@ Input constraints are expressed only in the explicit constraint area defined by 
 
 ## 16.3 Result
 
-Result is the semantic result contract of an Invocation. It consists of:
+The Entity-side Result describes the semantic return value of an Invocation. Its Core information model consists of:
 
 ```text
 Result
@@ -668,7 +668,7 @@ Result
 └─ Representations* 0..*
 ```
 
-If `result` is present, it MUST contain at least one Output. A semantic invocation with no returned value omits Result rather than using an empty Result. Result is distinct from a successful Runtime execution result, HTTP response, decoded payload, or Capability error.
+If Entity-side `result` is present, it MUST contain at least one Output. An Entity-side Invocation with no returned value omits Result rather than using an empty Result. This Entity serialization rule does not impose the same cardinality on the separate Capability Contract definition model in Section 37. Result is distinct from a successful Runtime execution result, HTTP response, decoded payload, or Capability error.
 
 Draft 5 Core does not include the Draft 4 `errors` collection in the Entity-side Result model. Semantic error definitions and mappings require an applicable Capability Contract or Extension and MUST NOT be inferred solely from transport status.
 
@@ -1478,13 +1478,17 @@ CapabilityContract
 ├─ invocation?                0..1
 │  ├─ inputs*                 0..*
 │  └─ result?                 0..1
-│     └─ outputs+             1..*
+│     └─ outputs*             0..*
 ├─ requirements*              0..*
 ├─ constraints*               0..*
 └─ extension semantics*       0..*
 ```
 
-The Contract `identifier` is its exact-versioned Semantic Identifier. Contract Invocation, Input, Result, Output, Requirement, and constraint concepts have the same semantic roles as their Entity-side counterparts, but the Contract is normative and the Entity declaration is a projection.
+The Contract `identifier` is its exact-versioned Semantic Identifier. Contract Invocation, Input, Result, Output, Requirement, and constraint concepts have corresponding semantic roles to their Entity-side counterparts, but the Contract definition model and the Entity serialization model have distinct cardinalities. The Contract is normative and the Entity declaration is a projection.
+
+A present Contract Result MAY list zero Outputs. It may describe a semantic result shape whose details are supplied by explicitly identified Extension semantics or an external normative definition, without enumerating Core Outputs in the Contract model. Zero listed Outputs MUST NOT by itself make the Contract unusable. This differs from Entity-side XML, where a present `result` MUST contain at least one `output`.
+
+A present Contract Result with no listed Outputs is not automatically equivalent to an absent Result, a no-value Invocation, or permission for arbitrary Entity Outputs. Its normative result meaning and projection rules remain those of the Contract and its identified definitions. Processors MUST NOT invent Output declarations, insert an empty Entity Result, or guess the shape from prose or AI. Section 40.4 governs comparison when those result semantics are required.
 
 A Contract MAY omit Invocation. If it contains Invocation, that Invocation MAY contain no Inputs and no Result. The absence of Invocation MUST NOT be generalized into event, observation, subscription, or stream semantics.
 
@@ -1666,13 +1670,15 @@ A Contract may explicitly define a permitted subtype or coercion relationship, b
 
 ## 40.4 Result and Outputs
 
-Contract Outputs are matched by exact name. Unless an explicit Contract rule states otherwise:
+Contract Outputs that are enumerated are matched by exact name. The Contract model permits a Result with zero enumerated Outputs; this does not relax the Entity XML rule requiring at least one Output in a present Result. Unless an explicit Contract rule states otherwise:
 
 - a missing Contract Output is `CONFLICT`;
 - an additional Entity Output is `CONFLICT`;
 - a different Core data type is `CONFLICT`;
 - incompatible format or unit is `CONFLICT`; and
 - unknown constraint comparison is `UNVALIDATED` unless another known conflict exists.
+
+For a Contract Result with zero enumerated Outputs, processors MUST use the Contract's normative result and projection rules, including any explicitly identified Extension or external definition needed to determine the Entity projection. Zero enumeration alone is neither an open-output wildcard nor proof that the Entity should omit Result. Where the necessary comparison semantics are unresolved or unsupported, ProjectionValidation is `UNVALIDATED` unless a separate known conflict takes precedence; processors MUST NOT infer `VALIDATED` or `CONFLICT` solely from the zero count. When those semantics are known, apply their deterministic rules and the applicable named-Output comparisons above. An empty Entity-side XML `result` remains Core-invalid regardless of the Contract's cardinality.
 
 Result and Representation remain distinct. If a Contract or its Extension semantics constrain permitted Representations, an Entity may select a subset only when that selection is an allowed narrowing. Representation document order is never part of projection compatibility.
 
