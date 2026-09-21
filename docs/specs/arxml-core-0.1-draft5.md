@@ -766,7 +766,7 @@ AND Realization absent
 → invalid Interface
 ```
 
-An Attachment-only Interface and a Realization-only Interface are both valid. This permits descriptions such as a passive HDMI connector without requiring a Capability, network API, or executable operation.
+An Attachment-only Interface and a Realization-only Interface are both valid. This permits descriptions such as a passive HDMI connector without requiring a Capability, network API, or executable operation. Attachment describes the access boundary only; a concrete Invocation mechanism MUST be expressed through Realization. An InterfaceUse referencing an Attachment-only Interface remains Core-valid, but its request-oriented route is `UNAVAILABLE` under Section 66.
 
 If Attachment or Realization is present, its wrapper contains exactly one foreign namespaced Extension semantic root. Part III defines Extension processing and validation.
 
@@ -2709,7 +2709,7 @@ UNKNOWN
 = support cannot be determined
 ```
 
-Support is evaluated for the concrete interaction features needed by a route, including Realization roots, Mapping roots, constraint evaluators, media representations, and Interface Extension behavior. Attachment access-condition satisfaction is evaluated separately as `AttachmentEvaluation` under Section 66.5. Missing knowledge or an unavailable Attachment condition evaluator yields `UNKNOWN` in that domain, not evidence that the physical access condition is unsatisfied. If an Attachment Extension also supplies an execution mechanism for an Attachment-only Interface, support for that mechanism remains a separate required Support check.
+Support is evaluated for the concrete interaction features needed by a route, including Realization roots, Mapping roots, constraint evaluators, media representations, and Interface Extension behavior. Attachment access-condition satisfaction is evaluated separately as `AttachmentEvaluation` under Section 66.5. Missing knowledge or an unavailable Attachment condition evaluator yields `UNKNOWN` in that domain, not evidence that the physical access condition is unsatisfied. An Attachment Extension defines access-boundary semantics and their condition evaluation; it MUST NOT supply an Invocation execution mechanism through the Attachment slot. A concrete interaction mechanism MUST be declared as a Realization. Attachment satisfaction and Realization support remain separate checks.
 
 An Extension specification existing does not make it supported by a Runtime. Conversely, preserving an unknown subtree does not constitute semantic support.
 
@@ -2742,7 +2742,7 @@ Each InterfaceUse is evaluated as a distinct route. Evaluation considers:
 - applicable Capability Requirements;
 - applicable referenced Interface Requirements;
 - AttachmentEvaluation for the referenced Interface, when Attachment is present;
-- required interaction-mechanism support, including Realization when applicable;
+- presence of a Realization and support for its required interaction mechanism;
 - Mapping support when Mapping is present;
 - applicable constraint and Representation support; and
 - Runtime and Application policy.
@@ -2761,7 +2761,8 @@ For a Core-valid document and a request-oriented Capability, route Availability 
    or applicable AttachmentEvaluation = UNSATISFIED
    → UNAVAILABLE
 
-3. Any required interaction mechanism, Realization, Mapping,
+3. Referenced Interface has no Realization
+   or any required interaction mechanism, Realization, Mapping,
    constraint, or Representation feature = UNSUPPORTED
    → UNAVAILABLE
 
@@ -2787,7 +2788,7 @@ Known blockers take precedence over unrelated uncertainty. For example, a known 
 
 The Core three-state invocation Availability evaluation applies only to a Capability with Invocation. For a Capability without Invocation, a Runtime MUST NOT generate a Core Availability value; it MAY report that this interaction model is not applicable as a diagnostic, not a fourth Availability state. If Invocation is present but no InterfaceUse exists, Section 67 defines the empty route-set result.
 
-An Interface with both Attachment and Realization requires the Attachment condition to be satisfied as well as the other route prerequisites. A known unsatisfied Attachment blocks that InterfaceUse; an unknown Attachment condition prevents `READY` unless a separate known blocker already yields `UNAVAILABLE`. Attachment-only Interfaces remain structurally valid, but Attachment satisfaction alone does not supply an Invocation execution mechanism.
+An Interface with both Attachment and Realization requires the Attachment condition to be satisfied as well as the other route prerequisites. A known unsatisfied Attachment blocks that InterfaceUse; an unknown Attachment condition prevents `READY` unless a separate known blocker already yields `UNAVAILABLE`. Attachment-only Interfaces remain structurally valid descriptions of access boundaries. For request-oriented Invocation, a route to an Interface without Realization is `UNAVAILABLE` because it declares no interaction mechanism, even if Attachment evaluation is `SATISFIED` or another evaluation is unknown. A Mapping MUST NOT supply a substitute Realization. This known absence does not invalidate the passive Interface or imply an unsatisfied Attachment.
 
 ## 66.3 READY Meaning
 
@@ -3006,7 +3007,7 @@ An HTTP Interface uses `http:api` as the single semantic root of `realization`:
 
 For the baseline `base + path` model, URI syntax and reference resolution MUST follow [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html), using the strict reference-resolution algorithm in Section 5.2. A present relative or empty `base` is resolved against the final AR-XML document retrieval URI; an omitted `base` uses that final URI directly. This retrieval URI MUST be absolute, and the resulting base context MUST use `http` or `https` with a non-empty host. For a redirected document retrieval, use the final retrieval URI, not the original request URI. The Host Application document URL MUST NOT be substituted for it.
 
-A trailing `/` is not required. It has the ordinary RFC 3986 path-merging effect: a directory-style base ends in `/`, whereas the last segment of a file-style base is replaced when resolving a relative operation path. Both `base` and operation `path` are URI references that may contain a query or fragment. RFC 3986 determines query inheritance or replacement for each reference, including empty and query-only references. HTTP request-target construction excludes the resolved fragment; a fragment is not an Invocation Input.
+A trailing `/` is not required. It has the ordinary RFC 3986 path-merging effect: a directory-style base ends in `/`, whereas the last segment of a file-style base is replaced when resolving a relative operation path. Both `base` and operation `path` may contain a query or fragment; operation `path` MUST have neither a scheme nor an authority, as specified in Section 73. RFC 3986 determines query inheritance or replacement for each reference, including empty and query-only references. HTTP request-target construction excludes the resolved fragment; a fragment is not an Invocation Input.
 
 Validate URI syntax before resolution. Raw backslashes, raw non-ASCII characters, spaces, controls, and malformed percent escapes are invalid in these URI inputs; browser error recovery MUST NOT repair them into accepted baseline references. An internationalized name or non-ASCII path must be provided in an appropriate ASCII URI form before baseline processing. Apply RFC 3986 dot-segment removal to literal `.` and `..` segments without percent-decoding beforehand; `%2e` and `%2E` are not literal dot segments in this algorithm. These rules govern locators only and MUST NOT normalize Contract or Profile identity.
 
@@ -3025,7 +3026,7 @@ resolved HTTP base:
 https://example.org/entities/lab/api/
 ```
 
-If an operation needs a base context and the final AR-XML retrieval URI is unavailable while `base` is omitted, empty, or relative, the Runtime cannot construct its target URL. The document may remain structurally valid, but that HTTP route is `UNAVAILABLE` for the evaluation because required resolution context is absent. An absolute operation URI can be resolved independently of an unavailable base context; its target still has to satisfy the HTTP scheme and host rules. The HTTP baseline does not define an application-supplied replacement base or a precedence rule for one; an Application may reload or re-evaluate the resource with a known retrieval URL under its own policy. A non-`http`/`https` resolved scheme is an HTTP Extension validation failure and cannot produce a `READY` route.
+If the final AR-XML retrieval URI is unavailable while `base` is omitted, empty, or relative, the Runtime cannot construct its target URL. The document may remain structurally valid, but that HTTP route is `UNAVAILABLE` for the evaluation because required resolution context is absent. An absolute `http:api@base` can supply the shared context without a retrieval URI; `http:operation@path` cannot supply its own scheme or authority. The HTTP baseline does not define an application-supplied replacement base or a precedence rule for one; an Application may reload or re-evaluate the resource with a known retrieval URL under its own policy. A non-`http`/`https` resolved scheme is an HTTP Extension validation failure and cannot produce a `READY` route.
 
 A realization with no explicit base is valid:
 
@@ -3074,7 +3075,9 @@ An HTTP Capability route uses `http:operation` as the single semantic root of `m
 
 `method` MUST be a non-empty valid HTTP method token. The Extension does not limit methods to `GET` and `POST`. Standard methods SHOULD use their registered uppercase spelling. Method tokens are case-sensitive; a processor MUST NOT uppercase an unknown method and assume equivalence.
 
-`path` MUST be present and be a URI-reference under RFC 3986. Its name does not restrict it to the path component of a URI: empty, relative-path, absolute-path, network-path, absolute-URI, query-bearing, and fragment-bearing references are permitted. Construct the target by resolving this reference against the base context using the RFC 3986 Section 5.2 algorithm specified in Section 72; an absolute operation URI does not depend on the base. The resolved HTTP target MUST use `http` or `https` with a non-empty host. Its fragment is excluded from the HTTP request target. The notation `base + path` denotes URI-reference resolution, not raw string concatenation or browser URL repair.
+`path` MUST be present and be an RFC 3986 URI-reference with neither a scheme nor an authority component. This is the subset of `relative-ref` that excludes its network-path alternative; `relative-ref` alone would still permit an authority. Empty, relative-path, absolute-path (a single leading `/`), query-bearing, and fragment-bearing references are permitted. Absolute URI references and network-path references beginning with `//` MUST be rejected by HTTP Extension validation, including when they name the same authority as the base.
+
+Construct the target by resolving this reference against the shared Interface base context using the RFC 3986 Section 5.2 algorithm specified in Section 72. The resolved HTTP target MUST inherit the base context's scheme and authority, use `http` or `https`, and have a non-empty host. A different scheme or authority requires a separate Interface with its own `http:api` Realization. Its fragment is excluded from the HTTP request target. The notation `base + path` denotes URI-reference resolution, not raw string concatenation or browser URL repair.
 
 Example:
 
@@ -3098,7 +3101,8 @@ For base context `https://example.org/api/?mode=read`, these additional referenc
 | `?mode=write` | `https://example.org/api/?mode=write` | `https://example.org/api/?mode=write` |
 | Empty string | `https://example.org/api/?mode=read` | `https://example.org/api/?mode=read` |
 | `#result` | `https://example.org/api/?mode=read#result` | `https://example.org/api/?mode=read` |
-| `https://other.example/action` | `https://other.example/action` | `https://other.example/action` |
+
+In contrast, `https://other.example/action` and `//other.example/action` are invalid operation `path` values because they supply a scheme or authority. An operation on that server requires a separate Interface; its `http:api@base` may be `https://other.example/` and its operation `path` may be `action`. These are HTTP Extension validation outcomes, not Core envelope errors.
 
 The referenced Interface MUST have an `http:api` Realization. An `http:operation` Mapping applied to an Interface with a different or absent Realization is invalid under this HTTP Extension.
 
@@ -3467,7 +3471,7 @@ A conforming **HTTP Extension Processor** MUST:
 - validate `http:api` only in Realization and `http:operation` only in Mapping;
 - validate required `method` and `path` and the optional `base` attribute when present;
 - use the final AR-XML retrieval URI when `base` is omitted, and resolve a relative or empty `base` against that URI rather than the Host Application URL;
-- construct the operation URL using strict RFC 3986 reference resolution and the baseline `base + path` rules;
+- reject operation `path` values containing a scheme or authority, and construct the operation URL using strict RFC 3986 reference resolution with the shared Interface's scheme and authority;
 - treat method support separately from method syntax validity;
 - keep HTTP authentication and authorization in Requirement and Runtime policy; and
 - distinguish HTTP-level outcomes from semantic Capability outcomes.
@@ -5002,6 +5006,7 @@ Recommended examples include:
 | `REQUIREMENT.UNKNOWN` | Unknown evaluator contributes `UNKNOWN` absent a known blocker |
 | `ATTACHMENT_UNSATISFIED` | Known unmet Attachment access condition makes this route `UNAVAILABLE` |
 | `ATTACHMENT_UNKNOWN` | Unknown Attachment semantics or evidence contributes `UNKNOWN` absent a known blocker |
+| `AVAILABILITY.NO_REALIZATION` | Referenced Interface has no Realization; the request-oriented route is `UNAVAILABLE`, while the Interface remains Core-valid |
 | `SUPPORT.REALIZATION_UNSUPPORTED` | Required Realization makes the route `UNAVAILABLE` |
 | `SUPPORT.MAPPING_UNKNOWN` | Unknown Mapping support contributes `UNKNOWN` |
 | `AVAILABILITY.NO_INVOCATION` | Evaluation is outside Core Invocation scope; no Availability value is generated |
