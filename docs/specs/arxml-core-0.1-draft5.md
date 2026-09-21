@@ -1815,7 +1815,7 @@ A Profile definition MAY constrain:
 
 Every normative constraint intended for automated conformance evaluation MUST have deterministic machine-readable semantics. Human-readable prose MAY explain a Profile but MUST NOT be the sole source for a required automated comparison.
 
-Profile evaluation is open-world by default. An Entity declaration that a Profile does not mention is allowed and does not affect conformance unless the Profile explicitly applies a deterministic restriction to that declaration class or scope. This default applies to additional Capabilities, Properties, Identifiers, Interfaces, Profile Claims, Requirements, and Extension content. A Profile restriction MUST state whether it prohibits presence, requires validation when present, or imposes a cardinality or matching rule.
+Profile evaluation is open-world by default. An Entity declaration that a Profile does not mention is allowed and does not affect conformance unless the Profile explicitly applies a deterministic restriction to that declaration class or scope. This default applies to additional Capabilities, Properties, Identifiers, Interfaces, Profile Claims, Requirements, and Extension content. A Profile restriction MUST state whether it prohibits presence or requires validation when present, within the policies defined by this model. Candidate aggregation for Capability, Property, and Identifier items is fixed by Sections 44–45; the baseline defines no custom cardinality or matching-rule field.
 
 This specification defines the Profile information model and evaluation semantics. A concrete Profile document serialization or registry protocol MAY be defined separately, but MUST preserve these semantics.
 
@@ -1856,7 +1856,7 @@ UNRESOLVED
 
 `RESOLVED` means exactly one usable Profile definition has been selected for the exact identifier. `UNRESOLVED` includes absence of a definition, a rejected invalid definition, and conflicting non-equivalent definitions that cannot be deterministically disambiguated.
 
-A usable Profile definition MUST self-identify with the requested exact-versioned absolute identifier, conform to its declared definition format and the model in Section 42, and provide machine-readable normative constraints with unambiguous scope and matching rules (including the defaults in Sections 44–45). A definition with a known structural error, missing required rule for which Core supplies no default, known prohibited redefinition or narrowing, or known mutually inconsistent constraints MUST be rejected as unusable. The resolver MUST report the definition defect separately from any Entity evaluation; an invalid Profile is not evidence of Entity non-conformance.
+A usable Profile definition MUST self-identify with the requested exact-versioned absolute identifier, conform to its declared definition format and the model in Section 42, and provide machine-readable normative constraints with unambiguous scope and the baseline matching rules in Sections 44–45. A definition with a known structural error, missing required rule for which Core supplies no default, known prohibited redefinition or narrowing, or known mutually inconsistent constraints MUST be rejected as unusable. The resolver MUST report the definition defect separately from any Entity evaluation; an invalid Profile is not evidence of Entity non-conformance.
 
 An unfamiliar but explicitly identified constraint language is different from a missing constraint definition. A structurally usable Profile MAY remain `RESOLVED` when referenced Contracts or constraint semantics are unresolved or unsupported. Any such uncertainty needed to establish legality of a required Profile constraint or satisfaction of the required subset MUST produce `UNDETERMINED`, never assumed compatibility. This includes unresolved narrowing comparisons. If later resolution proves the Profile itself invalid, ProfileResolution becomes `UNRESOLVED` and its conformance result is `UNDETERMINED`, with a definition-invalid diagnostic. No additional Core state domain is introduced.
 
@@ -1877,13 +1877,13 @@ optional
 
 Draft 5 defines no `recommended`, weighted, preferred, prohibited, or conditional presence value.
 
-Matching candidates are Entity-side Capabilities whose exact Contract identifier and applicable subject constraints match the Profile item. Unless the Profile explicitly declares another cardinality or matching rule, the default quantifier is existential: one candidate satisfying every applicable Profile constraint is sufficient. Document order MUST NOT select the candidate.
+Matching candidates are Entity-side Capabilities whose exact Contract identifier and applicable subject constraints match the Profile item. The Draft 5 baseline quantifier is existential: one candidate satisfying every applicable Profile constraint is sufficient. Profiles MUST NOT override this candidate aggregation rule within the baseline. Document order MUST NOT select the candidate.
 
 For `required`, the evaluator MUST aggregate candidates existentially: any satisfying candidate satisfies the item; otherwise, any candidate with unknown required matching or comparison semantics makes the item `UNDETERMINED`; otherwise, no candidates or all candidates known to fail makes the item `NON_CONFORMANT`. A failing candidate does not override another satisfying or indeterminate candidate. Candidate membership that cannot be decided MUST remain indeterminate rather than being silently excluded.
 
 For `optional`, both absence and presence are outside the baseline required subset. Projection conflicts, unresolved Contracts, and failed or unknown comparisons for an optional Capability MUST be reported separately when evaluated, but MUST NOT by themselves change baseline Profile conformance. An Entity meeting the required subset can therefore be `CONFORMANT` even when an optional Capability has `ProjectionValidation = CONFLICT`. This does not validate that projection or make its routes available. An independently declared required constraint, including an explicit presence-conditional constraint, still applies to its stated scope; optional presence alone MUST NOT create such a constraint.
 
-A Profile MAY explicitly require all matching candidates, a bounded cardinality, or another deterministic matching rule. If it does so, that rule governs evaluation of the item and MUST be machine-readable; it does not turn an optional item into a baseline required condition. Additional Entity Capabilities that do not match the item remain allowed under the open-world default unless the Profile explicitly restricts additional declarations.
+Custom candidate cardinalities, universal quantification over matching candidates, and alternative matching algorithms are deferred to a future Profile Extension with an explicit information model. Draft 5 defines no field or Extension slot for those overrides; a prose rule or a companion serialization MUST NOT introduce one as baseline behavior. This applies to Capability, Property, and Identifier candidate aggregation. It does not change the required/optional distinction or the treatment of independently required constraints. Additional Entity Capabilities that do not match the item remain allowed under the open-world default unless the Profile explicitly restricts additional declarations.
 
 ## 44.2 Capability Contract and Projection
 
@@ -1921,9 +1921,9 @@ Any Profile narrowing is valid only under Section 48.
 
 ## 45.1 Property Requirements
 
-A Property Requirement identifies Property semantics by exact `type` and defines deterministic presence, value, unit, cardinality, or constraint rules as needed by the Profile.
+A Property Requirement identifies Property semantics by exact `type` and defines deterministic presence, value, unit, or constraint rules as needed by the Profile. These candidate tests do not provide a custom cardinality or aggregation rule.
 
-Properties with the exact required `type` are matching candidates. Unless the Profile explicitly declares another deterministic cardinality or quantifier, a required Property item uses existential aggregation: any candidate satisfying all value, unit, and constraint tests satisfies the item; otherwise any indeterminate candidate makes the item `UNDETERMINED`; otherwise no candidates or all candidates known to fail makes it `NON_CONFORMANT`. The evaluator MUST use this default when a Profile omits a multiplicity rule. It MUST NOT assume that the first Property is preferred, newest, authoritative, or unique. For example, a required rated-voltage value of `5` is satisfied by candidates with values `5` and `9`, unless an explicit rule requires every candidate to equal `5`.
+Properties with the exact required `type` are matching candidates. A required Property item MUST use existential aggregation: any candidate satisfying all value, unit, and constraint tests satisfies the item; otherwise any indeterminate candidate makes the item `UNDETERMINED`; otherwise no candidates or all candidates known to fail makes it `NON_CONFORMANT`. The evaluator MUST NOT replace this rule with a custom multiplicity or quantifier. It MUST NOT assume that the first Property is preferred, newest, authoritative, or unique. For example, a required rated-voltage value of `5` is satisfied by candidates with values `5` and `9`; the failing candidate does not negate the satisfying candidate.
 
 A Profile MAY require a Property to be present or constrain a known vocabulary-defined value. It MUST NOT transform an issuer-declared Property into verified truth or current Runtime state.
 
@@ -1931,9 +1931,9 @@ Unknown Property vocabulary or unsupported comparison semantics produce `UNDETER
 
 ## 45.2 Identifier Requirements
 
-An Identifier Requirement identifies an identifier scheme by exact `type` and defines deterministic presence, subject, value-shape, or cardinality rules.
+An Identifier Requirement identifies an identifier scheme by exact `type` and defines deterministic presence, subject, or value-shape rules. These candidate tests do not provide a custom cardinality or aggregation rule.
 
-Identifiers with the exact required `type` and matching subject scope are candidates. Unless a Profile explicitly supplies another deterministic rule, a required Identifier item uses the same existential aggregation as Property items: any satisfying candidate succeeds; otherwise any candidate with unknown required membership or value comparisons yields `UNDETERMINED`; otherwise no candidates or all known failures yields `NON_CONFORMANT`. Unknown subject matching MUST NOT silently exclude a candidate. Identifier order has no preference semantics.
+Identifiers with the exact required `type` and matching subject scope are candidates. A required Identifier item MUST use the same fixed existential aggregation as Property items: any satisfying candidate succeeds; otherwise any candidate with unknown required membership or value comparisons yields `UNDETERMINED`; otherwise no candidates or all known failures yields `NON_CONFORMANT`. Unknown subject matching MUST NOT silently exclude a candidate. Identifier order has no preference semantics.
 
 A Profile MUST NOT infer Canonical Entity Identity, a Locator, a credential, authentication, authorization, ownership, or trust from an Identifier unless a separate applicable specification defines an explicit deterministic rule. Such a rule does not alter the Core meaning of Identifier.
 
@@ -3547,7 +3547,7 @@ A conforming **Profile Evaluator** MUST:
 - establish Core document validity separately from semantic conformance;
 - use exact Contract/Profile identity and the usable-definition rules in Sections 38 and 43;
 - expose ProfileResolution separately from ProfileConformance;
-- evaluate required items with the default matching and candidate aggregation rules in Sections 44–45 unless the Profile explicitly defines another deterministic rule;
+- evaluate required Capability, Property, and Identifier items with the fixed existential matching and candidate aggregation rules in Sections 44–45, without custom cardinality or quantifier overrides;
 - exclude optional-item diagnostics from baseline required-subset aggregation, while evaluating independently required constraints in their declared scope;
 - apply the open-world default and placement-scoped Requirement policies;
 - reject known invalid Profile definitions as `UNRESOLVED` with conformance `UNDETERMINED`, rather than blaming the Entity;
