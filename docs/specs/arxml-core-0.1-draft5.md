@@ -2507,7 +2507,369 @@ Side-effecting execution begins only after an explicit Application or Human requ
 
 # Part VIII — Runtime Evaluation
 
-Sections 61–70 are reserved for the staged Runtime Evaluation draft.
+# 61. Description and Runtime State
+
+AR-XML contains description data. Runtime evaluation produces derived state from that description, resolved semantic definitions, Runtime implementation support, policy, and current context.
+
+The following state domains are distinct:
+
+```text
+ContractResolution:
+  RESOLVED | UNRESOLVED
+
+ProjectionValidation:
+  VALIDATED | UNVALIDATED | CONFLICT
+
+RequirementEvaluation:
+  SATISFIED | UNSATISFIED | UNKNOWN
+
+Support:
+  SUPPORTED | UNSUPPORTED | UNKNOWN
+
+ProfileResolution:
+  RESOLVED | UNRESOLVED
+
+ProfileConformance:
+  CONFORMANT | NON_CONFORMANT | UNDETERMINED
+
+Availability:
+  READY | UNAVAILABLE | UNKNOWN
+```
+
+A processor MUST NOT collapse these domains into one boolean such as `valid`, `supported`, or `available`.
+
+Evaluation state is not serialized into the issuer-authored AR-XML document. It MAY be exposed through an associated Runtime API together with diagnostics, provenance, policy context, and evaluation time.
+
+Evaluation results are snapshots. They may change when registries, installed Extensions, permissions, credentials, connectivity, device state, Runtime policy, or other context changes. A changed evaluation result does not mutate the description.
+
+Core structural validity is a prerequisite to conforming Runtime evaluation. A Runtime MUST NOT invoke through a partial or invalid AR-DOM.
+
+Deterministic evaluation MUST NOT require AI or an LLM. An application MAY present assisted recommendations separately, but they are not Core evaluation states.
+
+# 62. Contract Resolution
+
+For each Capability, the Runtime evaluates the exact Capability Contract identifier in `capability/@type`:
+
+```text
+RESOLVED
+= exactly one usable Contract definition selected
+
+UNRESOLVED
+= no usable definition selected
+```
+
+`UNRESOLVED` includes unavailable definitions and unresolved conflicts between non-equivalent definitions claiming the same identifier.
+
+Contract resolution is independent of Core document validity. A Core-valid Capability remains exposed when its Contract is unresolved.
+
+The Runtime SHOULD expose resolution provenance and diagnostics, including the requested identifier and reason for failure. It MUST NOT silently substitute a different Contract version, dereference the identifier against policy, or use first-wins conflict handling.
+
+Contract resolution does not prove trust, Runtime support, authorization, availability, or execution success.
+
+An unresolved Contract normally causes ProjectionValidation `UNVALIDATED` and prevents a route from becoming `READY` when Contract-dependent semantic validation is required.
+
+# 63. Projection Validation
+
+ProjectionValidation is evaluated according to Part IV:
+
+```text
+VALIDATED
+= all applicable comparisons are deterministically compatible
+
+UNVALIDATED
+= compatibility cannot be fully determined
+
+CONFLICT
+= a known semantic contradiction exists
+```
+
+The Runtime MUST preserve known conflicts even if other comparisons are unknown. A missing evaluator does not erase a detected type mismatch, missing required Input, prohibited widening, or other known conflict.
+
+`CONFLICT` is a known semantic blocker and makes every invocation route for that Capability `UNAVAILABLE`.
+
+`UNVALIDATED` represents uncertainty. It does not authorize invocation and does not prove incompatibility. Under the baseline route algorithm it contributes `UNKNOWN` unless another known blocker makes the route `UNAVAILABLE`.
+
+`VALIDATED` establishes Contract projection compatibility only. It does not establish Interface support, satisfied Requirements, Profile conformance, authorization, availability, or execution success.
+
+# 64. Requirement Evaluation
+
+## 64.1 States
+
+Each applicable Requirement is evaluated in current Runtime context as:
+
+```text
+SATISFIED
+= available evidence deterministically satisfies the Requirement
+
+UNSATISFIED
+= available evidence deterministically violates or lacks a mandatory prerequisite
+
+UNKNOWN
+= the Runtime cannot determine satisfaction
+```
+
+Unknown Requirement type, unknown Requirement Extension data, unavailable evidence, unsupported evaluator, or ambiguous policy produces `UNKNOWN`, not an assumed `SATISFIED` or `UNSATISFIED`.
+
+## 64.2 Scope
+
+Capability Requirements apply to every InterfaceUse route for that Capability. Interface Requirements apply only to routes using that Interface.
+
+For a route, applicable Requirement results aggregate as follows:
+
+```text
+if any applicable Requirement is UNSATISFIED
+→ aggregate UNSATISFIED
+
+else if any applicable Requirement is UNKNOWN
+→ aggregate UNKNOWN
+
+else
+→ aggregate SATISFIED
+```
+
+An empty applicable Requirement set aggregates to `SATISFIED` for this calculation; it does not assert authorization or safety beyond the absence of declared Requirements.
+
+## 64.3 Authentication and Authorization
+
+An authentication Requirement may evaluate whether required authentication context or credential capability is available locally. This evaluation does not authenticate a remote response or guarantee that credentials are accepted.
+
+An authorization Requirement declaration does not grant authorization. A local Runtime may know that authorization is absent, but remote authorization can still fail after a route was `READY`.
+
+Requirement evaluation MUST NOT disclose secrets or serialize credentials into AR-DOM. It MUST NOT send credentials, prompt for permission, or perform a side-effecting Capability merely because a document was loaded. An explicit application operation or Runtime policy is required for active acquisition steps.
+
+# 65. Runtime Support
+
+Support expresses whether the current Runtime implementation can process an applicable semantic or mechanism:
+
+```text
+SUPPORTED
+= the Runtime implements the required behavior
+
+UNSUPPORTED
+= the Runtime knows it does not implement the required behavior
+
+UNKNOWN
+= support cannot be determined
+```
+
+Support is evaluated for the concrete features needed by a route, including applicable Attachment or Realization roots, Mapping roots, constraint evaluators, media representations, and Interface Extension behavior.
+
+An Extension specification existing does not make it supported by a Runtime. Conversely, preserving an unknown subtree does not constitute semantic support.
+
+Support may be feature-specific. A Runtime that supports HTTP `GET` but not a required request encoding or result mapping MUST NOT report the entire route as supported merely because it recognizes the HTTP namespace.
+
+Support aggregation for a route follows:
+
+```text
+if any required feature is UNSUPPORTED
+→ aggregate UNSUPPORTED
+
+else if any required feature is UNKNOWN
+→ aggregate UNKNOWN
+
+else
+→ aggregate SUPPORTED
+```
+
+An absent optional Mapping requires no Mapping support. A plain InterfaceUse is evaluated using the referenced Interface Extension's rules.
+
+# 66. InterfaceUse Route Evaluation
+
+## 66.1 Route Inputs
+
+Each InterfaceUse is evaluated as a distinct route. Evaluation considers:
+
+- presence of request-oriented Invocation when invocation availability is requested;
+- ContractResolution;
+- ProjectionValidation;
+- applicable Capability Requirements;
+- applicable referenced Interface Requirements;
+- required Attachment or Realization support;
+- Mapping support when Mapping is present;
+- applicable constraint and Representation support; and
+- Runtime and Application policy.
+
+Multiple InterfaceUses with the same `ref` remain distinct routes. InterfaceUse and Interface document order MUST NOT be used as preference or fallback priority.
+
+## 66.2 Baseline Decision Algorithm
+
+For a Core-valid document and a request-oriented Capability, route Availability is determined in this precedence order:
+
+```text
+1. ProjectionValidation = CONFLICT
+   → UNAVAILABLE
+
+2. Any known mandatory Requirement = UNSATISFIED
+   → UNAVAILABLE
+
+3. Any required Realization, Attachment, Mapping,
+   constraint, or Representation feature = UNSUPPORTED
+   → UNAVAILABLE
+
+4. Runtime or Application policy deterministically blocks the route
+   → UNAVAILABLE
+
+5. ContractResolution = UNRESOLVED
+   or ProjectionValidation = UNVALIDATED
+   → UNKNOWN
+
+6. Any applicable RequirementEvaluation = UNKNOWN
+   → UNKNOWN
+
+7. Any required Support = UNKNOWN
+   → UNKNOWN
+
+8. Otherwise
+   → READY
+```
+
+Known blockers take precedence over unrelated uncertainty. For example, a known unsupported Mapping makes a route `UNAVAILABLE` even when a separate Requirement evaluator is unknown.
+
+If a Capability has no Invocation, request-oriented invocation availability is `UNAVAILABLE`; this does not make the Capability or document invalid. If a Capability has no InterfaceUse, it has no routes and Capability availability is determined by Section 67.
+
+An Interface with both Attachment and Realization is evaluated according to the applicable Interface Extension semantics. Core does not assume that both must be used, that either is preferred, or that Attachment alone is executable.
+
+## 66.3 READY Meaning
+
+`READY` means:
+
+> The Runtime has no known local reason, under the evaluated description, definitions, support, Requirements, context, and policy, that prevents an explicit invocation attempt on this route.
+
+`READY` does not mean the Runtime has already contacted the target. A Runtime MUST NOT invoke a Capability merely to determine whether the route is `READY`.
+
+## 66.4 Diagnostics
+
+A Runtime SHOULD expose route diagnostics containing the InterfaceUse identity within its Capability, referenced Interface ID, relevant Extension roots, contributing state values, evaluated policy context, and reason for the aggregate result.
+
+Diagnostics MUST distinguish known blockers from unknown information and MUST NOT expose credentials or secrets.
+
+# 67. Capability Availability Aggregation
+
+Capability Availability aggregates all applicable InterfaceUse route results without assigning order-based preference:
+
+```text
+if any route is READY
+→ Capability READY
+
+else if any route is UNKNOWN
+→ Capability UNKNOWN
+
+else
+→ Capability UNAVAILABLE
+```
+
+Thus, one ready route is sufficient for Capability `READY` even when another route is unavailable or unknown. If no route is ready but at least one might become usable after unknown information is resolved, the result is `UNKNOWN`.
+
+A Capability with zero InterfaceUses has zero routes and aggregates to `UNAVAILABLE` for request-oriented invocation. This is not a validation error; the Capability may remain useful as description data or for interaction patterns outside Core Invocation.
+
+A Capability without Invocation is also `UNAVAILABLE` for Core request-oriented invocation even if it has InterfaceUses. A future Extension defining another interaction pattern may expose a separate availability model without changing this result.
+
+Capability Availability is Runtime-specific and context-specific. Different conforming Runtimes may report different states because their installed support or policy differs, while using the same deterministic rules on their respective inputs.
+
+Route selection for an actual invocation is a separate Runtime operation. `READY` routes form an eligible set; document order MUST NOT select among them. Applications or Interface Extensions MAY apply explicit deterministic selection policy.
+
+# 68. Profile Resolution and Conformance
+
+Profile resolution and Profile conformance use the states defined in Part V:
+
+```text
+ProfileResolution:
+  RESOLVED | UNRESOLVED
+
+ProfileConformance:
+  CONFORMANT | NON_CONFORMANT | UNDETERMINED
+```
+
+An unresolved claimed Profile produces conformance `UNDETERMINED`. A known Profile violation produces `NON_CONFORMANT`; unknown required semantics produce `UNDETERMINED` when no known violation already determines the result.
+
+Profile evaluation does not mutate a Profile Claim. A claim remains issuer data regardless of the evaluated result.
+
+Profile conformance and Availability are independent dimensions. A Runtime MUST NOT derive one from the other.
+
+```text
+CONFORMANT does not imply READY
+NON_CONFORMANT does not imply UNAVAILABLE
+READY does not imply CONFORMANT
+```
+
+A passive Entity may be Profile-conformant to a descriptive Profile without having an invocable Capability. An available route may exist on an Entity that does not conform to a selected interoperability Profile.
+
+# 69. Availability, Authorization, and Execution
+
+Availability, authorization, and execution answer different questions:
+
+```text
+Availability
+= may this Runtime attempt the described interaction route?
+
+Authorization
+= will the controlling authority permit this operation?
+
+Execution
+= did the requested operation actually occur and produce a result?
+```
+
+`READY` does not guarantee:
+
+- successful authentication;
+- authorization by a remote service or physical controller;
+- network reachability or target presence;
+- current remote device state;
+- business-rule acceptance;
+- physical safety;
+- semantic success; or
+- any particular Result.
+
+The following sequence is valid:
+
+```text
+Capability READY
+→ explicit invocation attempt
+→ remote authorization denial
+```
+
+`UNAVAILABLE` means a known local blocker prevents an attempt under current policy. It is not a permanent statement about the Entity or Contract.
+
+`UNKNOWN` means the Runtime cannot determine local attempt readiness. It MUST NOT be presented as `READY`, but an application MAY apply an explicit policy deciding whether and how a user may attempt invocation under uncertainty.
+
+Availability evaluation MUST NOT execute a side-effecting Capability as a probe. In particular, an operation such as `door.unlock`, `light.setState`, payment, or actuator movement MUST NOT be invoked merely to test availability.
+
+# 70. Load and Explicit Invocation
+
+## 70.1 Non-executing Load
+
+`ARRuntime.load()` and equivalent parse, validation, resolution, inspection, Profile evaluation, or Availability APIs MUST NOT automatically invoke a described Capability.
+
+Load-time Entity retrieval and policy-permitted semantic-definition retrieval are not Capability execution. They MUST remain distinguishable in diagnostics and security policy.
+
+## 70.2 Initiating Intent
+
+A side-effecting Capability execution MUST begin only from an explicit request attributable to an Application or Human. Merely viewing an Entity, enumerating Capabilities, resolving a Contract, evaluating a Requirement, or observing `READY` is not an invocation request.
+
+The Runtime API SHOULD preserve initiating intent across asynchronous processing so that retries, redirects, credential acquisition, and route selection cannot turn a passive load into execution.
+
+## 70.3 Conceptual Invocation Pipeline
+
+After an explicit request, a Runtime may conceptually:
+
+```text
+1. identify the requested Capability
+2. validate invocation Inputs against resolved semantics
+3. evaluate current routes and policy
+4. select an eligible route without document-order preference
+5. acquire permitted credentials or consent through Runtime policy
+6. serialize the request through the selected Interface Extension
+7. perform the interaction
+8. classify transport and Interface outcomes
+9. decode and validate the Result Representation
+10. expose semantic Outputs or errors
+```
+
+Each step may fail independently and MUST preserve the error-layer distinctions defined by this specification.
+
+Credential acquisition, authorization prompts, device access, network requests, and physical actions remain under Runtime and host-environment policy. AR-XML does not bypass browser, operating-system, network, or device security controls.
+
+An invocation result does not rewrite the description. Applications MAY maintain Runtime Context or observations separately.
 
 # Part IX — Standard Extensions / HTTP
 
