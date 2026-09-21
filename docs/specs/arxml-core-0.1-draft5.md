@@ -3374,7 +3374,480 @@ A Profile Claim in an Entity document is not an implementation conformance state
 
 # Part XI — Examples
 
-Sections 81–91 are reserved for the staged Examples draft.
+# 81. Empty Passive Entity
+
+The smallest Draft 5 document describes a valid passive Entity with no other declarations:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5" />
+```
+
+This document is Core-valid. It does not imply a CPU, network connection, API, Interface, Capability, Canonical Entity Identity, or current availability.
+
+# 82. Properties-only Entity
+
+An Entity may contain declared characteristics without being invocable:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5">
+
+  <category>laboratory.instrument</category>
+
+  <properties>
+    <property
+      type="https://example.org/properties/manufacturer/1"
+      value="Example Instruments" />
+
+    <property
+      type="https://example.org/properties/rated-voltage/1"
+      value="5"
+      unit="V" />
+
+    <property
+      type="https://example.org/properties/rated-voltage/1"
+      value="9"
+      unit="V" />
+  </properties>
+</ar-entity>
+```
+
+The repeated Property `type` is valid. Core does not infer which voltage is preferred, current, or applicable under a particular configuration.
+
+# 83. Identifier and Subject
+
+Identifiers may apply either to the described Entity or to a lightweight Subject:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5">
+
+  <identifiers>
+    <identifier
+      type="https://example.org/identifier-schemes/asset-id/1"
+      value="LAB-DEVICE-0042" />
+
+    <identifier
+      type="https://example.org/identifier-schemes/serial/1"
+      value="TEMP-8831"
+      subject-ref="temperature-module" />
+  </identifiers>
+
+  <subjects>
+    <subject
+      id="temperature-module"
+      type="https://example.org/subject-types/sensor-module/1" />
+  </subjects>
+</ar-entity>
+```
+
+`temperature-module` is not a nested Entity. Neither Identifier is automatically a Locator, credential, or Canonical Entity Identity.
+
+# 84. Attachment-only Interface
+
+A passive physical connector can be described without a Capability or network Realization:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:phys="https://example.org/ns/arxml/physical/1"
+  version="0.1-draft5">
+
+  <interfaces>
+    <interface id="display-connector">
+      <attachment>
+        <phys:connector
+          family="hdmi"
+          form="type-a" />
+      </attachment>
+    </interface>
+  </interfaces>
+</ar-entity>
+```
+
+The Interface is valid because Attachment is present. Core validation does not need to understand the `phys:connector` semantics.
+
+# 85. Capability without Invocation
+
+A Capability may describe a semantic affordance without defining a request-oriented Invocation:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5">
+
+  <capabilities>
+    <capability
+      id="status-observable"
+      type="https://example.org/capabilities/status/observable/1" />
+  </capabilities>
+</ar-entity>
+```
+
+The document is valid. Core request-oriented Availability for this Capability is `UNAVAILABLE`; the declaration may still be useful as semantic description or to a future observation Extension.
+
+# 86. Capability without InterfaceUse
+
+A Capability may define its request and Result contract projection without declaring a route:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5">
+
+  <capabilities>
+    <capability
+      id="label-read"
+      type="https://example.org/capabilities/label/read/1">
+
+      <invocation>
+        <result>
+          <outputs>
+            <output
+              name="label"
+              type="string" />
+          </outputs>
+
+          <representations>
+            <representation media-type="application/json" />
+          </representations>
+        </result>
+      </invocation>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+The Capability is Core-valid but has zero InterfaceUse routes. A Runtime does not invent an endpoint from the Contract identifier.
+
+# 87. Shared HTTP Interface
+
+One Entity-level HTTP Interface can be shared by multiple Capabilities:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  version="0.1-draft5">
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="status-read"
+      type="https://example.org/capabilities/status/read/1">
+
+      <invocation>
+        <result>
+          <outputs>
+            <output name="status" type="string" />
+          </outputs>
+          <representations>
+            <representation media-type="application/json" />
+          </representations>
+        </result>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation method="GET" path="status" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+
+    <capability
+      id="reset"
+      type="https://example.org/capabilities/device/reset/1">
+
+      <invocation />
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation method="POST" path="reset" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+`http:api` holds shared HTTP configuration. Each `http:operation` holds only the Capability-specific method and path.
+
+# 88. Multiple InterfaceUses
+
+One semantic Capability can have routes over different Interface Extensions without duplicating the Capability:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  xmlns:ble="https://example.org/ns/arxml/ble/1"
+  version="0.1-draft5">
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+
+    <interface id="ble-service">
+      <realization>
+        <ble:service uuid="12345678-1234-1234-1234-123456789000" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="power-set"
+      type="https://example.org/capabilities/power/set/1">
+
+      <invocation>
+        <inputs>
+          <input
+            name="on"
+            type="boolean"
+            required="true" />
+        </inputs>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation method="POST" path="power/state" />
+          </mapping>
+        </interface-use>
+
+        <interface-use ref="ble-service">
+          <mapping>
+            <ble:write characteristic="12345678-1234-1234-1234-123456789001" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+This is one Capability with two independently evaluated routes. Their order is not preference. A Runtime may support HTTP, BLE, both, or neither.
+
+# 89. Unknown Foreign Extension
+
+Unknown foreign content remains Core-valid when it occurs in a permitted Extension Slot:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:vendor="https://vendor.example/ns/arxml/device/7"
+  version="0.1-draft5">
+
+  <properties>
+    <property
+      type="https://example.org/properties/model/1"
+      value="X100" />
+
+    <vendor:declared-characteristic
+      name="service-class"
+      value="precision" />
+  </properties>
+
+  <interfaces>
+    <interface id="vendor-link">
+      <realization>
+        <vendor:link mode="local" />
+      </realization>
+    </interface>
+  </interfaces>
+</ar-entity>
+```
+
+A Core processor that does not recognize the vendor namespace still accepts the Core structure and should preserve both foreign subtrees. It does not claim that the vendor Extension is valid or supported.
+
+# 90. Reference Lab Light Control
+
+The Reference Lab light control semantic intent is:
+
+```text
+light.setState(on:boolean)
+```
+
+It is represented by one semantic Capability, one Entity-level shared HTTP Interface, and one HTTP InterfaceUse Mapping:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  version="0.1-draft5">
+
+  <category>reference-lab.device</category>
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="light-set-state"
+      type="https://relink.dev/capabilities/light/set-state/1">
+
+      <invocation>
+        <inputs>
+          <input
+            name="on"
+            type="boolean"
+            required="true" />
+        </inputs>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation
+              method="POST"
+              path="light/state" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+Baseline request body:
+
+```json
+{
+  "on": true
+}
+```
+
+An HTTP `204 No Content` response is compatible because this Invocation declares no Outputs. Loading this document MUST NOT send the request.
+
+# 91. Reference Lab Temperature Reading
+
+The Reference Lab temperature semantic intent is:
+
+```text
+temperature.read()
+→ temperature:number
+```
+
+The following complete document combines it with the light control Capability while sharing the same Entity-level HTTP Interface:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  version="0.1-draft5">
+
+  <category>reference-lab.device</category>
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="light-set-state"
+      type="https://relink.dev/capabilities/light/set-state/1">
+
+      <invocation>
+        <inputs>
+          <input
+            name="on"
+            type="boolean"
+            required="true" />
+        </inputs>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation
+              method="POST"
+              path="light/state" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+
+    <capability
+      id="temperature-read"
+      type="https://relink.dev/capabilities/temperature/read/1">
+
+      <invocation>
+        <result>
+          <outputs>
+            <output
+              name="temperature"
+              type="number" />
+          </outputs>
+
+          <representations>
+            <representation media-type="application/json" />
+          </representations>
+        </result>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation
+              method="GET"
+              path="temperature" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+Baseline temperature response:
+
+```json
+{
+  "temperature": 21.4
+}
+```
+
+The single Output still uses a JSON object. A scalar `21.4` response is not the baseline mapping.
+
+An Entity Resolver may map a Reference Lab Entity identity or application reference to this AR-XML resource location. It does not resolve the two Capability Contracts, choose the HTTP route, or execute either Capability. Those responsibilities remain with the Semantic Registry and explicit Runtime operations.
 
 # Part XII — Security and Privacy Considerations
 
