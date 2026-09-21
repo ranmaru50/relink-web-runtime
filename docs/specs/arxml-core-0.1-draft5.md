@@ -379,7 +379,7 @@ A declared wire or media representation of a Result. Its order does not imply pr
 A typed prerequisite declaration with Extension-defined data. Placement determines scope: a Capability Requirement is a Capability prerequisite; an Interface Requirement is an Interface prerequisite.
 
 **Result**  
-The semantic result contract of an Invocation, containing zero or more Outputs and zero or more Representations. Result and Representation are distinct.
+The semantic result contract of an Invocation, containing one or more Outputs and zero or more Representations. Result and Representation are distinct.
 
 **Runtime**  
 A processor that may load AR-XML, expose AR-DOM, resolve definitions, evaluate routes, and perform explicitly requested invocations according to its implemented capabilities and policies.
@@ -436,7 +436,7 @@ AR Entity
       ├─ Invocation?                 0..1
       │  ├─ Inputs*                  0..*
       │  └─ Result?                  0..1
-      │     ├─ Outputs*              0..*
+      │     ├─ Outputs+              1..*
       │     └─ Representations*      0..*
       └─ InterfaceUses*              0..*
          └─ InterfaceUse
@@ -638,6 +638,8 @@ array
 
 These types describe data shape, not domain meaning. A semantic name, Capability Contract, unit, format, or Extension supplies domain semantics. A processor MUST NOT infer, for example, that a `number` is a temperature or that a `string` uses `text/plain` representation.
 
+The Core `number` value space consists of finite mathematical decimal values. `integer` is the integral subset of that value space. `NaN`, positive and negative infinity, and implementation-specific floating-point sentinels are invalid Core values. Core does not impose a machine word size, IEEE-754 precision, or other implementation limit on these value spaces. An implementation MUST NOT silently round, truncate, or otherwise change a declared numeric value. If a Runtime cannot preserve the exact value at a selected Interface or Representation, it MUST report the mapping or support limitation rather than alter the value.
+
 ## 16.2 Input
 
 An Input is a semantic value supplied by the caller. Its Core information is:
@@ -662,11 +664,11 @@ Result is the semantic result contract of an Invocation. It consists of:
 
 ```text
 Result
-├─ Outputs*         0..*
+├─ Outputs+         1..*
 └─ Representations* 0..*
 ```
 
-An empty Result is valid. Result is distinct from a successful Runtime execution result, HTTP response, decoded payload, or Capability error.
+If `result` is present, it MUST contain at least one Output. A semantic invocation with no returned value omits Result rather than using an empty Result. Result is distinct from a successful Runtime execution result, HTTP response, decoded payload, or Capability error.
 
 Draft 5 Core does not include the Draft 4 `errors` collection in the Entity-side Result model. Semantic error definitions and mappings require an applicable Capability Contract or Extension and MUST NOT be inferred solely from transport status.
 
@@ -767,6 +769,8 @@ AND Realization absent
 An Attachment-only Interface and a Realization-only Interface are both valid. This permits descriptions such as a passive HDMI connector without requiring a Capability, network API, or executable operation.
 
 If Attachment or Realization is present, its wrapper contains exactly one foreign namespaced Extension semantic root. Part III defines Extension processing and validation.
+
+Attachment and Realization are independent Interface aspects. The simultaneous presence of both does not imply an automatic Core-level `AND`, `OR`, preference, or route composition. By default, Attachment is descriptive Interface context; it becomes a route prerequisite only when the applicable Attachment, Realization, Mapping, Profile, or other Extension semantics explicitly state that the route requires or uses it. A specification that needs a particular combination MUST define that composition deterministically, and a Runtime MUST NOT invent it from the two roots' mere presence.
 
 An Interface MAY exist even when no Capability references it. Interface order MUST NOT imply preference.
 
@@ -1056,7 +1060,7 @@ An `input` MAY contain one optional `constraints` Extension Slot. The slot conta
 
 ## 27.2 Result and Outputs
 
-Result is serialized as the optional `result` child of `invocation`. An empty Result is valid.
+Result is serialized as the optional `result` child of `invocation`. If present, Result MUST contain at least one Output. A no-value invocation omits the `result` child.
 
 ```xml
 <result>
@@ -1073,7 +1077,7 @@ Result is serialized as the optional `result` child of `invocation`. An empty Re
 </result>
 ```
 
-`result` MAY contain one `outputs` container and one `representations` container. Each `output` MUST have `name` and `type` and MAY have `format` and `unit`. Output `name` values MUST be non-empty and unique within that Result. Output `type`, `format`, and `unit` follow the Input rules above, except Output has no Core `required` attribute.
+`result` MUST contain exactly one `outputs` container with one or more `output` children and MAY contain one `representations` container. Each `output` MUST have `name` and `type` and MAY have `format` and `unit`. Output `name` values MUST be non-empty and unique within that Result. Output `type`, `format`, and `unit` follow the Input rules above, except Output has no Core `required` attribute.
 
 An `output` MAY contain one optional `constraints` Extension Slot. No other children are permitted.
 
@@ -1449,7 +1453,7 @@ CapabilityContract
 ├─ invocation?                0..1
 │  ├─ inputs*                 0..*
 │  └─ result?                 0..1
-│     └─ outputs*             0..*
+│     └─ outputs+             1..*
 ├─ requirements*              0..*
 ├─ constraints*               0..*
 └─ extension semantics*       0..*
@@ -1761,6 +1765,8 @@ A Profile definition MAY constrain:
 
 Every normative constraint intended for automated conformance evaluation MUST have deterministic machine-readable semantics. Human-readable prose MAY explain a Profile but MUST NOT be the sole source for a required automated comparison.
 
+Profile evaluation is open-world by default. An Entity declaration that a Profile does not mention is allowed and does not affect conformance unless the Profile explicitly applies a deterministic restriction to that declaration class or scope. This default applies to additional Capabilities, Properties, Identifiers, Interfaces, Profile Claims, Requirements, and Extension content. A Profile restriction MUST state whether it prohibits presence, requires validation when present, or imposes a cardinality or matching rule.
+
 This specification defines the Profile information model and evaluation semantics. A concrete Profile document serialization or registry protocol MAY be defined separately, but MUST preserve these semantics.
 
 ## 42.1 Profile Claim Separation
@@ -1817,11 +1823,13 @@ optional
 
 Draft 5 defines no `recommended`, weighted, preferred, prohibited, or conditional presence value.
 
-For `required`, at least one Entity-side Capability matching the exact Contract identifier and applicable subject constraints MUST be present. If none is present, the Entity is `NON_CONFORMANT`.
+Matching candidates are Entity-side Capabilities whose exact Contract identifier and applicable subject constraints match the Profile item. Unless the Profile explicitly declares another cardinality or matching rule, the default quantifier is existential: one candidate satisfying every applicable Profile constraint is sufficient. Document order MUST NOT select the candidate.
 
-For `optional`, absence does not affect conformance. If a matching Capability is present and is used to satisfy that Profile item, it MUST satisfy every applicable Profile constraint; `optional` does not mean unconstrained or exempt from validation.
+For `required`, at least one matching candidate MUST satisfy the Profile item. If no matching candidate exists, the Entity is `NON_CONFORMANT`. If matching candidates exist but none can be shown to satisfy the item, a known failure produces `NON_CONFORMANT`; unresolved or unknown required semantics produce `UNDETERMINED` when no known failure already determines the result.
 
-Document order of Entity Capabilities and order of Profile requirements MUST NOT be used to select a preferred match. When more than one Capability is eligible, the Profile definition MUST provide deterministic matching or cardinality rules if one particular match matters.
+For `optional`, absence of matching candidates does not affect conformance. If matching candidates are present, the same default existential rule applies: at least one candidate must satisfy the item; if all candidates are known not to satisfy it, the result is `NON_CONFORMANT`, and if no candidate can be established as satisfying because required semantics are unknown, the result is `UNDETERMINED`. An optional item is not an arbitrary evaluator-selected exemption.
+
+A Profile MAY explicitly require all matching candidates, a bounded cardinality, or another deterministic matching rule. If it does so, that rule governs the item and MUST be machine-readable. Additional Entity Capabilities that do not match the item remain allowed under the open-world default unless the Profile explicitly restricts additional declarations.
 
 ## 44.2 Capability Contract and Projection
 
@@ -1903,6 +1911,8 @@ Profiles SHOULD constrain standardized Interface Extensions rather than reproduc
 ## 47.1 Requirement Policy
 
 A Profile MAY require the presence or absence of identified Requirement types, constrain understood Requirement data, or state policy for additional Requirements.
+
+Unless a Profile explicitly states otherwise, additional Capability or Interface Requirements are allowed. A Profile that restricts additional Requirements MUST identify the applicable owner scope and deterministic rule, such as `additional Requirements prohibited` or an explicit allowed type set. Silence in the Profile MUST NOT be interpreted as prohibition.
 
 A Profile MUST NOT remove, weaken, or contradict a Requirement imposed by a Capability Contract. It MAY add a stricter prerequisite only when the Contract permits that narrowing and the Requirement semantics are deterministically comparable.
 
@@ -2053,6 +2063,8 @@ Capability Contract and Profile identifiers MUST be exact-versioned absolute ide
 
 A processor MUST compare Semantic Identifiers using the equality rules defined by the applicable identifier scheme. In the absence of such rules, it MUST use exact code-point equality after XML attribute-value processing and MUST NOT invent equivalence through case folding, URI rewriting, percent-decoding, path normalization, redirects, labels, natural-language similarity, or AI inference.
 
+For Capability Contract identifiers and Profile identifiers, including `capability/@type` and `conforms-to/@href`, exact code-point equality after XML attribute-value processing is the normative identity rule. URI normalization, percent-decoding, case folding, default-port removal, dot-segment resolution, redirect targets, or dereferenced representations MUST NOT create alternate spellings or change identity. Other Semantic Identifier schemes MAY define explicit comparison rules, but those rules MUST NOT override the exact identity rule for Contract and Profile identifiers.
+
 ```text
 Semantic Identifier
 ≠ Locator
@@ -2080,6 +2092,8 @@ A moving label such as `latest`, `current`, a mutable branch name, or an unversi
 An exact identifier is not a claim that the definition bytes can never be republished. If two non-equivalent semantic definitions claim the same exact identifier, they are conflicting definitions under Section 54.
 
 Compatibility metadata between versions does not merge their identities. A processor MUST NOT silently replace one exact identifier with another because it believes the versions are compatible.
+
+The requested exact identity is the lexical identifier carried by the document. A redirect, dereferenced resource, registry source, or canonicalized retrieval URI is not an alternate spelling and MUST NOT be substituted during Contract or Profile identity comparison.
 
 The following are distinct operations:
 
@@ -2652,7 +2666,7 @@ UNKNOWN
 = support cannot be determined
 ```
 
-Support is evaluated for the concrete features needed by a route, including applicable Attachment or Realization roots, Mapping roots, constraint evaluators, media representations, and Interface Extension behavior.
+Support is evaluated for the concrete features needed by a route, including explicitly route-required Attachment or Realization roots, Mapping roots, constraint evaluators, media representations, and Interface Extension behavior. The presence of an Attachment alone does not require Attachment support for a route under the Core default.
 
 An Extension specification existing does not make it supported by a Runtime. Conversely, preserving an unknown subtree does not constitute semantic support.
 
@@ -2684,7 +2698,7 @@ Each InterfaceUse is evaluated as a distinct route. Evaluation considers:
 - ProjectionValidation;
 - applicable Capability Requirements;
 - applicable referenced Interface Requirements;
-- required Attachment or Realization support;
+- explicitly route-required Attachment or required Realization support;
 - Mapping support when Mapping is present;
 - applicable constraint and Representation support; and
 - Runtime and Application policy.
@@ -2702,7 +2716,7 @@ For a Core-valid document and a request-oriented Capability, route Availability 
 2. Any known mandatory Requirement = UNSATISFIED
    → UNAVAILABLE
 
-3. Any required Realization, Attachment, Mapping,
+3. Any explicitly route-required Realization, Attachment, Mapping,
    constraint, or Representation feature = UNSUPPORTED
    → UNAVAILABLE
 
@@ -2727,7 +2741,7 @@ Known blockers take precedence over unrelated uncertainty. For example, a known 
 
 If a Capability has no Invocation, request-oriented invocation availability is `UNAVAILABLE`; this does not make the Capability or document invalid. If a Capability has no InterfaceUse, it has no routes and Capability availability is determined by Section 67.
 
-An Interface with both Attachment and Realization is evaluated according to the applicable Interface Extension semantics. Core does not assume that both must be used, that either is preferred, or that Attachment alone is executable.
+An Interface with both Attachment and Realization uses the explicit composition rule, if any, supplied by its applicable Extension semantics. Without such a rule, the Attachment remains descriptive context and does not block a route; the Realization and Mapping determine the interaction mechanism. Core does not assume that both must be used, that either is preferred, or that Attachment alone is executable.
 
 ## 66.3 READY Meaning
 
@@ -2928,9 +2942,9 @@ An HTTP Interface uses `http:api` as the single semantic root of `realization`:
 </interface>
 ```
 
-`http:api` MUST have the unqualified `base` attribute. `base` is a non-empty absolute or relative URI reference identifying the shared HTTP base. It MUST NOT contain a query or fragment component.
+`http:api` MUST have the unqualified `base` attribute. `base` is a non-empty absolute or relative URI reference identifying the shared HTTP base. It MUST NOT contain a query or fragment component. If `base` is absolute, its scheme MUST be `http` or `https` (scheme comparison is case-insensitive). If `base` is relative, resolution MUST produce an absolute URI whose scheme is `http` or `https`.
 
-For the baseline concatenation model, `base` MUST end with `/`. A relative `base` is resolved against the AR-XML document retrieval URL using standard URI reference resolution. The Host Application document URL MUST NOT be used as the base unless it is also the AR-XML retrieval URL.
+For the baseline concatenation model, `base` MUST end with `/`. A relative `base` is resolved against the AR-XML document retrieval URL using standard URI reference resolution. The retrieval URL MUST itself be an absolute URI that can produce an `http` or `https` result. The Host Application document URL MUST NOT be used as the base unless it is also the AR-XML retrieval URL.
 
 Example:
 
@@ -2945,7 +2959,7 @@ resolved HTTP base:
 https://example.org/entities/lab/api/
 ```
 
-If the AR-XML retrieval location is unavailable and `base` is relative, the Runtime cannot construct the target URL. The document may remain structurally valid, but the HTTP route cannot become `READY` until a base is supplied by explicit application context.
+If the AR-XML retrieval location is unavailable and `base` is relative, the Runtime cannot construct the target URL. The document may remain structurally valid, but the HTTP route is `UNAVAILABLE` for that evaluation because the required resolution context is absent. The HTTP baseline does not define an application-supplied replacement base or a precedence rule for one; an Application may reload or re-evaluate the resource with a known retrieval URL under its own policy. A non-`http`/`https` resolved scheme is an HTTP Extension validation failure and cannot produce a `READY` route.
 
 The baseline defines no other `http:api` attributes or child elements. An HTTP Extension processor MUST reject unknown unqualified attributes or HTTP-namespace children under `http:api` unless a later compatible Extension revision defines them.
 
@@ -3029,11 +3043,13 @@ boolean
 Lexical forms are:
 
 - `string`: the string value;
-- `number`: a finite JSON-compatible decimal number, excluding `NaN` and infinities;
-- `integer`: a base-10 integer lexical form; and
+- `number`: the canonical finite decimal form of the exact mathematical value, excluding `NaN` and infinities;
+- `integer`: the canonical base-10 integer form of the exact integral value; and
 - `boolean`: exactly `true` or `false`.
 
-Names and values MUST be encoded using standard URL query percent-encoding. A canonical serializer sorts parameters by Input name using code-point order; parameter order has no semantic meaning.
+For this baseline, a canonical decimal has an optional leading minus (except for zero), no leading zeroes except zero itself, an optional fractional part with at least one digit, no exponent notation, and no trailing fractional zeroes; zero is written `0`. A value that cannot be written in this form without loss is not serializable by the baseline. Canonical integer form is an optional leading minus followed by `0` or a non-zero digit and digits, with no leading zeroes.
+
+The canonical query algorithm is deterministic. Sort present parameters by the exact code-point order of their Input names. Convert each name and value to UTF-8, leave only ASCII alphanumeric characters and `*`, `-`, `.`, `_` unescaped, encode U+0020 SPACE as `+`, and percent-encode every other byte using uppercase hexadecimal. Join each encoded name/value pair with `=`, join pairs with `&`, and append the result after `?`. The HTTP baseline prohibits an existing query in the resolved `base + path`, so no query-merging rule is needed. Parameter order has no semantic meaning, but this algorithm defines the canonical serialized form for a given Input set.
 
 Example values:
 
@@ -3078,7 +3094,7 @@ produce:
 
 The request `Content-Type` is `application/json`. JSON member order has no semantic significance. An Invocation with no present Inputs maps to `{}`.
 
-Core `string`, `number`, `integer`, `boolean`, `object`, and `array` values map to the corresponding JSON value kinds. Core `binary` has no baseline JSON request mapping and requires an additional mapping specification.
+Core `string`, `boolean`, `object`, and `array` values map to the corresponding JSON value kinds. Core `number` and `integer` values MUST map to JSON number syntax while preserving the exact mathematical value. If a Runtime cannot represent or serialize that value exactly, it MUST report the mapping as `UNSUPPORTED` or reject the value under its declared support policy; it MUST NOT round, truncate, or stringify the number. Core `binary` has no baseline JSON request mapping and requires an additional mapping specification.
 
 Methods other than `GET`, `POST`, `PUT`, and `PATCH` are permitted in `http:operation`, but their request Input mapping is not defined by this baseline. A Runtime may support such a method through an additional versioned HTTP mapping specification; otherwise the route is `UNSUPPORTED` when Input serialization is required.
 
@@ -3144,19 +3160,19 @@ The scalar shortcut below is not a valid baseline JSON Result for that declarati
 21.4
 ```
 
-Every declared Output MUST have a corresponding object member. Each member value MUST satisfy the Output's Core data type and all understood semantic constraints.
+Every declared Output MUST have a corresponding object member. Each member value MUST satisfy the Output's Core data type and all understood semantic constraints. For `number` and `integer` Outputs, the decoded JSON number MUST preserve the exact mathematical value; inability to do so is a Result or Representation validation failure or an unsupported numeric feature, and MUST NOT be handled by rounding or truncation.
 
 Unknown JSON object members MAY be ignored unless the Capability Contract, Profile, or applicable Extension deterministically prohibits them. Ignoring an unknown member does not add it to AR-DOM or the semantic Result.
 
 JSON member order has no semantic significance. Multiple Outputs use the same name-to-member rule.
 
-## 75.4 Empty Results and HTTP 204
+## 75.4 No Result and HTTP 204
 
-`204 No Content` is an HTTP-level success. It is compatible with an absent Result, an empty Result, or a Result declaring no Outputs.
+`204 No Content` is an HTTP-level success. It is compatible with an absent Result, which represents a semantic invocation with no returned value. An empty Result and a Result declaring no Outputs are invalid Draft 5 Core structures.
 
 If one or more Outputs are declared, a `204` response or an otherwise absent body is a Result or Representation mapping failure, not successful semantic Output production.
 
-When no Outputs are declared, a Runtime MUST NOT invent an Output from a response body.
+When Result is absent, a Runtime MUST NOT invent an Output from a response body. A response body that is present when no Result is declared is a Representation or application-policy matter; it does not create a Core Output declaration.
 
 ## 75.5 Authentication and Authorization
 
@@ -3352,7 +3368,7 @@ An HTTP Runtime claiming the corresponding baseline mapping feature MUST impleme
 | HTTP JSON object request mapping | `POST`, `PUT`, and `PATCH` Inputs mapped to one JSON object |
 | HTTP JSON Result mapping | top-level JSON object keyed by Output name, including for one Output |
 | HTTP status classification | every `2xx` is HTTP-level success; non-`2xx` is Interface-level non-success |
-| HTTP 204 handling | success only as semantic no-content when no Output value is required |
+| HTTP 204 handling | success only when Result is absent or no Output value is required by the effective Contract |
 
 An implementation MUST NOT claim a mapping feature when it uses an incompatible scalar shortcut, undocumented query encoding, generic header DSL, or implicit semantic-error mapping.
 
@@ -4285,7 +4301,7 @@ The XML collection wrappers `identifiers`, `properties`, `subjects`, `profiles`,
 | `Requirement` | `type`, optional foreign body | Placement determines Capability or Interface scope |
 | `Invocation` | Inputs, optional Result | May be empty; presence never causes execution |
 | `Input` | `name`, `type`, `required`, optional `format`, optional `unit`, Constraints | `name` is unique within its Invocation; absent `required` means `false` |
-| `Result` | Outputs, Representations | May be empty; is not a Runtime result value |
+| `Result` | one or more Outputs, Representations | Present Result is non-empty; it is not a Runtime result value |
 | `Output` | `name`, `type`, optional `format`, optional `unit`, Constraints | `name` is unique within its Result |
 | `Representation` | `mediaType` | Describes the Result as a whole; order is not preference |
 | `InterfaceUse` | `ref`, optional Mapping | `ref` resolves to a local Interface; repeated references are allowed |
@@ -4323,7 +4339,7 @@ Capability
 │  │     ├─ unit?                 0..1
 │  │     └─ constraints           0..*
 │  └─ result?                     0..1
-│     ├─ outputs                  0..*
+│     ├─ outputs                  1..*
 │     │  └─ Output
 │     │     ├─ name               1
 │     │     ├─ type               1
@@ -4339,7 +4355,7 @@ Capability
       └─ mapping?                 0..1
 ```
 
-An omitted Invocation is distinct from a present empty Invocation. A present empty Result is likewise distinct from an omitted Result. Implementations must preserve these distinctions because they are explicit issuer-authored projection data.
+An omitted Invocation is distinct from a present empty Invocation. An omitted Result denotes no semantic return value; a present Result declares one or more Outputs. Implementations must preserve these distinctions because they are explicit issuer-authored projection data.
 
 The Capability subtree is an Entity-side projection. Resolved Contract Inputs, Outputs, Requirements, or constraints are not inserted into it. Contract comparison uses a separate resolved definition and produces a separate ProjectionValidation result.
 
@@ -4511,11 +4527,11 @@ No foreign element is permitted directly under `ar-entity`. No Entity child list
 | `capability` | `invocation` | element | `0..1` | `0..1` | May be empty |
 | `capability` | `interface-uses` | container | `0..1` | InterfaceUses `0..*` | May be empty |
 | `invocation` | `inputs` | container | `0..1` | Inputs `0..*` | May be empty |
-| `invocation` | `result` | element | `0..1` | `0..1` | May be empty |
+| `invocation` | `result` | element | `0..1` | `0..1` | If present, contains a non-empty Outputs collection |
 | `inputs` | `input` | item | `0..*` | `0..*` | `name` unique within this Invocation |
-| `result` | `outputs` | container | `0..1` | Outputs `0..*` | May be empty |
+| `result` | `outputs` | container | `1` when Result is present | Outputs `1..*` | Required when Result is present |
 | `result` | `representations` | container | `0..1` | Representations `0..*` | May be empty |
-| `outputs` | `output` | item | `0..*` | `0..*` | `name` unique within this Result |
+| `outputs` | `output` | item | `1..*` | `1..*` | At least one Output when Result is present; `name` unique within this Result |
 | `representations` | `representation` | item | `0..*` | `0..*` | Order does not express preference |
 | `interface-uses` | `interface-use` | item | `0..*` | `0..*` | Duplicate `ref` values are allowed |
 
@@ -4525,7 +4541,7 @@ The following states are all structurally distinguishable and valid unless a res
 Capability without Invocation
 Capability with empty Invocation
 Invocation without Result
-Invocation with empty Result
+Invocation with Result containing one or more Outputs
 Capability without InterfaceUse
 Capability with an empty interface-uses container
 ```
@@ -5005,7 +5021,7 @@ Draft 5 explicitly permits:
 - a Capability without Invocation;
 - an empty Invocation;
 - an Invocation without Result;
-- an empty Result; and
+- a Result containing one or more Outputs; and
 - a Capability without InterfaceUse.
 
 These states are not automatically equivalent. A migration must preserve whether Draft 4 declared Inputs or Result and must report any meaning it cannot preserve.
