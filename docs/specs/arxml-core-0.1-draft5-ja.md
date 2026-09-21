@@ -10,6 +10,7 @@
 
 ---
 
+
 # 目次
 
 - [1. この文書の位置づけ](#1-status-of-this-document)
@@ -401,5 +402,432 @@ semantic definitionを表すidentifier。identityであり、必ずしもnetwork
 
 **Subject**  
 必須の`id`と任意の`type`を持つ、軽量でdocument-localなtarget descriptor。nested Entityでもcomponent hierarchyでもない。`Capability.subjectRef`がない場合、記述対象Entity自体がsubjectである。
+
+---
+
+
+<a id="part-i--core-information-model"></a>
+# Part I — Core情報モデル
+
+<a id="7-core-model-overview"></a>
+# 7. Coreモデル概要
+
+Core Information Modelは、1つのAR Entityを記述する。次のtreeはcontainmentおよびcardinalityについて規範的である。
+
+```text
+AR Entity
+├─ Category?                         0..1
+├─ Identifiers*                      0..*
+│  └─ Identifier
+│     ├─ type                        1
+│     ├─ value                       1
+│     └─ subjectRef?                 0..1
+├─ Properties*                       0..*
+│  └─ Property
+│     ├─ type                        1
+│     ├─ value                       1
+│     └─ unit?                       0..1
+├─ Subjects*                         0..*
+│  └─ Subject
+│     ├─ id                          1
+│     └─ type?                       0..1
+├─ ProfileClaims*                    0..*
+│  └─ ConformsTo
+│     └─ href                        1
+├─ Interfaces*                       0..*
+│  └─ Interface
+│     ├─ id                          1
+│     ├─ Attachment?                 0..1
+│     ├─ Realization?                0..1
+│     └─ Requirements*               0..*
+└─ Capabilities*                     0..*
+   └─ Capability
+      ├─ id                          1
+      ├─ type                        1
+      ├─ subjectRef?                 0..1
+      ├─ Requirements*               0..*
+      ├─ Invocation?                 0..1
+      │  ├─ Inputs*                  0..*
+      │  └─ Result?                  0..1
+      │     ├─ Outputs+              1..*
+      │     └─ Representations*      0..*
+      └─ InterfaceUses*              0..*
+         └─ InterfaceUse
+            ├─ ref                   1
+            └─ Mapping?              0..1
+```
+
+`?`は0回または1回の出現、`*`は0回以上の出現を表す。この概念treeの複数形labelはcollectionを表す。Part IIで対応するXML containerを定義する。
+
+model内のすべてのitemはdescription dataである。Runtime observation、resolveされたdefinition、validation result、support information、credential、authorization decision、selected route、invocation state、およびexecution resultは、AR Entity modelのmutableな子要素ではない。
+
+すべてのcollectionは空でもよい（MAY）。したがって、空またはpassiveなAR Entityもvalidである。Core validityは、記述対象Entityがprocessor、power source、network connection、API、または実行可能Capabilityを持つことに依存してはならない（MUST NOT）。
+
+Draft 5 CoreはRelation collectionを持たない。Subject referenceは、Sections 10、12、14で定義する明示的scopeだけを表す。general relation、ownership graph、component hierarchy、またはcontainment inferenceとして解釈してはならない（MUST NOT）。
+
+<a id="8-ar-entity"></a>
+# 8. AR Entity
+
+AR Entityは、AR-XML文書が記述する唯一のtop-level objectである。document rootは引き続き`ar-entity`であり、Coreは`ar-document`、`entities`、または同等のwrapperを導入しない。
+
+AR Entityは、任意のCategoryと、このPartで定義する任意個数のIdentifier、Property、Subject、Profile Claim、Interface、およびCapabilityを含んでもよい（MAY）。任意contentの一部または全部が存在しなくても、Entityが不完全またはinvalidになることはない。
+
+AR Entityはnetwork locationではない。そのAR-XML representationを取得したlocationはdocument retrieval contextであり、暗黙のIdentifier、Property、Interface、またはCanonical Entity Identityではない。
+
+processorは、AR-XML文書に記述されているという理由だけで、Entityがdigital、active、online、controllable、またはcodeを実行可能であると推論してはならない（MUST NOT）。physical object、printed object、passive tag、connector-only object、および計算能力のないobjectもvalidなAR Entityである。
+
+文書のissuerは、その宣言に責任を負う。Core parsingが確立するのは構造であり、その宣言のtruth、provenance、authority、freshness、safety、またはcertificationではない。
+
+<a id="9-category"></a>
+# 9. Category
+
+Categoryは、記述対象Entityについてissuerが宣言する任意のclassificationである。1つの空でないstring valueを持つ。
+
+Categoryはdescriptive metadataである。consumerはCategoryを次の代替として使用してはならない（MUST NOT）。
+
+- IdentifierまたはCanonical Entity Identity
+- Capability typeまたはCapability Contract
+- Profile Claimまたはverified Profile conformance
+- InterfaceまたはRuntime availability
+- authorization decision
+
+CoreはclosedなCategory vocabularyを定義せず、Category value間のhierarchy、equivalence、またはcompatibilityを推論しない。別のvocabularyまたはProfileは、CategoryのCore上の意味を変更することなくCategory valueを制約してもよい（MAY）。
+
+EntityはCore Categoryを最大1つ持つ。追加classificationを必要とするApplicationは、適切なExtensionまたは宣言済みPropertyを使用してもよい（MAY）。
+
+<a id="10-identifier"></a>
+# 10. Identifier
+
+Identifierは、issuerが宣言するtyped identifier valueである。次から構成される。
+
+```text
+Identifier
+├─ type        1
+├─ value       1
+└─ subjectRef? 0..1
+```
+
+`type`は、identifier schemeまたはidentifier semanticsを示す空でないSemantic Identifierである。`value`は、そのschemeにおける空でないlexical identifier valueである。CoreはGTIN、VIN、MAC、IPv6、IMEIなどのschemeを列挙または再定義しない。
+
+`subjectRef`がない場合、Identifierは記述対象Entityに適用される。存在する場合、同じ文書内にあるSubjectの`id`を参照しなければならず（MUST）、IdentifierはそのSubjectに適用される。
+
+同じ`type`が複数のIdentifierに現れてもよい（MAY）。識別対象schemeまたは適用可能Profileが明示的にその意味を定義しない限り、複数の出現は、valueがequivalent、alias、preference順、または組み合わせてcomposite identifierを形成することを意味しない。
+
+Core processorは、Identifierから次のいずれも自動推論してはならない（MUST NOT）。
+
+- Canonical Entity Identity
+- AR-XMLまたはnetwork Locator
+- dereference可能resource
+- authentication credential
+- authorization
+- ownership
+- trust
+
+Semantic Identifier自体がURI syntaxを使用する場合がある。URI syntaxだけでは、Identifierの`value`または`type`はfetch必須のnetwork locationにならない。
+
+<a id="11-property"></a>
+# 11. Property
+
+Propertyは、記述対象EntityまたはEntity descriptionについてissuerが宣言するcharacteristicまたはstateである。次から構成される。
+
+```text
+Property
+├─ type  1
+├─ value 1
+└─ unit? 0..1
+```
+
+`type`は、Propertyの意味とvalue interpretationを定義する空でないSemantic Identifierである。`value`は宣言されたlexical valueである。`unit`が存在する場合、空でないidentifierまたはtermであり、そのinterpretationはProperty vocabulary、適用可能Profile、またはExtensionによって定義される。
+
+Property declarationは絶対的truthのassertionではない。Core validityは、Propertyがaccurate、current、observed、verified、またはauthoritativeであることを確立しない。provenance、timestamp、confidence、signature、またはobservation semanticsを必要とするApplicationは、適用可能Extensionまたは外部mechanismからそれを取得しなければならない（MUST）。
+
+複数のPropertyが同じ`type`を使用してもよい（MAY）。document orderおよびrepetitionは、priority、recency、aggregation、またはconflict resolutionを意味しない。Property definitionまたは適用可能Profileは、追加の決定的constraintを課してもよい（MAY）。
+
+Coreはlatitudeまたはlongitudeの直接fieldを追加しない。安定して宣言されたlocationは、Geo Extensionまたは別の適切なsemantic Property definitionで表現してもよい（MAY）。移動Entityの現在位置はRuntime Contextに属するか、`position.read`などのCapabilityを介して取得できる。Entity resolutionまたはdocument retrieval locationから推論してはならない（MUST NOT）。
+
+<a id="12-subject"></a>
+# 12. Subject
+
+Subjectは、軽量でdocument-localなtarget descriptorである。次から構成される。
+
+```text
+Subject
+├─ id    1
+└─ type? 0..1
+```
+
+`id`は、文書のSubject collection内で一意な、空でないlocal identifierである。`type`が存在する場合、Subjectのkindを記述するSemantic Identifierである。
+
+Subjectは、nested AR Entity、埋め込みAR-XML文書、component description、relation node、ownership assertion、またはhierarchyではない。Category、Identifier、Property、Profile Claim、Interface、またはCapabilityを継承も包含もしない。
+
+Subjectは、`subjectRef`を持つCore declarationが、軽量な記述対象targetへ明示的にscopeできるようにするためだけに存在する。Subject collectionが存在しないこともvalidである。
+
+Runtimeが選択するtargetはinvocation dataであり、requestごとに選択する場合はInvocation Inputとしてmodel化しなければならない（MUST）。`Capability.subjectRef`を変更したり、`subjectRef`をRuntime variableとして扱ったりして表現してはならない（MUST NOT）。
+
+<a id="13-profile-claim"></a>
+# 13. Profile Claim
+
+Profile Claimは、記述対象Entityが識別されたProfileに適合するというissuer declarationである。情報itemは次のとおりである。
+
+```text
+ConformsTo
+└─ href 1
+```
+
+`href`は、Profileのexact-versioned absolute Semantic Identifierでなければならない（MUST）。`latest`のようなmoving aliasを規範的Profile identityとして使用してはならない（MUST NOT）。
+
+同じProfileは、結果となるdeclarationがsemantically identicalな場合に限り複数回claimしてもよい（MAY）。producerは冗長なclaimを避けることが望ましい（SHOULD）。document orderはpriorityを意味してはならない（MUST NOT）。
+
+Profile Claimはissuerが提供するdataである。Profileがresolveされたこと、conformanceがevaluateされたこと、Entityがconformantであること、またはthird partyがcertifyしたことの証明ではない。
+
+```text
+Profile Claim
+≠ Profile Resolution
+≠ Verified Conformance
+≠ Certification
+```
+
+Profile resolutionおよびconformance stateは、Parts VおよびVIIIで別に定義する。
+
+<a id="14-capability"></a>
+# 14. Capability
+
+Capabilityは、semantic functionまたはfunctional affordanceについてのEntity側declarationである。次から構成される。
+
+```text
+Capability
+├─ id             1
+├─ type           1
+├─ subjectRef?    0..1
+├─ Requirements*  0..*
+├─ Invocation?    0..1
+└─ InterfaceUses* 0..*
+```
+
+`id`は、文書のCapability collection内で一意な、空でないlocal identifierである。`type`は、そのEntity側projectionが実装するCapability Contractのexact-versioned absolute Semantic Identifierでなければならない（MUST）。
+
+`subjectRef`がない場合、Capabilityのsubjectは記述対象Entity自体である。存在する場合、同じ文書内にあるSubjectの`id`を参照しなければならない（MUST）。
+
+Capabilityは、どのfunctionまたはaffordanceが宣言されているかを表す。次のいずれでもない。
+
+- Interfaceまたはtransport binding
+- endpoint、HTTP method、BLE characteristic、またはWoT affordance
+- invocation requestまたはexecution record
+- Runtime support、availability、authorization、またはexecution成功の証明
+- 規範的Capability Contract自体
+
+CapabilityはInvocationを省略してもよい（MAY）。すべてのInterfaceUseを省略してもよい（MAY）。どちらの省略もvalidであり、descriptive、non-request-oriented、現在route不能、または外部でrealizeされるsemantic capabilityを表し得る。
+
+複数のInterfaceUseが同じCapability Contractを実装する場合、それらは1つのCapabilityに対する代替routeまたは追加routeである。producerは、HTTP、BLE、physical connector、または別のrealizationも利用可能であることだけを理由にCapabilityを複製すべきではない（SHOULD NOT）。
+
+Entity側Capabilityは、そのCapability Contractの明示的なlocal projectionである。Contract contentがAR-XML文書へ暗黙にcopyまたはstructural mergeされることはない。Projection規則はPart IVで定義する。
+
+<a id="15-invocation"></a>
+# 15. Invocation
+
+Invocationは、Capabilityの任意のrequest-oriented interaction contractである。次から構成される。
+
+```text
+Invocation
+├─ Inputs* 0..*
+└─ Result? 0..1
+```
+
+空のInvocationもvalidである。これは、Core InputまたはCore Resultを宣言せずに、Capabilityがrequest-oriented interaction shapeを持つことを表す。文書をloadしたときにrequestを実行すべきことは意味しない。
+
+Inputは、特定invocationのためにcallerが提供するsemantic valueを記述する。Resultは、そのinvocationから期待されるsemantic resultを記述する。どちらもtransport serializationを定義せず、その役割はInterface ExtensionおよびInterfaceUse Mappingが担う。
+
+Invocationは、意図的にgeneral interaction-pattern abstractionではない。Observation、Subscription、Event、Notification、およびStream semanticsをInvocationへ押し込まない。将来のCore revisionまたはExtensionは、ここで定義したrequest-orientedな意味を変更することなく、それらのpatternを定義してもよい（MAY）。
+
+Invocationが存在しても、InterfaceUse、Runtime implementation support、authorization、route availability、またはexecution成功は保証されない。
+
+<a id="16-input-result-output-and-representation"></a>
+# 16. Input、Result、Output、およびRepresentation
+
+## 16.1 Core Data Type
+
+InputおよびOutputは、次のCore structural data typeのいずれかを使用する。
+
+```text
+string
+number
+integer
+boolean
+binary
+object
+array
+```
+
+これらのtypeが記述するのはdata shapeであり、domain meaningではない。semantic name、Capability Contract、unit、format、またはExtensionがdomain semanticsを提供する。processorは、たとえば`number`がtemperatureであることや、`string`が`text/plain` representationを使用することを推論してはならない（MUST NOT）。
+
+`number`はnumeric scalar shape、`integer`はintegral numeric scalar shapeを表す。これらのprimitive nameは、arbitrary-precision decimal value model、machine word size、IEEE-754非依存性、または普遍的なrange/precision policyを規定しない。numeric range、precision、exceptional-value handling、およびwire representationは、適用可能なCapability Contract、Profile、datatype Extension、およびtransport mappingに属する。Runtimeのnumeric limitationはimplementation support informationであり、このCore vocabularyだけではarbitrary-precision arithmeticまたはexact-decimal storageを要求しない。
+
+## 16.2 Input
+
+Inputはcallerが提供するsemantic valueである。Core情報は次のとおりである。
+
+```text
+Input
+├─ name        1
+├─ type        1
+├─ required?   0..1, default true
+├─ format?     0..1
+├─ unit?       0..1
+└─ constraints 0..*
+```
+
+`name`は、同じInvocation内のInput間で一意な、空でないsemantic field nameである。`type`は1つのCore data typeである。`required`がない場合は`true`である。`format`、`unit`、およびconstraintはinterpretationをrefineするが、resolveされたCapability Contractが定義するInput semanticsと矛盾してはならない（MUST NOT）。
+
+Input constraintは、Parts IIおよびIIIで定義する明示的なconstraint areaでのみ表現される。unknown constraint semanticsは、後で規定するとおりprojectionまたはRuntime evaluationに影響する。推測してはならない（MUST NOT）。
+
+## 16.3 Result
+
+Entity側Resultは、Invocationのsemantic return valueを記述する。Core information modelは次のとおりである。
+
+```text
+Result
+├─ Outputs+         1..*
+└─ Representations* 0..*
+```
+
+Entity側`result`が存在する場合、少なくとも1つのOutputを含まなければならない（MUST）。return valueを持たないEntity側Invocationは、空のResultを使用せずResultを省略する。このEntity serialization規則は、Section 37の別個のCapability Contract definition modelに同じcardinalityを課さない。Resultは、成功したRuntime execution result、HTTP response、decoded payload、またはCapability errorとは別である。
+
+Draft 5 Coreは、Draft 4の`errors` collectionをEntity側Result modelに含めない。semantic error definitionおよびmappingには、適用可能なCapability ContractまたはExtensionが必要であり、transport statusだけから推論してはならない（MUST NOT）。
+
+## 16.4 Output
+
+OutputはResult内のsemantic valueである。Core情報は次のとおりである。
+
+```text
+Output
+├─ name        1
+├─ type        1
+├─ format?     0..1
+├─ unit?       0..1
+└─ constraints 0..*
+```
+
+`name`は、同じResult内のOutput間で一意な、空でないsemantic field nameである。`type`は1つのCore data typeである。`format`、`unit`、およびconstraintはinterpretationをrefineするが、resolveされたCapability Contractが定義するOutput semanticsと矛盾してはならない（MUST NOT）。
+
+適用可能なMappingまたは関連Interface Extensionが対応関係を定義するまで、Outputはwire fieldではない。
+
+## 16.5 Representation
+
+Representationは、Result全体の具体的なmedia representationを宣言する。RFC 9110のmedia-type syntaxに適合する空でない必須`mediaType` valueを持ち、Section 27.3に従う。また、Part IIが明示的に定義する追加Core情報だけを含んでもよい（MAY）。
+
+```text
+Result ≠ Representation
+```
+
+1つのRepresentationが複数のOutputを伝達してもよい（MAY）。逆に、Outputが1つだけ宣言されていても、processorはscalar wire representationを仮定できない。
+
+Representationのdocument orderはpreferenceを意味してはならない（MUST NOT）。selectionをサポートする場合、明示的なcaller preference、Runtime support、適用可能なInterface Extension規則、およびEntity declarationに基づく。
+
+複数のRepresentationは、実質的にequivalentなResult contentを記述することが望ましい（SHOULD）。summary、translation、simplified version、または別のsemantic transformationは、同じResultの代替Core Representationには自動的にならない。
+
+<a id="17-requirement"></a>
+# 17. Requirement
+
+Requirementはtyped prerequisite declarationである。次から構成される。
+
+```text
+Requirement
+├─ type                   1
+└─ extension-defined elements 0..*
+```
+
+`type`は、Requirement semanticsを識別する空でないSemantic Identifierである。Coreはclosedな`kind` enumerationを定義しない。bodyは、Requirement definitionおよびExtension processing規則に従うdataを提供する0個以上のforeign Extension elementを含む。複数のbody elementは、この1つのRequirementに属する。Coreはそれらを単一rootへcollapseせず、それぞれを別Requirementとしても扱わない。
+
+Requirementのscopeは配置によって決まる。
+
+```text
+Capability.Requirements
+→ prerequisites for the Capability
+
+Interface.Requirements
+→ prerequisites for use of the Interface
+```
+
+producerはCoreの`scope` valueを使用して配置をoverrideしてはならない（MUST NOT）。
+
+AuthenticationおよびauthorizationのprerequisiteをRequirementとして宣言してもよい（MAY）。AR-XMLはcredentialまたはauthorizationを発行、保存、refresh、開示、またはenforceしない。文書は、password、session identifier、bearer token、refresh token、private key、API secret、または同等のsecretをRequirement dataまたはAR-XML内の他の場所へ埋め込んではならない（MUST NOT）。
+
+Requirementはdescription dataであり、現在のRuntime stateではない。prerequisiteが現在満たされているとはassertしない。Runtime evaluationはPart VIIIで定義する`SATISFIED`、`UNSATISFIED`、または`UNKNOWN`を使用する。
+
+unknown Requirement typeまたはunknown Requirement Extensionだけで、Core-validな文書がinvalidになることはない。
+
+```text
+Core validity = valid
+RequirementEvaluation = UNKNOWN
+```
+
+この不確実性をauthorizationへ変換したり、satisfiedとして扱ったりしてはならない（MUST NOT）。
+
+<a id="18-interface-and-interfaceuse"></a>
+# 18. InterfaceとInterfaceUse
+
+## 18.1 Interface
+
+Interfaceは、Entityで共有されるinteraction surfaceまたはrealization contextである。次から構成される。
+
+```text
+Interface
+├─ id            1
+├─ Attachment?   0..1
+├─ Realization?  0..1
+└─ Requirements* 0..*
+```
+
+`id`は、文書のInterface collection内で一意な、空でないlocal identifierである。
+
+Attachmentはphysical、spatial、またはcontact-orientedなaccess boundaryを記述する。Realizationは具体的なinteraction mechanismを記述する。具体的semanticsはCoreではなくforeign namespaced Extensionが定義する。connector description、BLE realization、HTTP API、WoT-based realizationなどが例である。
+
+InterfaceはAttachmentまたはRealizationの少なくとも一方を含まなければならない（MUST）。
+
+```text
+Attachment absent
+AND Realization absent
+→ invalid Interface
+```
+
+Attachmentのみを持つInterfaceとRealizationのみを持つInterfaceは、どちらもvalidである。これにより、Capability、network API、または実行可能operationを要求せずにpassive HDMI connectorなどを記述できる。Attachmentはaccess boundaryだけを記述し、具体的なInvocation mechanismはRealizationで表現しなければならない（MUST）。AttachmentのみのInterfaceを参照するInterfaceUseはCore-validのままだが、そのrequest-oriented routeはSection 66に従って`UNAVAILABLE`となる。
+
+AttachmentまたはRealizationが存在する場合、そのwrapperはforeign namespaced Extension semantic rootを正確に1つ含む。Part IIIはExtension processingおよびvalidationを定義する。
+
+AttachmentとRealizationはInterfaceの別々のaspectを記述する。request-oriented routeがAttachmentを持つInterfaceを参照する場合、宣言されたAttachmentは適用可能なaccess prerequisiteであり、Section 66.5に従ってevaluateしなければならない（MUST）。AttachmentとRealizationの両方が存在する場合、Attachment satisfactionと必要なinteraction mechanism supportは、そのrouteに対する累積条件である。Realization supportだけではAttachmentをbypassしない。Attachment Extensionはaccess conditionを定義し、CoreはそのevaluationがAvailabilityへどう寄与するかを定義する。存在だけでは、satisfaction、programmatic invocation support、またはphysical safetyを証明しない。
+
+どのCapabilityからも参照されないInterfaceが存在してもよい（MAY）。Interface orderはpreferenceを意味してはならない（MUST NOT）。
+
+## 18.2 InterfaceUse
+
+InterfaceUseは、特定Capabilityが共有Interfaceをどう使用するかを宣言する。次から構成される。
+
+```text
+InterfaceUse
+├─ ref      1
+└─ Mapping? 0..1
+```
+
+`ref`は、同じ文書内のInterfaceの`id`を参照しなければならない（MUST）。dangling referenceはCore structural errorである。
+
+Mappingが存在する場合、Capability固有の参照先Interface利用方法を記述するforeign namespaced Extension semantic rootを正確に1つ含む。Interface realizationまたは適用可能Extension semanticsがCapability固有mappingを必要としない場合、Mappingを持たないplain InterfaceUseもvalidである。
+
+1つのCapabilityが、同じ`ref`を持つ複数のInterfaceUseを含んでもよい（MAY）。これにより、同じ共有Interfaceに対する複数のmappingまたはuseを表現できる。processorは、`ref` valueが一致するという理由だけで、そのようなInterfaceUseをcollapseしてはならない（MUST NOT）。
+
+InterfaceUse orderはroute preferenceを意味してはならない（MUST NOT）。route supportおよびavailabilityは、適用可能な各InterfaceUseについて個別にevaluateされ、Part VIIIの定義どおりaggregateされる。
+
+## 18.3 分離規則
+
+InterfaceとInterfaceUseは別の概念として維持しなければならない（MUST）。
+
+```text
+Interface
+= shared attachment / realization context
+
+InterfaceUse
+= capability-specific reference and optional mapping
+```
+
+Capability Contractは、Interface、InterfaceUse、Attachment、Realization、Mapping、endpoint、またはtransport informationを含んではならない（MUST NOT）。これらはEntity implementation projectionと利用可能interaction routeを記述するものであり、規範的semantic functionではない。
 
 ---
