@@ -5318,4 +5318,253 @@ Draft 5 therefore rebuilds the syntax and processing model without discarding th
 
 # Appendix E. Non-goals
 
-_To be specified in a later staged update._
+This appendix identifies concerns that Draft 5 intentionally does not standardize in Core. A non-goal is not necessarily unimportant or permanently prohibited. It means that Core does not define the concern's domain model, execution semantics, protocol, policy engine, or conformance rules.
+
+An external standard, Capability Contract, Profile, Extension, Runtime, or Application may address a non-goal when it does so without weakening or contradicting Core. Such integration does not make the external semantics part of AR-XML Core.
+
+## E.1 Summary
+
+Draft 5 Core is not:
+
+- a robot manipulation standard;
+- a general connector ontology;
+- a relation or hierarchy inference system;
+- an AI planner;
+- a skill, workflow, choreography, or orchestration language;
+- a Credential manager;
+- an authorization enforcement system;
+- a new transport protocol;
+- a reimplementation of W3C WoT;
+- a reimplementation of GS1 identifier standards;
+- a reimplementation of OPC UA or Asset Administration Shell;
+- a generic mapping DSL;
+- a JSON serialization of AR-XML;
+- an automatic execution mechanism during loading; or
+- a mandatory centralized registry system.
+
+The following sections define the boundaries behind this list.
+
+## E.2 Robot Manipulation and Physical Control
+
+Core can declare a Capability whose Contract describes a function related to a robot, vehicle, actuator, tool, or physical process. It can also describe an Attachment or Realization through an Extension. It does not define:
+
+- coordinate frames, kinematics, dynamics, trajectories, grasping, or path planning;
+- robot descriptions, joint models, end effectors, or collision geometry;
+- motion safety, emergency stops, force limits, or functional-safety assurance;
+- task allocation, fleet control, or autonomous control loops; or
+- domain-specific command semantics for industrial, medical, automotive, aviation, or other safety-critical systems.
+
+A robotics specification may define versioned Capability Contracts and Extensions that use AR-XML. Those specifications remain responsible for physical semantics, deterministic constraints, safety analysis, authorization, and conformance.
+
+`READY` is not a physical-safety approval. A Runtime must not infer that a physical action is safe merely because its route has no known local interoperability blocker.
+
+## E.3 Connector, Spatial, and Attachment Ontologies
+
+Attachment is an Extension Slot for a physical, spatial, contact-oriented, or otherwise direct access boundary. Core does not define a universal ontology for:
+
+- connector families, shapes, pinouts, gender, orientation, mating, or electrical limits;
+- spatial anchors, coordinate systems, pose, tolerances, reachability, or occlusion;
+- mechanical, optical, acoustic, wireless, or material compatibility; or
+- installation, assembly, maintenance, or handling instructions.
+
+An Attachment Extension may define any of these under its own namespace and version. It must not imply a Capability, Invocation, compatibility decision, or safe connection unless its own deterministic semantics explicitly establish that result.
+
+Core's lack of a general connector ontology is what permits a simple HDMI connector description, passive tag, printed marker, or future domain-specific Attachment to coexist without forcing all physical objects into one taxonomy.
+
+## E.4 Relations, Hierarchy, and Inference
+
+Draft 5 has no Core Relations collection. It does not define ownership, containment, composition, adjacency, equivalence, dependency, membership, provenance graphs, digital-twin graphs, or arbitrary Entity-to-Entity links.
+
+A Subject is a lightweight document-local target descriptor. It is not:
+
+- a nested Entity;
+- a component tree;
+- a relation node;
+- an ownership assertion; or
+- evidence that two identifiers denote the same real-world thing.
+
+`subjectRef` provides only the explicit scoping defined for Identifier and Capability. A processor must not infer unstated relations from shared values, document position, URL paths, interface reuse, similar names, physical proximity, or AI interpretation.
+
+A future Relations specification may use a companion model or an appropriate future Extension/Core version. It must keep asserted relations separate from inferred relations and must define identity, provenance, trust, and conflict behavior explicitly.
+
+## E.5 AI Planning and Autonomous Behavior
+
+Core is not an AI planner and does not define goals, rewards, policies, tool-selection strategies, prompt formats, memory, reasoning traces, autonomy levels, or multi-agent coordination.
+
+Capability descriptions may be exposed to an AI-assisted Application, but AR-XML does not authorize that Application to invoke them. The Application remains responsible for explicit initiating intent, Input validation, Requirement evaluation, route selection, authorization, safety policy, and execution control.
+
+Natural-language similarity and probabilistic model output are not deterministic semantic resolution. AI or LLM processing may assist authoring, discovery, explanation, or user interaction, but it is not required for:
+
+- Core parsing or validation;
+- Contract or Profile identity comparison;
+- projection compatibility;
+- Profile conformance;
+- security or authorization decisions; or
+- specification conformance testing.
+
+AI-generated Inputs, mappings, migration decisions, or inferred targets are untrusted until accepted through explicit deterministic policy.
+
+## E.6 Skill, Workflow, and Orchestration Languages
+
+A Capability describes one semantic function or functional affordance. It is not a workflow step definition, executable skill package, script, behavior tree, state machine, transaction, saga, choreography, or composition graph.
+
+Core does not define:
+
+- sequencing, branching, loops, parallelism, compensation, or rollback;
+- dependency graphs or data flow between Capability invocations;
+- trigger, timer, event, or subscription orchestration;
+- distributed transaction semantics;
+- workflow persistence, scheduling, ownership, or recovery; or
+- automatic selection and execution of a Capability chain.
+
+An Application or separate workflow specification may orchestrate explicitly requested Capability invocations. It must not encode workflow semantics by treating InterfaceUse document order as sequence, repeated Capabilities as steps, Requirements as triggers, or Profile constraints as an execution plan.
+
+Observation, Subscription, Event, Notification, and Stream patterns are also not generalized into request-oriented Invocation in Draft 5. They require separate semantics rather than overloading an empty or long-running Invocation.
+
+## E.7 Credential Management and Authorization Enforcement
+
+AR-XML may declare authentication or authorization prerequisites as typed Requirements. It does not:
+
+- issue, store, discover, refresh, rotate, revoke, or exchange Credentials;
+- embed passwords, tokens, private keys, session cookies, API secrets, or equivalent secrets;
+- define login, consent, delegation, token exchange, or account recovery flows;
+- decide that a principal is authorized;
+- enforce remote resource policy; or
+- replace the target system's authorization checks.
+
+Credential handling belongs to the Runtime, Host Application, operating environment, user agent, identity provider, and target service under their own security policies.
+
+```text
+Requirement declaration
+≠ Credential
+≠ Authentication result
+≠ Authorization grant
+≠ Enforcement
+```
+
+`RequirementEvaluation = SATISFIED` does not guarantee remote authorization. `READY` does not guarantee that supplied Credentials will be accepted. Authentication and authorization failures remain possible after an explicit invocation attempt.
+
+## E.8 Transport and Protocol Standardization
+
+Core does not define a new network, transport, discovery, messaging, or session protocol. Semantic identity does not mandate HTTP dereferencing, and Entity resolution does not mandate a particular discovery transport.
+
+The Standard HTTP Extension reuses HTTP. It defines a limited AR-XML realization and mapping baseline; it does not redefine HTTP methods, status codes, URI processing, TLS, authentication schemes, caching, redirects, Content-Type, CORS, or browser security.
+
+Other transports or mechanisms may be defined by Extensions. Such an Extension is responsible for its namespace, versioning, syntax, mapping, security, support detection, and Runtime behavior. Merely placing a protocol name in a document does not create a conforming binding.
+
+Core does not require network access at all. Passive, attachment-only, offline, Human-mediated, locally resolved, and gateway-mediated Entities remain valid.
+
+## E.9 Reimplementation of External Domain Standards
+
+Draft 5 deliberately avoids copying or redefining established external standards.
+
+| External area | Core boundary |
+|---|---|
+| W3C Web of Things | Core does not recreate Thing Description, affordance, security-scheme, form, or protocol-binding models |
+| GS1 and product identifiers | Core does not define GTIN or related allocation, check-digit, packaging, or identification semantics |
+| Vehicle and device identifiers | Core does not redefine VIN, MAC, IPv6, IMEI, serial-number, or other scheme semantics |
+| OPC UA | Core does not recreate its information model, services, nodes, references, security, or transport profiles |
+| Asset Administration Shell | Core does not recreate AAS submodels, semantic IDs, packages, shells, or registries |
+
+An Identifier `type`, Property `type`, Capability Contract, Profile, Requirement, or Extension may reference an external standard under that standard's authority. A bridge may map between AR-XML and an external model when it defines provenance, loss, versioning, and conflict behavior.
+
+Such a reference or bridge does not make the two models identical. A processor must not infer equivalence from matching labels, shared URI authorities, or common industry usage.
+
+## E.10 Generic Mapping DSL
+
+Draft 5 does not define a general transformation language for arbitrary protocols or payloads. It does not standardize:
+
+- JSONPath, XPath, CSS selectors, templates, scripts, or expressions;
+- arbitrary header, cookie, body, multipart, binary, or form mapping;
+- schema-to-schema transformation;
+- conditional mapping, computed fields, or data joins;
+- semantic-error extraction from arbitrary responses; or
+- protocol-independent request and response programs.
+
+Mapping is an explicit InterfaceUse Extension Slot. A specific Interface Extension may define a bounded deterministic mapping such as the HTTP baseline `method` and `path` rules. That does not create a generic DSL and must not be extrapolated beyond the Extension's declared semantics.
+
+When a use case requires a richer mapping, it should use a separately versioned Extension or external adapter with explicit security, determinism, and conformance rules. Executable code embedded as mapping data is not executed by Core loading or validation.
+
+## E.11 JSON Serialization of AR-XML
+
+Draft 5 defines an XML serialization only. It does not define a JSON, YAML, CBOR, RDF, binary, or JavaScript-object serialization of the AR Entity model.
+
+JSON used as an HTTP request or Result Representation is payload data for an invocation. It is not a JSON serialization of AR-XML itself.
+
+Implementations may expose language-native AR-DOM objects or private storage forms. Those forms are implementation details and must not be exchanged as “AR-XML JSON” or used for Core conformance claims without a separately versioned serialization specification.
+
+A future serialization must define namespace identity, Extension carriage, lexical preservation, local references, ordering, canonicalization, unknown content, signatures, media type, and round-trip behavior. Simple key renaming from XML is not sufficient.
+
+## E.12 Automatic Execution During Loading
+
+Loading is observational:
+
+```text
+ARRuntime.load()
+= Resolve / Fetch / Parse / Validate / Expose
+```
+
+Load does not include Capability invocation. The following activities also must not automatically execute a Capability:
+
+- AR-DOM construction or traversal;
+- Profile Claim discovery;
+- Contract or Profile resolution;
+- Extension recognition or validation;
+- projection or Profile conformance evaluation;
+- Support or Availability evaluation;
+- route enumeration or representation selection;
+- document preview, indexing, caching, or migration; or
+- installation of a registry or Extension processor.
+
+Side-effecting execution begins only after an explicit request by an Application or Human. A Runtime must not invoke a Capability as a health check or Availability probe. Fetching an AR-XML document or a semantic definition remains retrieval of description data, not execution of the described function.
+
+## E.13 Mandatory Centralized Registry
+
+Draft 5 defines Semantic Registry behavior but does not require one global service, one authority, one network endpoint, or one governance organization.
+
+Definitions may be resolved from:
+
+- built-in resources;
+- local registries;
+- caches;
+- Application-provided registries;
+- installed Extensions or plugins;
+- network services; or
+- policy-controlled combinations of these sources.
+
+Offline operation is valid. URI-shaped identity does not require network dereferencing. Federation order, source popularity, cache timing, or first response must not become an implicit semantic decision rule.
+
+Registry operation also does not establish publisher trust, Entity authentication, authorization, verified conformance, or Certification. Those concerns require separate evidence and policy.
+
+## E.14 Certification, Truth, and Freshness
+
+Core validates structure and supports deterministic semantic evaluation where definitions are available. It is not a certification authority, product approval system, source-of-truth service, or freshness protocol.
+
+Issuer-declared Identifiers, Properties, Profile Claims, Capabilities, Interfaces, and Requirements may be inaccurate, stale, unauthorized, or deceptive. Core validity does not prove them true. Profile conformance does not prove certification. A resolved definition does not prove the publisher or document trustworthy.
+
+Applications needing signatures, attestations, audit trails, observation timestamps, confidence, revocation, certification marks, or regulated approval must use an appropriate external mechanism or versioned Extension and must preserve the distinction from Core validity.
+
+## E.15 Future Work Boundary
+
+A non-goal may become the subject of a future Extension, companion specification, or Core revision. Future work must not retroactively change Draft 5 semantics or encode new Core content under the Draft 5 version.
+
+Any future feature should preserve at least these boundaries:
+
+```text
+Entity ≠ Location
+Capability ≠ Interface
+Capability ≠ Invocation
+Description ≠ Execution
+Resolution ≠ Authentication
+Authentication ≠ Authorization
+Availability ≠ Authorization ≠ Execution
+Spec Capability ≠ Runtime Implementation Capability
+Profile Claim ≠ Verified Conformance ≠ Certification
+Capability Contract ≠ Entity-side Capability Projection
+Interface ≠ InterfaceUse
+Identifier ≠ Locator ≠ Canonical Entity Identity
+```
+
+It should also remain deterministic without requiring AI for interoperability or conformance, keep physical and passive Entities valid, preserve explicit initiating intent for side effects, and define unknown or unsupported semantics without guessing.
+
+The purpose of these non-goals is scope discipline. Draft 5 provides a small semantic Core, explicit extension boundaries, and separated Runtime states so that specialized standards can integrate without being partially and inconsistently reimplemented inside AR-XML Core.
