@@ -399,51 +399,408 @@ A lightweight document-local target descriptor with required `id` and optional `
 
 # 7. Core Model Overview
 
-_To be specified in the next staged update._
+The Core Information Model describes one AR Entity. The following tree is normative with respect to containment and cardinality:
+
+```text
+AR Entity
+├─ Category?                         0..1
+├─ Identifiers*                      0..*
+│  └─ Identifier
+│     ├─ type                        1
+│     ├─ value                       1
+│     └─ subjectRef?                 0..1
+├─ Properties*                       0..*
+│  └─ Property
+│     ├─ type                        1
+│     ├─ value                       1
+│     └─ unit?                       0..1
+├─ Subjects*                         0..*
+│  └─ Subject
+│     ├─ id                          1
+│     └─ type?                       0..1
+├─ ProfileClaims*                    0..*
+│  └─ ConformsTo
+│     └─ href                        1
+├─ Interfaces*                       0..*
+│  └─ Interface
+│     ├─ id                          1
+│     ├─ Attachment?                 0..1
+│     ├─ Realization?                0..1
+│     └─ Requirements*               0..*
+└─ Capabilities*                     0..*
+   └─ Capability
+      ├─ id                          1
+      ├─ type                        1
+      ├─ subjectRef?                 0..1
+      ├─ Requirements*               0..*
+      ├─ Invocation?                 0..1
+      │  ├─ Inputs*                  0..*
+      │  └─ Result?                  0..1
+      │     ├─ Outputs*              0..*
+      │     └─ Representations*      0..*
+      └─ InterfaceUses*              0..*
+         └─ InterfaceUse
+            ├─ ref                   1
+            └─ Mapping?              0..1
+```
+
+`?` denotes zero or one occurrence and `*` denotes zero or more occurrences. The plural labels in this conceptual tree identify collections; Part II defines their XML containers.
+
+Every item in the model is description data. Runtime observations, resolved definitions, validation results, support information, credentials, authorization decisions, selected routes, invocation state, and execution results are not mutable children of the AR Entity model.
+
+All collections MAY be empty. Consequently, an empty or passive AR Entity is valid. Core validity MUST NOT depend on the described Entity having a processor, power source, network connection, API, or executable Capability.
+
+The Core has no Relation collection in Draft 5. A Subject reference expresses only the explicit scoping defined in Sections 10, 12, and 14; it MUST NOT be interpreted as a general relation, ownership graph, component hierarchy, or containment inference.
 
 # 8. AR Entity
 
-_To be specified in the next staged update._
+An AR Entity is the sole top-level object described by an AR-XML document. The document root remains `ar-entity`; the Core does not introduce an `ar-document`, `entities`, or equivalent wrapper.
+
+The AR Entity MAY contain the optional Category and any number of Identifiers, Properties, Subjects, Profile Claims, Interfaces, and Capabilities defined by this Part. The absence of any or all optional content does not make the Entity incomplete or invalid.
+
+An AR Entity is not a network location. The location from which its AR-XML representation was obtained is document retrieval context, not an implicit Identifier, Property, Interface, or Canonical Entity Identity.
+
+A processor MUST NOT infer that the Entity is digital, active, online, controllable, or capable of executing code merely because an AR-XML document describes it. Physical objects, printed objects, passive tags, connector-only objects, and objects with no computation are valid AR Entities.
+
+The issuer of a document is responsible for its declarations. Core parsing establishes structure, not the truth, provenance, authority, freshness, safety, or certification of those declarations.
 
 # 9. Category
 
-_To be specified in the next staged update._
+Category is an optional, issuer-declared classification of the described Entity. It has one non-empty string value.
+
+Category is descriptive metadata. A consumer MUST NOT use Category as a substitute for:
+
+- an Identifier or Canonical Entity Identity;
+- a Capability type or Capability Contract;
+- a Profile Claim or verified Profile conformance;
+- an Interface or Runtime availability; or
+- an authorization decision.
+
+The Core does not define a closed Category vocabulary and does not infer hierarchy, equivalence, or compatibility between Category values. A separate vocabulary or Profile MAY constrain Category values without changing the Core meaning of Category.
+
+An Entity has at most one Core Category. Applications requiring additional classifications MAY use an appropriate Extension or declared Properties.
 
 # 10. Identifier
 
-_To be specified in the next staged update._
+An Identifier is an issuer-declared typed identifier value. It consists of:
+
+```text
+Identifier
+├─ type        1
+├─ value       1
+└─ subjectRef? 0..1
+```
+
+`type` is a non-empty Semantic Identifier naming the identifier scheme or identifier semantics. `value` is the non-empty lexical identifier value under that scheme. The Core does not enumerate or redefine schemes such as GTIN, VIN, MAC, IPv6, or IMEI.
+
+If `subjectRef` is absent, the Identifier applies to the described Entity. If present, it MUST reference the `id` of a Subject in the same document and the Identifier applies to that Subject.
+
+The same `type` MAY occur in more than one Identifier. Multiple occurrences do not imply that the values are equivalent, aliases, ordered by preference, or jointly form a composite identifier unless the identified scheme or an applicable Profile explicitly defines that meaning.
+
+Core processors MUST NOT automatically infer any of the following from an Identifier:
+
+- Canonical Entity Identity;
+- an AR-XML or network Locator;
+- a dereferenceable resource;
+- an authentication credential;
+- authorization;
+- ownership; or
+- trust.
+
+A Semantic Identifier may itself use URI syntax. URI syntax alone does not make the Identifier's `value` or `type` a network location that must be fetched.
 
 # 11. Property
 
-_To be specified in the next staged update._
+A Property is an issuer-declared characteristic or state of the described Entity or of the Entity description. It consists of:
+
+```text
+Property
+├─ type  1
+├─ value 1
+└─ unit? 0..1
+```
+
+`type` is a non-empty Semantic Identifier that defines the meaning and value interpretation of the Property. `value` is the declared lexical value. `unit`, when present, is a non-empty identifier or term whose interpretation is defined by the Property vocabulary, applicable Profile, or Extension.
+
+A Property declaration is not an assertion of absolute truth. Core validity does not establish that a Property is accurate, current, observed, verified, or authoritative. Applications that require provenance, timestamps, confidence, signatures, or observation semantics MUST obtain them from an applicable Extension or external mechanism.
+
+More than one Property MAY use the same `type`. Document order and repetition do not imply priority, recency, aggregation, or conflict resolution. The Property definition or an applicable Profile MAY impose additional deterministic constraints.
+
+The Core does not add direct latitude or longitude fields. A stable declared location MAY be expressed by a Geo Extension or another suitable semantic Property definition. The current position of a moving Entity belongs in Runtime Context or may be obtained through a Capability such as `position.read`; it MUST NOT be inferred from Entity resolution or document retrieval location.
 
 # 12. Subject
 
-_To be specified in the next staged update._
+A Subject is a lightweight document-local target descriptor. It consists of:
+
+```text
+Subject
+├─ id    1
+└─ type? 0..1
+```
+
+`id` is a non-empty local identifier unique within the document's Subject collection. `type`, when present, is a Semantic Identifier describing the Subject's kind.
+
+A Subject is not a nested AR Entity, embedded AR-XML document, component description, relation node, ownership assertion, or hierarchy. It does not inherit or contain Category, Identifiers, Properties, Profile Claims, Interfaces, or Capabilities.
+
+Subjects exist only so that Core declarations with a `subjectRef` can explicitly scope themselves to a lightweight described target. The absence of a Subject collection is valid.
+
+A Runtime-selected target is invocation data and MUST be modeled as an Invocation Input when selection occurs per request. It MUST NOT be represented by mutating `Capability.subjectRef` or by treating `subjectRef` as a Runtime variable.
 
 # 13. Profile Claim
 
-_To be specified in the next staged update._
+A Profile Claim is an issuer declaration that the described Entity conforms to an identified Profile. Its information item is:
+
+```text
+ConformsTo
+└─ href 1
+```
+
+`href` MUST be an exact-versioned absolute Semantic Identifier for a Profile. A moving alias such as `latest` MUST NOT be used as normative Profile identity.
+
+The same Profile MAY be claimed more than once only when the resulting declarations are semantically identical; producers SHOULD avoid redundant claims. Document order MUST NOT imply priority.
+
+A Profile Claim is data supplied by the issuer. It is not proof that the Profile resolved, that conformance was evaluated, that the Entity is conformant, or that a third party certified it.
+
+```text
+Profile Claim
+≠ Profile Resolution
+≠ Verified Conformance
+≠ Certification
+```
+
+Profile resolution and conformance states are defined separately in Parts V and VIII.
 
 # 14. Capability
 
-_To be specified in the next staged update._
+A Capability is an Entity-side declaration of a semantic function or functional affordance. It consists of:
+
+```text
+Capability
+├─ id             1
+├─ type           1
+├─ subjectRef?    0..1
+├─ Requirements*  0..*
+├─ Invocation?    0..1
+└─ InterfaceUses* 0..*
+```
+
+`id` is a non-empty local identifier unique within the document's Capability collection. `type` MUST be the exact-versioned absolute Semantic Identifier of the Capability Contract implemented by the Entity-side projection.
+
+If `subjectRef` is absent, the subject of the Capability is the described Entity itself. If present, it MUST reference the `id` of a Subject in the same document.
+
+Capability denotes what function or affordance is declared. It is not:
+
+- an Interface or transport binding;
+- an endpoint, HTTP method, BLE characteristic, or WoT affordance;
+- an invocation request or execution record;
+- proof of Runtime support, availability, authorization, or successful execution; or
+- the normative Capability Contract itself.
+
+A Capability MAY omit Invocation. A Capability MAY omit all InterfaceUses. Either omission is valid and may represent a descriptive, non-request-oriented, not-currently-routable, or externally realized semantic capability.
+
+When multiple InterfaceUses implement the same Capability Contract, they are alternative or additional routes for the one Capability. A producer SHOULD NOT duplicate the Capability solely because HTTP, BLE, a physical connector, or another realization is also available.
+
+The Entity-side Capability is an explicit local projection of its Capability Contract. Contract content is not implicitly copied or structurally merged into the AR-XML document. Projection rules are defined in Part IV.
 
 # 15. Invocation
 
-_To be specified in the next staged update._
+Invocation is an optional request-oriented interaction contract of a Capability. It consists of:
+
+```text
+Invocation
+├─ Inputs* 0..*
+└─ Result? 0..1
+```
+
+An empty Invocation is valid. It states that the Capability has a request-oriented interaction shape without declaring Core Inputs or a Core Result. It does not mean that loading the document should perform a request.
+
+Inputs describe semantic values supplied by the caller for a specific invocation. Result describes the semantic result expected from that invocation. Neither defines the transport serialization; Interface Extensions and InterfaceUse Mappings perform that role.
+
+Invocation is intentionally not a general interaction-pattern abstraction. Observation, subscription, event, notification, and stream semantics are not forced into Invocation. A future Core revision or Extension MAY define those patterns without changing the request-oriented meaning defined here.
+
+The presence of Invocation does not guarantee an InterfaceUse, Runtime implementation support, authorization, route availability, or successful execution.
 
 # 16. Input, Result, Output, and Representation
 
-_To be specified in the next staged update._
+## 16.1 Core Data Types
+
+Input and Output use one of the following Core structural data types:
+
+```text
+string
+number
+integer
+boolean
+binary
+object
+array
+```
+
+These types describe data shape, not domain meaning. A semantic name, Capability Contract, unit, format, or Extension supplies domain semantics. A processor MUST NOT infer, for example, that a `number` is a temperature or that a `string` uses `text/plain` representation.
+
+## 16.2 Input
+
+An Input is a semantic value supplied by the caller. Its Core information is:
+
+```text
+Input
+├─ name        1
+├─ type        1
+├─ required?   0..1, default false
+├─ format?     0..1
+├─ unit?       0..1
+└─ constraints 0..*
+```
+
+`name` is a non-empty semantic field name unique among Inputs in the same Invocation. `type` is one Core data type. `required`, when absent, is `false`. `format`, `unit`, and constraints refine interpretation but MUST NOT contradict the Input semantics defined by the resolved Capability Contract.
+
+Input constraints are expressed only in the explicit constraint area defined by Parts II and III. Unknown constraint semantics affect projection or Runtime evaluation as specified later; they MUST NOT be guessed.
+
+## 16.3 Result
+
+Result is the semantic result contract of an Invocation. It consists of:
+
+```text
+Result
+├─ Outputs*         0..*
+└─ Representations* 0..*
+```
+
+An empty Result is valid. Result is distinct from a successful Runtime execution result, HTTP response, decoded payload, or Capability error.
+
+Draft 5 Core does not include the Draft 4 `errors` collection in the Entity-side Result model. Semantic error definitions and mappings require an applicable Capability Contract or Extension and MUST NOT be inferred solely from transport status.
+
+## 16.4 Output
+
+An Output is a semantic value in a Result. Its Core information is:
+
+```text
+Output
+├─ name        1
+├─ type        1
+├─ format?     0..1
+├─ unit?       0..1
+└─ constraints 0..*
+```
+
+`name` is a non-empty semantic field name unique among Outputs in the same Result. `type` is one Core data type. `format`, `unit`, and constraints refine interpretation but MUST NOT contradict the Output semantics defined by the resolved Capability Contract.
+
+An Output is not a wire field until an applicable Mapping defines or the relevant Interface Extension specifies that correspondence.
+
+## 16.5 Representation
+
+A Representation declares a concrete media representation of the Result as a whole. It has a required `mediaType` value identifying an IANA media type and MAY contain only the additional Core information explicitly defined by Part II.
+
+```text
+Result ≠ Representation
+```
+
+One Representation MAY carry multiple Outputs. Conversely, declaring a single Output does not permit a processor to assume a scalar wire representation.
+
+Representation document order MUST NOT imply preference. Selection, when supported, is based on explicit caller preference, Runtime support, applicable Interface Extension rules, and Entity declarations.
+
+Multiple Representations SHOULD describe materially equivalent Result content. A summary, translation, simplified version, or other semantic transformation is not automatically an alternative Core Representation of the same Result.
 
 # 17. Requirement
 
-_To be specified in the next staged update._
+A Requirement is a typed prerequisite declaration. It consists of:
+
+```text
+Requirement
+├─ type                   1
+└─ extension-defined data 0..1
+```
+
+`type` is a non-empty Semantic Identifier identifying the Requirement semantics. The Core does not define a closed `kind` enumeration. An Extension-defined body, when present, supplies data governed by the Requirement definition and Extension processing rules.
+
+Requirement scope is determined by placement:
+
+```text
+Capability.Requirements
+→ prerequisites for the Capability
+
+Interface.Requirements
+→ prerequisites for use of the Interface
+```
+
+A producer MUST NOT use a Core `scope` value to override placement.
+
+Authentication and authorization prerequisites MAY be declared as Requirements. AR-XML does not issue, store, refresh, disclose, or enforce credentials or authorization. A document MUST NOT embed passwords, session identifiers, bearer tokens, refresh tokens, private keys, API secrets, or equivalent secrets in Requirement data or elsewhere in AR-XML.
+
+A Requirement is description data, not current Runtime state. It does not assert that the prerequisite is presently satisfied. Runtime evaluation uses `SATISFIED`, `UNSATISFIED`, or `UNKNOWN` as defined in Part VIII.
+
+An unknown Requirement type or unknown Requirement Extension does not by itself invalidate a Core-valid document:
+
+```text
+Core validity = valid
+RequirementEvaluation = UNKNOWN
+```
+
+This uncertainty MUST NOT be converted into authorization or treated as satisfied.
 
 # 18. Interface and InterfaceUse
 
-_To be specified in the next staged update._
+## 18.1 Interface
+
+An Interface is an Entity-shared interaction surface or realization context. It consists of:
+
+```text
+Interface
+├─ id            1
+├─ Attachment?   0..1
+├─ Realization?  0..1
+└─ Requirements* 0..*
+```
+
+`id` is a non-empty local identifier unique within the document's Interface collection.
+
+Attachment describes a physical, spatial, or contact-oriented access boundary. Realization describes a concrete interaction mechanism. Their specific semantics are defined by foreign namespaced Extensions, not by Core. Examples include connector descriptions, BLE realizations, HTTP APIs, or WoT-based realizations.
+
+An Interface MUST contain at least one of Attachment or Realization:
+
+```text
+Attachment absent
+AND Realization absent
+→ invalid Interface
+```
+
+An Attachment-only Interface and a Realization-only Interface are both valid. This permits descriptions such as a passive HDMI connector without requiring a Capability, network API, or executable operation.
+
+If Attachment or Realization is present, its wrapper contains exactly one foreign namespaced Extension semantic root. Part III defines Extension processing and validation.
+
+An Interface MAY exist even when no Capability references it. Interface order MUST NOT imply preference.
+
+## 18.2 InterfaceUse
+
+InterfaceUse declares how a specific Capability uses a shared Interface. It consists of:
+
+```text
+InterfaceUse
+├─ ref      1
+└─ Mapping? 0..1
+```
+
+`ref` MUST reference the `id` of an Interface in the same document. A dangling reference is a Core structural error.
+
+Mapping, when present, contains exactly one foreign namespaced Extension semantic root that describes the Capability-specific use of the referenced Interface. A plain InterfaceUse with no Mapping is valid when the Interface realization or applicable Extension semantics require no capability-specific mapping.
+
+One Capability MAY contain more than one InterfaceUse with the same `ref`. This supports multiple mappings or uses of the same shared Interface. Processors MUST NOT collapse such InterfaceUses merely because their `ref` values match.
+
+InterfaceUse order MUST NOT imply route preference. Route support and availability are evaluated independently for each applicable InterfaceUse and aggregated as defined in Part VIII.
+
+## 18.3 Separation Rules
+
+Interface and InterfaceUse MUST remain distinct:
+
+```text
+Interface
+= shared attachment / realization context
+
+InterfaceUse
+= capability-specific reference and optional mapping
+```
+
+A Capability Contract MUST NOT contain Interface, InterfaceUse, Attachment, Realization, Mapping, endpoint, or transport information. Those items describe an Entity implementation projection and its available interaction routes, not the normative semantic function.
 
 ---
 
