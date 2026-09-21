@@ -2018,6 +2018,16 @@ else
 
 Once the Profile is resolved, aggregation uses required item results after candidate aggregation under Sections 44–45, together with independently required Profile constraints. Optional-item diagnostics are excluded. A known violation of one required item takes precedence over unrelated unknown evaluations; failure of one candidate within an existential item does not. A processor SHOULD expose diagnostics for every evaluated requirement rather than only the aggregate result.
 
+The following examples illustrate required-subset aggregation, assuming all other required items are satisfied and the Profile resolves unless the row states otherwise:
+
+| Evaluation case | ProfileConformance |
+|---|---|
+| Optional Capability present with projection `CONFLICT` | `CONFORMANT`; conflict remains a separate projection diagnostic |
+| Required item has one satisfying and one failing candidate | `CONFORMANT` |
+| Required item has one failing and one indeterminate candidate | `UNDETERMINED` |
+| Required item has candidates, all known to fail | `NON_CONFORMANT` |
+| Profile definition itself is known invalid | `UNDETERMINED`, with ProfileResolution `UNRESOLVED` |
+
 Core-invalid AR-XML cannot establish Profile conformance. A conformance processor MUST first report the Core validation failure and MUST NOT return `CONFORMANT` for that document.
 
 ## 49.1 Independence from Claim, Certification, and Availability
@@ -2949,7 +2959,11 @@ An HTTP Interface uses `http:api` as the single semantic root of `realization`:
 
 `http:api` MUST have the unqualified `base` attribute. `base` is a non-empty absolute or relative URI reference identifying the shared HTTP base. It MUST NOT contain a query or fragment component. If `base` is absolute, its scheme MUST be `http` or `https` (scheme comparison is case-insensitive). If `base` is relative, resolution MUST produce an absolute URI whose scheme is `http` or `https`.
 
-For the baseline concatenation model, `base` MUST end with `/`. A relative `base` is resolved against the AR-XML document retrieval URL using standard URI reference resolution. The retrieval URL MUST itself be an absolute URI that can produce an `http` or `https` result. The Host Application document URL MUST NOT be used as the base unless it is also the AR-XML retrieval URL.
+For the baseline `base + path` model, `base` MUST end with `/`. URI syntax and reference resolution MUST follow [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html), using the strict reference-resolution algorithm in Section 5.2. A relative `base` is resolved against the AR-XML document retrieval URI; that URI MUST be absolute and resolution MUST produce an `http` or `https` URI with a non-empty host. For a redirected document retrieval, the base context is the final retrieval URI. The Host Application document URL MUST NOT be used unless it is also that retrieval URI.
+
+Validate URI syntax before resolution. Raw backslashes, raw non-ASCII characters, spaces, controls, and malformed percent escapes are invalid in these URI inputs; browser error recovery MUST NOT repair them into accepted baseline references. An internationalized name or non-ASCII path must be provided in an appropriate ASCII URI form before baseline processing. Apply RFC 3986 dot-segment removal to literal `.` and `..` segments without percent-decoding beforehand; `%2e` and `%2E` are not literal dot segments in this algorithm. These rules govern locators only and MUST NOT normalize Contract or Profile identity.
+
+An HTTP implementation MUST preserve the resolved authority and path semantics when issuing the request. If its underlying URL API would change them (for example, by interpreting encoded dot segments as path traversal), it MUST report unsupported target handling and prevent that invocation rather than silently access a different target. Support limitations remain separate from HTTP Extension syntax validity.
 
 Example:
 
@@ -2994,7 +3008,7 @@ An HTTP Capability route uses `http:operation` as the single semantic root of `m
 
 `method` MUST be a non-empty valid HTTP method token. The Extension does not limit methods to `GET` and `POST`. Standard methods SHOULD use their registered uppercase spelling. Method tokens are case-sensitive; a processor MUST NOT uppercase an unknown method and assume equivalence.
 
-`path` MUST be a non-empty relative URI reference. In this baseline it MUST NOT begin with `/` and MUST NOT contain a query or fragment component. These restrictions make the target construction exactly the resolved `base` plus the relative `path` under standard URI resolution.
+`path` MUST be a non-empty relative reference with no scheme or authority. In this baseline it MUST NOT begin with `/` and MUST NOT contain a query or fragment component. Construct the target by resolving `path` against the resolved `base` using the same strict RFC 3986 Section 5.2 algorithm specified in Section 72. The notation `base + path` denotes that two-stage reference resolution, not raw string concatenation or browser URL repair.
 
 Example:
 
@@ -3138,9 +3152,26 @@ caller preference
 
 Representation document order MUST NOT express preference. A Runtime MAY generate standard HTTP `Accept` negotiation from an explicit selection policy; this is not a generic header mapping DSL.
 
-The baseline JSON Result mapping requires a declared `application/json` Representation when Result Outputs are present.
+The baseline JSON Result mapping requires a declared `application/json` Representation when Result is present. When Result is absent, Section 75.4 applies instead; there is no Result Representation to select or validate.
 
-The received `Content-Type` MUST be compatible with the selected declared Representation. An absent or incompatible required media type is a Representation failure unless explicit HTTP policy safely determines compatibility.
+For this JSON baseline, compatibility is determined by the following rules, not by Application sniffing or recovery policy:
+
+1. Parse the declared media type and response `Content-Type` using the media-type syntax of [RFC 9110 Section 8.3.1](https://httpwg.org/specs/rfc9110.html#media.type). The response MUST contain exactly one syntactically valid `Content-Type` field value. Missing, malformed, repeated fields, a list of media types, or duplicate parameter names (compared ASCII case-insensitively) are Representation failures.
+2. Compare type and subtype ASCII case-insensitively. Both the selected declaration and the response MUST be `application/json`. A structured suffix such as `application/problem+json` does not match merely because it ends in `+json`.
+3. Parameter order has no significance. For this baseline, all syntactically valid, non-duplicate media-type parameters, including `charset` and unknown extra parameters, are ignored on both sides and MUST NOT affect compatibility or decoding. They supply no baseline semantic constraints. JSON is decoded as UTF-8 in accordance with [RFC 8259 Sections 8.1 and 11](https://www.rfc-editor.org/rfc/rfc8259.html#section-8.1); a parameter cannot select a different character encoding. Content that is not valid UTF-8 JSON is a Representation failure.
+4. Matching the media type does not validate the body. Section 75.3 still requires the JSON object and semantic Output checks. Other media types and parameter-dependent mappings require a separately identified mapping specification and are outside this baseline claim.
+
+For a declared `application/json`, these compatibility results are fixed (assuming a valid UTF-8 JSON body where applicable):
+
+| Received Content-Type | Baseline media-type result |
+|---|---|
+| `application/json` | Compatible |
+| `Application/JSON; Charset="utf-8"` | Compatible; parameter ignored |
+| `application/json; vendor=example` | Compatible; extra parameter ignored |
+| `application/problem+json` | Representation failure |
+| No Content-Type field | Representation failure when Result is present |
+
+Application policy may separately block or abort processing, but MUST NOT relabel a baseline mismatch as compatible or make a policy-specific recovery a baseline conformance result.
 
 ## 75.3 Baseline JSON Result
 
@@ -3177,7 +3208,7 @@ JSON member order has no semantic significance. Multiple Outputs use the same na
 
 If one or more Outputs are declared, a `204` response or an otherwise absent body is a Result or Representation mapping failure, not successful semantic Output production.
 
-When Result is absent, a Runtime MUST NOT invent an Output from a response body. A response body that is present when no Result is declared is a Representation or application-policy matter; it does not create a Core Output declaration.
+When Result is absent, a Runtime MUST NOT invent an Output from a response body. For a valid `2xx` HTTP response, the baseline completes the invocation mapping without semantic Outputs whether the body is absent or present. The body MUST be ignored for Capability Result interpretation and MAY be discarded without parsing; its presence, contents, and Content-Type MUST NOT cause a baseline Result or Representation failure. This rule does not infer a remote business outcome or override transport failures, invalid HTTP framing, or an independently reported policy abort. A non-`2xx` response remains an HTTP Interface-level non-success. Any mapping that interprets an otherwise undeclared body requires a separate versioned mapping specification; Application policy MUST NOT silently redefine the baseline outcome.
 
 ## 75.5 Authentication and Authorization
 
@@ -3357,7 +3388,7 @@ A conforming **HTTP Extension Processor** MUST:
 - validate `http:api` only in Realization and `http:operation` only in Mapping;
 - validate required `base`, `method`, and `path` attributes;
 - resolve relative `base` against the AR-XML retrieval URL rather than the Host Application URL;
-- construct the operation URL according to the baseline `base + path` rules;
+- construct the operation URL using strict RFC 3986 reference resolution and the baseline `base + path` rules;
 - treat method support separately from method syntax validity;
 - keep HTTP authentication and authorization in Requirement and Runtime policy; and
 - distinguish HTTP-level outcomes from semantic Capability outcomes.
@@ -3372,7 +3403,9 @@ An HTTP Runtime claiming the corresponding baseline mapping feature MUST impleme
 | HTTP JSON object request mapping | `POST`, `PUT`, and `PATCH` Inputs mapped to one JSON object |
 | HTTP JSON Result mapping | top-level JSON object keyed by Output name, including for one Output |
 | HTTP status classification | every `2xx` is HTTP-level success; non-`2xx` is Interface-level non-success |
-| HTTP 204 handling | success only when Result is absent or no Output value is required by the effective Contract |
+| HTTP 204 handling | HTTP-level success; Result mapping succeeds only when Result is absent |
+| HTTP response media-type matching | exact baseline type/subtype comparison and parameter handling under Section 75.2; no sniffing fallback |
+| HTTP no-Result response | ignore body for semantic interpretation on valid `2xx`; no invented Outputs |
 
 An implementation MUST NOT claim a mapping feature when it uses an incompatible scalar shortcut, undocumented query encoding, generic header DSL, or implicit semantic-error mapping.
 
@@ -4462,7 +4495,7 @@ A Runtime-selected per-request target is an Invocation Input, not a mutation of 
 
 AR-DOM preserves collection membership and document order sufficiently for the processor's serialization claim. Preserved order does not acquire Core preference, priority, recency, fallback, or execution semantics.
 
-A canonical serializer emits Core children in the orders defined by Section 21. Canonical reordering changes presentation, not information-model meaning. Extension subtree ordering remains governed by the applicable Extension.
+A canonical serializer should emit Core children in the recommended orders defined by Section 21; another permitted order does not invalidate Producer conformance. Canonical reordering changes presentation, not information-model meaning. Extension subtree ordering remains governed by the applicable Extension.
 
 All significant lexical values, local IDs, references, wrapper-presence distinctions required by the model, and foreign content required by the preservation mode must remain available for reserialization. Reserialization does not authorize semantic repair, implicit Contract expansion, Profile application, or Runtime-state insertion.
 
@@ -4866,9 +4899,9 @@ Profile resolution and Profile conformance are separate:
 |---|---|---|
 | `PROFILE.UNRESOLVED` | `ProfileResolution = UNRESOLVED` | Exact Profile definition is unavailable, conflicting, invalid, or rejected |
 | `PROFILE.MISSING_REQUIRED_CAPABILITY` | `ProfileConformance = NON_CONFORMANT` | Deterministically required Capability is absent |
-| `PROFILE.PROHIBITED_OR_INCOMPATIBLE_FEATURE` | `NON_CONFORMANT` | A known Profile constraint is violated |
+| `PROFILE.PROHIBITED_OR_INCOMPATIBLE_FEATURE` | `NON_CONFORMANT` | A required Profile item or independently required constraint is known to fail after candidate aggregation |
 | `PROFILE.UNKNOWN_REQUIRED_SEMANTICS` | `UNDETERMINED` | Required Extension or comparison cannot be evaluated |
-| `PROFILE.UNVALIDATED_PROJECTION` | `UNDETERMINED` | Required Capability projection cannot be established as compatible |
+| `PROFILE.UNVALIDATED_PROJECTION` | `UNDETERMINED` | Required item has no satisfying candidate and a candidate projection remains indeterminate |
 
 `NON_CONFORMANT` requires a known violation. Unresolved definitions and unknown required semantics produce `UNDETERMINED`, not a guessed failure. A Profile Claim does not suppress diagnostics and does not force `CONFORMANT`.
 
@@ -4954,7 +4987,7 @@ AI or LLM assistance MAY explain diagnostics or propose repairs, but determinist
 
 This appendix summarizes changes from `docs/specs/arxml-core-0.1-draft4.md` on the repository's `main` branch to Draft 5. It is informative and intended for reviewers, implementers, and migration-tool authors.
 
-Draft 5 is not syntax-compatible with Draft 4. A Draft 4 document must not be accepted as Draft 5 by changing only the root version string. Migration is an explicit transformation followed by complete Draft 5 validation and, where applicable, Contract projection and Profile conformance evaluation.
+Draft 5 is not syntax-compatible with Draft 4. The root token remains `version="0.1"`; a Draft 4 document must not be accepted as Draft 5 solely because that token matches. Migration is an explicit transformation followed by complete Draft 5 validation and, where applicable, Contract projection and Profile conformance evaluation.
 
 ## D.1 Change Classification
 
@@ -4975,7 +5008,7 @@ These classifications do not assert that two serializations are automatically in
 |---|---|---|---|
 | Root | `ar-entity` | `ar-entity` | Retained |
 | Root version | `version="0.1"` | `version="0.1"` with explicit Draft 5 processing context | Retained |
-| Core namespace | `https://relink.dev/ns/arxml/core/0.1` | Same provisional Core 0.1 namespace | Retained with exact version pairing |
+| Core namespace | `https://relink.dev/ns/arxml/core/0.1` | Same provisional Core 0.1 namespace | Retained; draft context is separate |
 | Entity model | Category, Profile Claims, Capabilities | Adds Identifiers, Properties, Subjects, Entity-level Interfaces | Added and restructured |
 | Capability interaction shape | Inputs and Result directly under Capability | Optional request-oriented Invocation contains Inputs and Result | Restructured |
 | Interfaces | Inline per Capability with HTTP attributes | Shared Entity Interfaces plus Capability InterfaceUses | Restructured |
@@ -5273,7 +5306,7 @@ Loading never invokes a Capability. Contract or Profile resolution may occur dur
 
 Draft 5 adds deterministic Core rules for:
 
-- namespace and exact Draft version;
+- Core namespace, `version="0.1"`, and explicitly selected Draft 5 grammar;
 - closed Core content;
 - order-insensitive child validation and canonical serialization order;
 - singleton containers and wrapper cardinality;
