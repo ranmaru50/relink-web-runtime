@@ -4226,7 +4226,231 @@ Future specifications MAY define such features through an appropriate Extension,
 
 # Appendix A. AR-DOM Summary
 
-_To be specified in a later staged update._
+This appendix is an informative implementation summary of the AR-DOM defined by the normative body. It does not define a programming-language API, object layout, storage format, or additional conformance requirement. If this summary conflicts with Sections 7–36 or 56–60, the normative sections take precedence.
+
+AR-DOM is the implementation-independent representation exposed after successful Core parsing and validation. It represents issuer-authored description data. It is not the browser DOM, a mutable execution record, or a merged view of registry definitions.
+
+## A.1 Document Root
+
+One Draft 5 document produces one AR Entity root:
+
+```text
+ARDocumentView
+├─ coreNamespace = https://relink.dev/ns/arxml/core/0.1
+├─ version       = 0.1-draft5
+└─ entity        = AREntity
+```
+
+`ARDocumentView` is descriptive notation only; Draft 5 does not serialize an `ar-document` wrapper. The XML document element is `ar-entity`, and `AREntity` is the sole top-level information-model object.
+
+The retrieval URL or document base, when known, is Runtime context associated with the loaded document. It is not an Entity Identifier, Property, Canonical Entity Identity, Interface, or child of `AREntity`.
+
+## A.2 Entity Containment
+
+The complete Core containment shape is:
+
+```text
+AREntity
+├─ category?                         0..1
+├─ identifiers                      0..*
+│  └─ Identifier
+├─ properties                       0..*
+│  ├─ Property
+│  └─ PropertyExtension
+├─ subjects                         0..*
+│  └─ Subject
+├─ profileClaims                    0..*
+│  └─ ProfileClaim
+├─ interfaces                       0..*
+│  └─ Interface
+└─ capabilities                     0..*
+   └─ Capability
+```
+
+Every collection may be empty. `PropertyExtension` denotes a preserved foreign semantic root occurring directly in the XML `properties` Extension Slot; it is not converted into a Core `Property`.
+
+The XML collection wrappers `identifiers`, `properties`, `subjects`, `profiles`, `interfaces`, and `capabilities` do not create additional domain objects with independent identity. An implementation MAY preserve wrapper-presence information for exact or loss-aware reserialization, but an absent empty wrapper and a present empty wrapper have the same Core collection membership.
+
+## A.3 Core Node Summary
+
+| AR-DOM item | Core information | Important invariant |
+|---|---|---|
+| `AREntity` | optional Category; Identifier, Property, Subject, ProfileClaim, Interface, and Capability collections | May be otherwise empty; does not imply computation or connectivity |
+| `Identifier` | `type`, `value`, optional `subjectRef` | `subjectRef`, when present, resolves to a local Subject |
+| `Property` | `type`, `value`, optional `unit` | Repeated `type` values are allowed; value remains issuer-declared |
+| `Subject` | `id`, optional `type` | `id` is unique within Subjects; Subject is not a nested Entity |
+| `ProfileClaim` | `href` | Exact-versioned absolute Profile identifier; claim is not verified conformance |
+| `Interface` | `id`, optional Attachment, optional Realization, Requirements | `id` is unique within Interfaces; Attachment or Realization is required |
+| `Capability` | `id`, `type`, optional `subjectRef`, Requirements, optional Invocation, InterfaceUses | `id` is unique within Capabilities; `type` identifies an exact Capability Contract |
+| `Requirement` | `type`, optional foreign body | Placement determines Capability or Interface scope |
+| `Invocation` | Inputs, optional Result | May be empty; presence never causes execution |
+| `Input` | `name`, `type`, `required`, optional `format`, optional `unit`, Constraints | `name` is unique within its Invocation; absent `required` means `false` |
+| `Result` | Outputs, Representations | May be empty; is not a Runtime result value |
+| `Output` | `name`, `type`, optional `format`, optional `unit`, Constraints | `name` is unique within its Result |
+| `Representation` | `mediaType` | Describes the Result as a whole; order is not preference |
+| `InterfaceUse` | `ref`, optional Mapping | `ref` resolves to a local Interface; repeated references are allowed |
+
+Core attributes retain their XML lexical values except where the normative processing rules define a typed value or default. In particular, `required` is exposed semantically as a boolean with default `false`, while identifiers, Property values, units, formats, paths, and semantic identifiers are not heuristically coerced.
+
+Input and Output `type` is one of:
+
+```text
+string | number | integer | boolean | binary | object | array
+```
+
+These values describe structural data shape. Domain meaning comes from the resolved Capability Contract and applicable semantic definitions.
+
+## A.4 Capability Subtree
+
+The request-oriented Capability subtree is summarized below:
+
+```text
+Capability
+├─ id                             1
+├─ type                           1
+├─ subjectRef?                    0..1
+├─ requirements                   0..*
+│  └─ Requirement
+│     ├─ type                     1
+│     └─ extensionBody?           0..1
+├─ invocation?                    0..1
+│  ├─ inputs                      0..*
+│  │  └─ Input
+│  │     ├─ name                  1
+│  │     ├─ type                  1
+│  │     ├─ required              1, default false
+│  │     ├─ format?               0..1
+│  │     ├─ unit?                 0..1
+│  │     └─ constraints           0..*
+│  └─ result?                     0..1
+│     ├─ outputs                  0..*
+│     │  └─ Output
+│     │     ├─ name               1
+│     │     ├─ type               1
+│     │     ├─ format?            0..1
+│     │     ├─ unit?              0..1
+│     │     └─ constraints        0..*
+│     └─ representations          0..*
+│        └─ Representation
+│           └─ mediaType          1
+└─ interfaceUses                 0..*
+   └─ InterfaceUse
+      ├─ ref                      1
+      └─ mapping?                 0..1
+```
+
+An omitted Invocation is distinct from a present empty Invocation. A present empty Result is likewise distinct from an omitted Result. Implementations must preserve these distinctions because they are explicit issuer-authored projection data.
+
+The Capability subtree is an Entity-side projection. Resolved Contract Inputs, Outputs, Requirements, or constraints are not inserted into it. Contract comparison uses a separate resolved definition and produces a separate ProjectionValidation result.
+
+## A.5 Interface Subtree
+
+The Entity-shared Interface subtree is:
+
+```text
+Interface
+├─ id                             1
+├─ attachment?                    0..1
+│  └─ extensionRoot               exactly 1 when present
+├─ realization?                   0..1
+│  └─ extensionRoot               exactly 1 when present
+└─ requirements                   0..*
+   └─ Requirement
+      ├─ type                     1
+      └─ extensionBody?           0..1
+```
+
+At least one of Attachment or Realization is present. An Attachment-only or Realization-only Interface is valid. Requirements alone do not make an Interface valid.
+
+InterfaceUse does not contain a copy of the referenced Interface. Implementations SHOULD retain the lexical `ref` and MAY maintain a derived reference index for efficient navigation. Such an index is not serialized description data.
+
+One Capability may have multiple InterfaceUses with the same `ref`. AR-DOM preserves them as distinct collection members, including distinct Mappings. It does not collapse or rank them.
+
+## A.6 Extension Content
+
+AR-DOM preserves foreign Extension subtrees at the Core-defined slots:
+
+| Slot | AR-DOM owner | Preserved foreign roots |
+|---|---|---:|
+| Property slot | `AREntity.properties` | zero or more |
+| Requirement body | `Requirement` | zero or one |
+| Attachment | `Interface` | exactly one when wrapper is present |
+| Realization | `Interface` | exactly one when wrapper is present |
+| Mapping | `InterfaceUse` | exactly one when wrapper is present |
+| Constraint area | `Input` or `Output` | one or more when wrapper is present |
+
+A preserved foreign root includes its expanded name and sufficient subtree information for the processor's claimed inspection or serialization mode. Namespace prefix spelling is not semantic identity. Attributes and descendants of the foreign root remain Extension-owned data.
+
+Unknown Extension content is not converted into invented Core fields. Core validation records that the slot envelope is valid; Extension-specific validation and Runtime support remain separate. If the implementation cannot preserve an unknown subtree sufficiently for a requested serialization mode, it reports that limitation rather than claiming lossless round-tripping.
+
+## A.7 Local IDs and References
+
+AR-DOM has three independent typed local-ID spaces:
+
+```text
+Subject.id
+Interface.id
+Capability.id
+```
+
+The same lexical value may occur once in each different typed collection. Within one typed collection, values are unique.
+
+References are resolved only within the same document:
+
+| Reference | Target |
+|---|---|
+| `Identifier.subjectRef` | `Subject.id` |
+| `Capability.subjectRef` | `Subject.id` |
+| `InterfaceUse.ref` | `Interface.id` |
+
+A missing `Capability.subjectRef` means the described Entity itself is the Capability subject. A missing `Identifier.subjectRef` similarly scopes the Identifier to the described Entity. Neither omission creates an implicit Subject node.
+
+A Runtime-selected per-request target is an Invocation Input, not a mutation of `subjectRef`. AR-DOM does not infer relations, ownership, containment, or component hierarchy from local references.
+
+## A.8 Order and Reserialization
+
+AR-DOM preserves collection membership and document order sufficiently for the processor's serialization claim. Preserved order does not acquire Core preference, priority, recency, fallback, or execution semantics.
+
+A canonical serializer emits Core children in the orders defined by Section 21. Canonical reordering changes presentation, not information-model meaning. Extension subtree ordering remains governed by the applicable Extension.
+
+All significant lexical values, local IDs, references, wrapper-presence distinctions required by the model, and foreign content required by the preservation mode must remain available for reserialization. Reserialization does not authorize semantic repair, implicit Contract expansion, Profile application, or Runtime-state insertion.
+
+## A.9 Data Kept Outside AR-DOM
+
+The following are not issuer-authored children of `AREntity`:
+
+- the AR-XML retrieval URL or document base;
+- Entity Resolver records;
+- resolved Capability Contract or Profile definitions;
+- registry source, provenance, trust, and cache metadata;
+- ContractResolution and ProfileResolution states;
+- ProjectionValidation and ProfileConformance states;
+- RequirementEvaluation, Support, and Availability states;
+- selected InterfaceUse routes;
+- Credentials, authentication state, and authorization decisions;
+- Runtime Context, including current moving position;
+- invocation requests, serialized requests, responses, and execution results; and
+- Certification or third-party verification records.
+
+An implementation may expose these through associated context, resolution, evaluation, or execution objects. It must keep them distinguishable from the AR-DOM description and must not serialize them into the Entity document unless an Application explicitly constructs new valid description data in a slot that permits it.
+
+The principal separation is:
+
+```text
+AR-DOM
+= issuer-authored validated description
+
+Resolved Definitions
+= independently obtained semantic sources
+
+Evaluation State
+= derived results under current definitions, support, policy, and context
+
+Execution State
+= explicit request and its Runtime outcome
+```
+
+Exposing or traversing any of these views is observational. It does not invoke a Capability.
 
 # Appendix B. Cardinality Table
 
