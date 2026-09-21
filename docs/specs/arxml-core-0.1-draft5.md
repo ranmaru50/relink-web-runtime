@@ -770,7 +770,7 @@ An Attachment-only Interface and a Realization-only Interface are both valid. Th
 
 If Attachment or Realization is present, its wrapper contains exactly one foreign namespaced Extension semantic root. Part III defines Extension processing and validation.
 
-Attachment and Realization are independent Interface aspects. The simultaneous presence of both does not imply an automatic Core-level `AND`, `OR`, preference, or route composition. By default, Attachment is descriptive Interface context; it becomes a route prerequisite only when the applicable Attachment, Realization, Mapping, Profile, or other Extension semantics explicitly state that the route requires or uses it. A specification that needs a particular combination MUST define that composition deterministically, and a Runtime MUST NOT invent it from the two roots' mere presence.
+Attachment and Realization describe distinct Interface aspects. When a request-oriented route references an Interface with Attachment, the declared Attachment is an applicable access prerequisite and MUST be evaluated under Section 66.5. If both Attachment and Realization are present, Attachment satisfaction and the required interaction mechanism support are cumulative conditions for that route; mere Realization support does not bypass Attachment. The Attachment Extension defines the access condition, and Core defines how its evaluation contributes to Availability. Presence alone does not prove satisfaction, programmatic invocation support, or physical safety.
 
 An Interface MAY exist even when no Capability references it. Interface order MUST NOT imply preference.
 
@@ -1390,7 +1390,7 @@ Multiple InterfaceUses MAY reference the same Interface, including multiple Inte
 
 ## 36.1 Core Validity
 
-An unknown or unsupported foreign namespaced Extension does not invalidate a document at the Core layer when all of the following are true:
+An unknown or unsupported foreign namespaced Extension element does not invalidate a document at the Core layer when all of the following are true:
 
 1. its semantic root occurs in a permitted Extension Slot;
 2. the Core slot envelope and cardinality are valid;
@@ -1949,7 +1949,7 @@ A Profile's optional Extension policy MAY identify:
 - slots in which they may be used; and
 - Extension-specific validation or support requirements.
 
-Extension policy MUST NOT permit foreign content outside a Core Extension Slot or make an invalid slot envelope valid.
+Extension policy MUST NOT permit foreign child elements outside a Core Extension Slot or make an invalid slot envelope valid. Foreign metadata attributes remain subject to Section 32.3.
 
 The policy MUST distinguish document presence, Extension-specific validity, and Runtime support. Requiring an Extension declaration does not prove that a Runtime implements it.
 
@@ -2385,7 +2385,7 @@ Validation applies the following matrix:
 | foreign element | outside an Extension Slot | invalid |
 | foreign namespaced attribute on a Core element | metadata under Section 32.3 | Core-valid; metadata semantics validated separately |
 
-Recognizing a foreign Extension does not permit it outside its Core-defined slot. Failing to recognize a foreign Extension inside a valid slot does not make the document Core-invalid.
+Recognizing a foreign Extension element does not permit it outside its Core-defined slot. Failing to recognize a foreign Extension element inside a valid slot does not make the document Core-invalid. Foreign metadata attributes on Core elements use Section 32.3 rather than the element-slot envelope rules.
 
 ## 57.2 Structural Validity and Semantic Evaluation
 
@@ -2485,7 +2485,7 @@ For an unknown or unsupported foreign root in a valid Extension Slot:
 - no semantic meaning may be guessed; and
 - applicable Runtime or conformance evaluation uses the specified unknown state.
 
-In particular, an unknown Requirement body produces `RequirementEvaluation = UNKNOWN` when evaluation is required. Unknown Realization, Mapping, and constraint semantics are handled by Part VIII.
+In particular, an unknown Requirement body produces `RequirementEvaluation = UNKNOWN` when evaluation is required. Unknown Attachment semantics produce `AttachmentEvaluation = UNKNOWN` when a route requires evaluation. Realization, Mapping, and constraint semantics are handled separately by Part VIII.
 
 ## 59.4 Extension Processor Isolation
 
@@ -2562,6 +2562,9 @@ ProjectionValidation:
   VALIDATED | UNVALIDATED | CONFLICT
 
 RequirementEvaluation:
+  SATISFIED | UNSATISFIED | UNKNOWN
+
+AttachmentEvaluation:
   SATISFIED | UNSATISFIED | UNKNOWN
 
 Support:
@@ -2693,7 +2696,7 @@ UNKNOWN
 = support cannot be determined
 ```
 
-Support is evaluated for the concrete features needed by a route, including explicitly route-required Attachment or Realization roots, Mapping roots, constraint evaluators, media representations, and Interface Extension behavior. The presence of an Attachment alone does not require Attachment support for a route under the Core default.
+Support is evaluated for the concrete interaction features needed by a route, including Realization roots, Mapping roots, constraint evaluators, media representations, and Interface Extension behavior. Attachment access-condition satisfaction is evaluated separately as `AttachmentEvaluation` under Section 66.5. Missing knowledge or an unavailable Attachment condition evaluator yields `UNKNOWN` in that domain, not evidence that the physical access condition is unsatisfied. If an Attachment Extension also supplies an execution mechanism for an Attachment-only Interface, support for that mechanism remains a separate required Support check.
 
 An Extension specification existing does not make it supported by a Runtime. Conversely, preserving an unknown subtree does not constitute semantic support.
 
@@ -2725,7 +2728,8 @@ Each InterfaceUse is evaluated as a distinct route. Evaluation considers:
 - ProjectionValidation;
 - applicable Capability Requirements;
 - applicable referenced Interface Requirements;
-- explicitly route-required Attachment or required Realization support;
+- AttachmentEvaluation for the referenced Interface, when Attachment is present;
+- required interaction-mechanism support, including Realization when applicable;
 - Mapping support when Mapping is present;
 - applicable constraint and Representation support; and
 - Runtime and Application policy.
@@ -2741,9 +2745,10 @@ For a Core-valid document and a request-oriented Capability, route Availability 
    → UNAVAILABLE
 
 2. Any known mandatory Requirement = UNSATISFIED
+   or applicable AttachmentEvaluation = UNSATISFIED
    → UNAVAILABLE
 
-3. Any explicitly route-required Realization, Attachment, Mapping,
+3. Any required interaction mechanism, Realization, Mapping,
    constraint, or Representation feature = UNSUPPORTED
    → UNAVAILABLE
 
@@ -2755,6 +2760,7 @@ For a Core-valid document and a request-oriented Capability, route Availability 
    → UNKNOWN
 
 6. Any applicable RequirementEvaluation = UNKNOWN
+   or applicable AttachmentEvaluation = UNKNOWN
    → UNKNOWN
 
 7. Any required Support = UNKNOWN
@@ -2768,7 +2774,7 @@ Known blockers take precedence over unrelated uncertainty. For example, a known 
 
 The Core three-state invocation Availability evaluation applies only to a Capability with Invocation. For a Capability without Invocation, a Runtime MUST NOT generate a Core Availability value; it MAY report that this interaction model is not applicable as a diagnostic, not a fourth Availability state. If Invocation is present but no InterfaceUse exists, Section 67 defines the empty route-set result.
 
-An Interface with both Attachment and Realization uses the explicit composition rule, if any, supplied by its applicable Extension semantics. Without such a rule, the Attachment remains descriptive context and does not block a route; the Realization and Mapping determine the interaction mechanism. Core does not assume that both must be used, that either is preferred, or that Attachment alone is executable.
+An Interface with both Attachment and Realization requires the Attachment condition to be satisfied as well as the other route prerequisites. A known unsatisfied Attachment blocks that InterfaceUse; an unknown Attachment condition prevents `READY` unless a separate known blocker already yields `UNAVAILABLE`. Attachment-only Interfaces remain structurally valid, but Attachment satisfaction alone does not supply an Invocation execution mechanism.
 
 ## 66.3 READY Meaning
 
@@ -2782,7 +2788,21 @@ An Interface with both Attachment and Realization uses the explicit composition 
 
 A Runtime SHOULD expose route diagnostics containing the InterfaceUse identity within its Capability, referenced Interface ID, relevant Extension roots, contributing state values, evaluated policy context, and reason for the aggregate result.
 
-Diagnostics MUST distinguish known blockers from unknown information and MUST NOT expose credentials or secrets.
+Diagnostics MUST distinguish known blockers from unknown information and MUST NOT expose credentials or secrets. A known unsatisfied Attachment MUST be identified by the reason `ATTACHMENT_UNSATISFIED`; unknown Attachment evaluation SHOULD be distinguishable by `ATTACHMENT_UNKNOWN`.
+
+## 66.5 Attachment Evaluation
+
+For each evaluated request-oriented InterfaceUse route, a Runtime MUST evaluate a present Attachment against current evidence using that Attachment Extension's deterministic semantics:
+
+- `SATISFIED`: available evidence establishes the declared access condition.
+- `UNSATISFIED`: available evidence establishes that the declared access condition is not met.
+- `UNKNOWN`: the Extension, evaluator, required evidence, or comparison semantics are unavailable or insufficient to decide.
+
+A missing Attachment contributes no access condition; it MAY be treated as the neutral `SATISFIED` input for aggregation, with diagnostics recording that no Attachment was declared. Unknown metadata or missing evidence MUST NOT be guessed into satisfaction or failure. A known descriptive Attachment whose Extension explicitly defines no access condition can evaluate as `SATISFIED` under those semantics; a Runtime MUST NOT assume that interpretation for an unknown Extension.
+
+AttachmentEvaluation is derived Runtime context, separate from RequirementEvaluation, Support, and the issuer-authored Attachment. It MUST NOT be serialized into the description. It MUST NOT initiate contact, pairing, connection, movement, authentication, or Capability execution merely to obtain evidence. An explicit Application or Human action may separately establish new context for reevaluation.
+
+For otherwise ready routes, `SATISFIED` permits `READY`, `UNSATISFIED` yields `UNAVAILABLE`, and `UNKNOWN` yields `UNKNOWN`. With multiple InterfaceUses, these results are aggregated under Section 67: an unsatisfied Attachment on one Interface does not block another independently ready route. No Core Availability is generated for a Capability without Invocation, and an unreferenced passive Interface need not be route-evaluated.
 
 # 67. Capability Availability Aggregation
 
@@ -2969,9 +2989,11 @@ An HTTP Interface uses `http:api` as the single semantic root of `realization`:
 </interface>
 ```
 
-`http:api` MUST have the unqualified `base` attribute. `base` is a non-empty absolute or relative URI reference identifying the shared HTTP base. It MUST NOT contain a query or fragment component. If `base` is absolute, its scheme MUST be `http` or `https` (scheme comparison is case-insensitive). If `base` is relative, resolution MUST produce an absolute URI whose scheme is `http` or `https`.
+`http:api` MAY have the unqualified `base` attribute. When present, `base` is an absolute or relative URI reference identifying the shared HTTP base context; an empty reference is permitted. When omitted, the base context is the final AR-XML document retrieval URI. If an explicit `base` is absolute, its scheme MUST be `http` or `https` (scheme comparison is case-insensitive); resolving a relative or empty `base` MUST likewise produce an `http` or `https` URI with a non-empty host.
 
-For the baseline `base + path` model, `base` MUST end with `/`. URI syntax and reference resolution MUST follow [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html), using the strict reference-resolution algorithm in Section 5.2. A relative `base` is resolved against the AR-XML document retrieval URI; that URI MUST be absolute and resolution MUST produce an `http` or `https` URI with a non-empty host. For a redirected document retrieval, the base context is the final retrieval URI. The Host Application document URL MUST NOT be used unless it is also that retrieval URI.
+For the baseline `base + path` model, URI syntax and reference resolution MUST follow [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html), using the strict reference-resolution algorithm in Section 5.2. A present relative or empty `base` is resolved against the final AR-XML document retrieval URI; an omitted `base` uses that final URI directly. This retrieval URI MUST be absolute, and the resulting base context MUST use `http` or `https` with a non-empty host. For a redirected document retrieval, use the final retrieval URI, not the original request URI. The Host Application document URL MUST NOT be substituted for it.
+
+A trailing `/` is not required. It has the ordinary RFC 3986 path-merging effect: a directory-style base ends in `/`, whereas the last segment of a file-style base is replaced when resolving a relative operation path. A `base` URI reference MAY contain a query or fragment. Because the baseline operation `path` is non-empty and contains neither component, operation resolution replaces the base query and does not inherit its fragment; no base query parameters are merged into Invocation Inputs.
 
 Validate URI syntax before resolution. Raw backslashes, raw non-ASCII characters, spaces, controls, and malformed percent escapes are invalid in these URI inputs; browser error recovery MUST NOT repair them into accepted baseline references. An internationalized name or non-ASCII path must be provided in an appropriate ASCII URI form before baseline processing. Apply RFC 3986 dot-segment removal to literal `.` and `..` segments without percent-decoding beforehand; `%2e` and `%2E` are not literal dot segments in this algorithm. These rules govern locators only and MUST NOT normalize Contract or Profile identity.
 
@@ -2990,7 +3012,26 @@ resolved HTTP base:
 https://example.org/entities/lab/api/
 ```
 
-If the AR-XML retrieval location is unavailable and `base` is relative, the Runtime cannot construct the target URL. The document may remain structurally valid, but the HTTP route is `UNAVAILABLE` for that evaluation because the required resolution context is absent. The HTTP baseline does not define an application-supplied replacement base or a precedence rule for one; an Application may reload or re-evaluate the resource with a known retrieval URL under its own policy. A non-`http`/`https` resolved scheme is an HTTP Extension validation failure and cannot produce a `READY` route.
+If the final AR-XML retrieval URI is unavailable and `base` is omitted, empty, or relative, the Runtime cannot construct the target URL. The document may remain structurally valid, but the HTTP route is `UNAVAILABLE` for that evaluation because the required resolution context is absent. The HTTP baseline does not define an application-supplied replacement base or a precedence rule for one; an Application may reload or re-evaluate the resource with a known retrieval URL under its own policy. A non-`http`/`https` resolved scheme is an HTTP Extension validation failure and cannot produce a `READY` route.
+
+A realization with no explicit base is valid:
+
+```xml
+<realization xmlns="https://relink.dev/ns/arxml/core/0.1"
+             xmlns:http="https://relink.dev/ns/arxml/http/0.1">
+  <http:api />
+</realization>
+```
+
+For final retrieval URI `https://example.org/entities/lab/ar.xml?rev=5` and operation path `light/state`, the following target URLs are deterministic:
+
+| `base` declaration | Operation target before Input query mapping |
+|---|---|
+| Omitted | `https://example.org/entities/lab/light/state` |
+| Empty string | `https://example.org/entities/lab/light/state` |
+| `./api/` | `https://example.org/entities/lab/api/light/state` |
+| `https://example.org/api` | `https://example.org/light/state` |
+| `https://example.org/api/?v=1#anchor` | `https://example.org/api/light/state` |
 
 The baseline defines no other `http:api` attributes or child elements. An HTTP Extension processor MUST reject unknown unqualified attributes or HTTP-namespace children under `http:api` unless a later compatible Extension revision defines them.
 
@@ -3080,7 +3121,7 @@ Lexical forms are:
 
 For this baseline, a canonical decimal has an optional leading minus (except for zero), no leading zeroes except zero itself, an optional fractional part with at least one digit, no exponent notation, and no trailing fractional zeroes; zero is written `0`. A value that cannot be written in this form without loss is not serializable by the baseline. Canonical integer form is an optional leading minus followed by `0` or a non-zero digit and digits, with no leading zeroes.
 
-The canonical query algorithm is deterministic. Sort present parameters by the exact code-point order of their Input names. Convert each name and value to UTF-8, leave only ASCII alphanumeric characters and `*`, `-`, `.`, `_` unescaped, encode U+0020 SPACE as `+`, and percent-encode every other byte using uppercase hexadecimal. Join each encoded name/value pair with `=`, join pairs with `&`, and append the result after `?`. The HTTP baseline prohibits an existing query in the resolved `base + path`, so no query-merging rule is needed. Parameter order has no semantic meaning, but this algorithm defines the canonical serialized form for a given Input set.
+The canonical query algorithm is deterministic. Sort present parameters by the exact code-point order of their Input names. Convert each name and value to UTF-8, leave only ASCII alphanumeric characters and `*`, `-`, `.`, `_` unescaped, encode U+0020 SPACE as `+`, and percent-encode every other byte using uppercase hexadecimal. Join each encoded name/value pair with `=`, join pairs with `&`, and append the result after `?`. Resolution of the non-empty, query-free operation path removes any base-context query under RFC 3986, so the operation target has no existing query to merge. If no Inputs are present, append neither `?` nor an empty query. Parameter order has no semantic meaning, but this algorithm defines the canonical serialized form for a given Input set.
 
 Example values:
 
@@ -3369,7 +3410,7 @@ A conforming **Runtime** implementing evaluation (the Runtime Evaluator role) MU
 - keep description data separate from evaluation state;
 - expose the state domains and values defined in Part VIII without collapsing them into a boolean;
 - distinguish unresolved, unknown, unsupported, unsatisfied, and conflicting conditions;
-- apply known-blocker precedence for InterfaceUse route evaluation;
+- evaluate Attachment satisfaction separately and apply known-blocker precedence for InterfaceUse route evaluation, including `ATTACHMENT_UNSATISFIED`;
 - generate Core Availability only for Capabilities with Invocation, and aggregate their routes as `any READY`, otherwise `any UNKNOWN`, otherwise `UNAVAILABLE`;
 - keep Profile conformance independent of Availability;
 - avoid using document order as implicit route preference;
@@ -3398,8 +3439,8 @@ A conforming **HTTP Extension Processor** MUST:
 
 - recognize the HTTP Extension namespace in Part IX;
 - validate `http:api` only in Realization and `http:operation` only in Mapping;
-- validate required `base`, `method`, and `path` attributes;
-- resolve relative `base` against the AR-XML retrieval URL rather than the Host Application URL;
+- validate required `method` and `path` and the optional `base` attribute when present;
+- use the final AR-XML retrieval URI when `base` is omitted, and resolve a relative or empty `base` against that URI rather than the Host Application URL;
 - construct the operation URL using strict RFC 3986 reference resolution and the baseline `base + path` rules;
 - treat method support separately from method syntax validity;
 - keep HTTP authentication and authorization in Requirement and Runtime policy; and
@@ -4520,7 +4561,7 @@ The following are not issuer-authored children of `AREntity`:
 - registry source, provenance, trust, and cache metadata;
 - ContractResolution and ProfileResolution states;
 - ProjectionValidation and ProfileConformance states;
-- RequirementEvaluation, Support, and Availability states;
+- RequirementEvaluation, AttachmentEvaluation, Support, and Availability states;
 - selected InterfaceUse routes;
 - Credentials, authentication state, and authorization decisions;
 - Runtime Context, including current moving position;
@@ -4549,7 +4590,7 @@ Exposing or traversing any of these views is observational. It does not invoke a
 
 # Appendix B. Cardinality Table
 
-This appendix is an informative consolidated index of cardinalities defined by the normative body. It introduces no new elements, attributes, or occurrence rules. If a row conflicts with the applicable normative section, the normative section takes precedence.
+This appendix is an informative consolidated index of cardinalities defined by the normative body. It introduces no new elements, attributes, or occurrence rules. If a row conflicts with the applicable normative section, the normative section takes precedence. Core attribute lists below do not prohibit additional foreign namespaced metadata attributes allowed by Section 32.3.
 
 ## B.1 Notation
 
@@ -4711,7 +4752,7 @@ Forward references are permitted. Reference integrity is checked after the compl
 
 | Extension root | Permitted Core slot | Root occurrence in slot | Required attributes | Optional Core-baseline attributes or children |
 |---|---|---:|---|---|
-| `http:api` | Realization | exactly `1` semantic root | `base` | none |
+| `http:api` | Realization | exactly `1` semantic root | none | `base` (`0..1`; omission uses final retrieval URI) |
 | `http:operation` | Mapping | exactly `1` semantic root | `method`, `path` | none |
 
 An Interface may have only one Core Realization wrapper, and that wrapper has one semantic root. An Entity needing distinct HTTP realization contexts declares distinct Interfaces. Multiple Capability InterfaceUses may reference the same HTTP Interface, and one Capability may repeat the same Interface `ref` in distinct InterfaceUses.
@@ -4918,11 +4959,12 @@ Profile resolution and Profile conformance are separate:
 
 ## C.9 Runtime Evaluation Diagnostics
 
-Requirement, Support, and Availability are evaluation states rather than Core validation errors:
+Requirement, Attachment, Support, and Availability evaluations produce Runtime states rather than Core validation errors:
 
 | Family | State values | Diagnostic purpose |
 |---|---|---|
 | `REQUIREMENT.*` | `SATISFIED`, `UNSATISFIED`, `UNKNOWN` | Explain evidence and prerequisite evaluation |
+| `ATTACHMENT_*` | `SATISFIED`, `UNSATISFIED`, `UNKNOWN` | Explain declared access-condition satisfaction separately from mechanism support |
 | `SUPPORT.*` | `SUPPORTED`, `UNSUPPORTED`, `UNKNOWN` | Identify implemented or missing route features |
 | `AVAILABILITY.*` | `READY`, `UNAVAILABLE`, `UNKNOWN` | Explain route and Capability aggregation |
 
@@ -4932,6 +4974,8 @@ Recommended examples include:
 |---|---|
 | `REQUIREMENT.UNSATISFIED` | Known mandatory prerequisite makes the route `UNAVAILABLE` |
 | `REQUIREMENT.UNKNOWN` | Unknown evaluator contributes `UNKNOWN` absent a known blocker |
+| `ATTACHMENT_UNSATISFIED` | Known unmet Attachment access condition makes this route `UNAVAILABLE` |
+| `ATTACHMENT_UNKNOWN` | Unknown Attachment semantics or evidence contributes `UNKNOWN` absent a known blocker |
 | `SUPPORT.REALIZATION_UNSUPPORTED` | Required Realization makes the route `UNAVAILABLE` |
 | `SUPPORT.MAPPING_UNKNOWN` | Unknown Mapping support contributes `UNKNOWN` |
 | `AVAILABILITY.NO_INVOCATION` | Evaluation is outside Core Invocation scope; no Availability value is generated |
@@ -5030,7 +5074,7 @@ These classifications do not assert that two serializations are automatically in
 | Contracts | Versioned semantic source and projection concepts | Exact-versioned identity, explicit projection, deterministic comparison states | Clarified and expanded |
 | Profiles | Versioned constraint set and issuer claim | Resolution, requirements, Extension policy, and three-state conformance | Expanded |
 | Resolution | Contract lookup sources described | Entity Resolver separated from Semantic Registry; conflicts defined | Added and clarified |
-| Runtime states | Contract, projection, availability emphasized | Adds Requirement, Support, Profile resolution and conformance domains | Expanded |
+| Runtime states | Contract, projection, availability emphasized | Adds Requirement, Attachment, Support, Profile resolution and conformance domains | Expanded |
 | Validation | General parse/validation distinction | Closed structural grammar, cardinality, uniqueness, references, Extension layers | Expanded |
 | Conformance | Informal PoC baseline | Named conformance classes | Added |
 | Privacy | Primarily security-oriented guidance | Separate comprehensive security and privacy sections | Expanded |
@@ -5216,7 +5260,7 @@ The Draft 4 fields map conceptually as follows, but require URL and sharing anal
 
 Draft 4 described `GET` and `POST` as the Core 0.1 baseline methods. Draft 5 does not restrict valid HTTP method syntax to those two. A Runtime may support only a subset and reports unsupported behavior through `Support` rather than declaring an otherwise valid document Core-invalid.
 
-Draft 5 uses `base + path` as the canonical HTTP model. A relative `base` resolves against the AR-XML retrieval URL, not the Host Application URL. Security policy is applied after resolution and redirects.
+Draft 5 uses `base + path` as the canonical HTTP model. `base` is optional: omission uses the final AR-XML retrieval URI, and a present relative or empty value resolves against that URI. A trailing slash is not mandatory; RFC 3986 path merging determines the result. The Host Application URL is not substituted. Deployment security policy is applied independently of these resolution rules.
 
 The GET scalar baseline remains limited to `string`, `number`, `integer`, and `boolean`; generic query serialization for `object`, `array`, and `binary` remains outside the baseline.
 
@@ -5336,6 +5380,7 @@ Runtime evaluation expands the Draft 4 state model to seven independent domains:
 ContractResolution
 ProjectionValidation
 RequirementEvaluation
+AttachmentEvaluation
 Support
 ProfileResolution
 ProfileConformance
