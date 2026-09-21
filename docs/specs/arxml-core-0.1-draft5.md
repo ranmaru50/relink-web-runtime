@@ -3851,7 +3851,150 @@ An Entity Resolver may map a Reference Lab Entity identity or application refere
 
 # Part XII — Security and Privacy Considerations
 
-Sections 92–93 are reserved for the staged Security and Privacy draft.
+# 92. Security Considerations
+
+AR-XML describes Entities, semantic contracts, interaction surfaces, and possible invocation mappings. A description may influence network access or physical behavior when an Application explicitly invokes a Capability. Implementations MUST therefore treat every AR-XML document, resolved semantic definition, Extension subtree, Runtime response, and registry result as untrusted input unless an independent trust policy establishes otherwise.
+
+Core validity is not a security decision. A document can be structurally valid while containing deceptive issuer claims, dangerous operation mappings, hostile endpoint locations, privacy-sensitive data, or semantics that the consumer should not trust. Similarly, a resolved Capability Contract or Profile is not trusted merely because its identifier is syntactically valid or its definition is available.
+
+## 92.1 Secure XML Processing
+
+An AR-XML processor MUST use a namespace-aware XML parser and MUST NOT fetch external entities, external DTD subsets, schemas, stylesheets, or other external resources as a side effect of parsing. A processor SHOULD reject or disable constructs that can cause entity expansion, recursive inclusion, or implementation-dependent network access.
+
+Implementations MUST apply resource limits appropriate to their environment, including limits on document size, element depth, attribute count and size, text length, collection length, and diagnostic accumulation. Extension subtrees are subject to the same resource controls even when they are preserved as opaque data.
+
+Core processors MUST enforce the closed Core vocabulary defined by this specification. They MUST NOT repair an unknown Core element or Core/unqualified attribute by silently dropping it, treating it as an Extension, or guessing a replacement. Foreign content is accepted only in an Extension Slot. Acceptance of an unknown foreign subtree does not authorize parsing it with an unsafe format-specific processor or executing content found within it.
+
+## 92.2 Claims, Trust, and Semantic Definitions
+
+Identifiers, Properties, Profile Claims, Interface declarations, and Capability projections are issuer-declared data. They MUST NOT be treated as verified identity, ownership, authority, certification, current state, or permission without evidence evaluated outside AR-XML.
+
+In particular:
+
+- an Identifier is not automatically a Canonical Entity Identity, locator, Credential, or proof of possession;
+- a Profile Claim is not Verified Conformance or Certification;
+- a declared Requirement does not prove that the Requirement is satisfied or enforced;
+- a `READY` Availability result does not prove authorization, remote acceptance, safe execution, or successful outcome; and
+- support for an Extension does not establish trust in documents that use that Extension.
+
+Semantic Registry implementations MUST guard against definition substitution, cache poisoning, downgrade, and conflicting definitions. They MUST preserve exact versioned identity and MUST NOT apply silent first-wins behavior when different definitions claim the same identifier. Registry and cache entries SHOULD retain source, retrieval time, integrity information when available, and the trust decision that admitted the definition. Applications MAY require signatures, digests, authenticated delivery, local approval, or another provenance policy; such mechanisms are outside Core.
+
+Network retrieval of semantic definitions is optional. A Runtime MUST NOT weaken its trust policy merely because a definition cannot be obtained from a preferred source. Failure to resolve or trust a definition produces an unresolved or policy-specific failure state; it does not justify guessing its semantics.
+
+## 92.3 Resolution and Network Target Security
+
+Entity resolution, semantic resolution, and Capability execution are separate activities and SHOULD use separate policy boundaries. An Entity Resolver maps Entity identity to an AR-XML location. A Semantic Registry maps a semantic identifier to a semantic definition. Neither operation authorizes later execution.
+
+Any network location obtained from an Entity Resolver, semantic definition, Interface Realization, Mapping, redirect, or Extension MUST be validated against Application and deployment policy before access. Implementations SHOULD defend against server-side request forgery and related target-confusion attacks, including:
+
+- disallowed URI schemes or ports;
+- loopback, link-local, private, multicast, metadata-service, and otherwise protected address ranges;
+- DNS rebinding and changes between validation and connection;
+- redirects to a less trusted origin or scheme;
+- authority confusion caused by user information, Unicode, percent encoding, or normalization differences; and
+- relative URL resolution against an attacker-controlled or incorrect base.
+
+The HTTP baseline resolves a relative `http:api` `base` against the AR-XML retrieval URL. This deterministic rule does not make the resulting origin trusted. A Runtime MUST apply its target policy after URL resolution and again after every redirect. Applications SHOULD use origin allowlists, transport requirements, redirect limits, and network isolation appropriate to the deployment.
+
+Document retrieval, semantic resolution, Availability evaluation, and `ARRuntime.load()` MUST NOT invoke a described Capability or send mapped Capability Inputs as a probe. A Runtime MAY perform explicitly configured retrieval needed to resolve or fetch descriptions, but it MUST keep that traffic distinguishable from Capability execution.
+
+## 92.4 Credentials, Authentication, and Authorization
+
+An AR-XML document MUST NOT contain passwords, private keys, bearer tokens, API secrets, refresh tokens, session cookies, or other reusable secrets. Requirement data may identify an authentication or authorization mechanism, credential class, audience, or policy, but it MUST NOT embed the Credential itself.
+
+Credentials are supplied and managed by the Runtime, Host Application, operating environment, or user agent under an independent policy. A Runtime SHOULD apply least privilege, scope Credentials to the intended origin and operation, prevent forwarding across unapproved redirects, and avoid exposing them to Extension processors or diagnostic output. Ambient browser credentials and cookies require explicit cross-origin and request-forgery protections; their presence MUST NOT be inferred solely from an Interface declaration.
+
+Successful authentication does not imply authorization. Requirement evaluation does not replace enforcement by the target system. An Application MUST expect the remote system or physical controller to make its own authorization decision at execution time.
+
+## 92.5 Explicit Execution and Side Effects
+
+`ARRuntime.load()` consists of Resolve, Fetch, Parse, Validate, and Expose. It MUST NOT automatically execute a Capability. Availability evaluation, Profile validation, preview generation, route discovery, and UI enumeration likewise MUST NOT cause a side-effecting invocation.
+
+Execution begins only from an explicit request by an Application or Human. An Invoking Runtime MUST preserve that initiating intent through route selection, asynchronous processing, redirects, authentication challenges, and retries. It MUST NOT convert background discovery, prefetch, or validation into an execution request.
+
+Applications SHOULD require additional confirmation, policy approval, rate limits, or safety interlocks for operations that can affect people, property, money, access control, or the physical environment. AR-XML does not establish that an operation is safe merely because it is described by a Capability Contract or evaluates as `READY`.
+
+Retries can duplicate side effects. A Runtime MUST NOT assume idempotency from an HTTP method, Capability name, or semantic similarity alone. Automatic retry is permitted only when the applicable contract, Extension semantics, or Application policy establishes safe retry behavior. Implementations SHOULD protect against replay where freshness or one-time authorization matters.
+
+## 92.6 Invocation and Result Handling
+
+Before serialization, an Invoking Runtime MUST validate supplied Inputs under all Core, resolved Contract, Profile, Extension, and Application rules it implements. Unknown or unvalidated constraints MUST remain visible to the caller and MUST NOT be treated as satisfied. A Runtime SHOULD enforce size limits, timeouts, cancellation, response limits, and bounded concurrency for invocation processing.
+
+Transport success is not semantic success. HTTP `2xx` indicates HTTP-level success only. Conversely, a non-`2xx` response MUST NOT be reclassified as a successful Capability outcome merely because a response body can be parsed.
+
+All response representations are untrusted. Implementations MUST validate media type, representation size, syntax, and semantic shape before exposing typed Outputs. JSON objects, XML content, binary data, text, URLs, and error messages MUST be handled using format-appropriate safe parsers and output encoding. A Runtime MUST NOT inject returned text or markup into an executable HTML, script, command, template, or query context without the protections required by that context.
+
+Representation order is not a trust ranking. Content-Type alone is not proof that content is safe or authentic. If a returned representation does not match the selected or negotiated Representation, the Runtime MUST report the mismatch rather than coercing it through heuristic interpretation.
+
+## 92.7 Extension Processor and Plugin Isolation
+
+An Extension processor may interpret Attachment, Realization, Mapping, Requirement, Property, Constraint, or other extension-defined data. Supporting an Extension can therefore expand the Runtime's attack surface.
+
+Extension processors SHOULD run with the least privileges needed for their declared function. Merely validating or preserving an Extension MUST NOT grant it unrestricted file, network, process, device, UI, or Credential access. Extension validation SHOULD be deterministic and free of externally visible side effects. Executable scripts or code embedded in an Extension subtree are not executed by Core processing.
+
+A Runtime MUST distinguish:
+
+- recognizing an Extension namespace;
+- validating its syntax;
+- evaluating its semantics;
+- determining Runtime support; and
+- authorizing and executing an operation that uses it.
+
+Success at one stage does not imply success or permission at a later stage.
+
+## 92.8 Physical and Operational Safety
+
+Capabilities may control devices or processes that can cause physical harm even when the described Entity has no CPU or network interface of its own. An Interface may lead through a gateway, adapter, Human procedure, or other external realization. The absence of an obvious network endpoint is therefore not evidence that execution is harmless.
+
+This specification does not define hazard analysis, emergency-stop behavior, interlocks, operator qualification, safe motion, medical safety, industrial control safety, or functional-safety certification. Applications operating in such domains MUST apply the relevant independent safety rules before invocation. Runtime Availability states are informational inputs to that decision, not safety approvals.
+
+AI or LLM processing MAY assist user interfaces, authoring, or diagnostics, but deterministic validation, security policy enforcement, conformance classification, and authorization MUST NOT depend on probabilistic AI interpretation. An AI-generated mapping, target, Input, or explanation MUST be treated as untrusted until accepted through the same explicit and deterministic controls as any other input.
+
+# 93. Privacy Considerations
+
+An AR-XML document can reveal substantially more than a transport endpoint. Identifiers, Properties, Subjects, Profile Claims, Capability names, Interface details, Requirements, semantic identifiers, and extension data may identify a person or organization, expose device characteristics, describe accessibility or health-related functions, reveal operational state, or advertise an attack surface. A document remains privacy-sensitive even when it describes a passive or offline Entity.
+
+Publishers and processors SHOULD apply data minimization, purpose limitation, access control, retention limits, and deletion policies appropriate to the deployment. They SHOULD avoid publishing data merely because the Core model permits it. Distribution of a document SHOULD be no broader than necessary for its intended use.
+
+## 93.1 Identifiers, Subjects, Properties, and Claims
+
+Core does not automatically interpret an Identifier as a person's identity, but stable Identifier values can still enable correlation across documents, registries, locations, and time. Combining several non-unique Identifiers or Properties can produce a unique fingerprint. Implementations SHOULD avoid exposing full stable identifiers when a scoped, rotated, pseudonymous, or user-mediated reference would meet the same purpose.
+
+`subjectRef` is a semantic reference, not a privacy boundary. A lightweight Subject may still represent a person, body part, room, asset, or component whose association with the described Entity is sensitive. Processors MUST apply access and disclosure policy to the referenced data rather than assuming that Subject data is harmless because it is not a nested Entity.
+
+Properties are issuer-declared characteristics or state, not absolute truth. Nevertheless, collecting, indexing, or redistributing them may have privacy consequences. Profile Claims can expose memberships, roles, product classes, accessibility features, or claimed certifications. Consumers MUST NOT present such claims as verified facts, and publishers SHOULD consider whether the claim itself should be disclosed.
+
+## 93.2 Location and Runtime Context
+
+Core intentionally does not define direct latitude or longitude fields. Stable declared location may be represented by a Geo Extension or another typed Property, while a moving Entity's current position is generally Runtime Context or the result of a Capability such as `position.read`. This separation does not make location data non-sensitive.
+
+Precise, repeated, historical, inferred, or real-time location can reveal habits, occupancy, identity, and safety-relevant information. Location producers and consumers SHOULD minimize precision, frequency, retention, and audience; establish a purpose and legal basis where applicable; and obtain user control or consent when required. Cached location MUST retain appropriate freshness metadata so that a stale value is not silently presented as current.
+
+An Application MUST NOT infer consent to retrieve current location from the presence of a location-related Property, Capability, Contract, or Profile Claim. Reading a current position is an invocation and requires the same explicit request, Requirement evaluation, and authorization handling as other Capabilities.
+
+## 93.3 Invocation Data and Telemetry
+
+Capability Inputs and Outputs can contain personal data even when the Capability type appears routine. Query parameters may be recorded in browser history, intermediary logs, server logs, analytics systems, and referrer data. HTTP mappings SHOULD avoid placing sensitive values in a URL unless the Contract and deployment explicitly require it and appropriate controls exist. Transport confidentiality and integrity SHOULD be used whenever invocation data, Credentials, identifiers, or operational details require protection.
+
+Applications and Runtimes SHOULD collect and retain only the Inputs, Outputs, errors, timing data, and network metadata needed for the stated purpose. Diagnostic records SHOULD prefer structural information such as semantic identifier, state, validation category, and AR-DOM path. They SHOULD redact or omit Credential material, Identifier values, Property values, Input and Output values, response bodies, URLs containing sensitive queries, and opaque Extension payloads unless those values are necessary and protected.
+
+Semantic Results belong to an invocation outcome, not to the Entity description. A Runtime MUST NOT silently persist a Result as a Property or republish it in AR-XML. Any such transformation is a separate Application action subject to provenance, freshness, consent, and retention policy.
+
+## 93.4 Resolution and Registry Privacy
+
+Resolution requests can disclose what Entity, Capability Contract, Profile, or Extension a user or Application is interested in. Repeated requests can reveal inventory, behavior, location, or organizational relationships even when the retrieved definition is public.
+
+Resolvers and Semantic Registries SHOULD support privacy-preserving deployment choices such as built-in definitions, local registries, caches, Application-provided registries, and installed plugins. Network resolution is not mandatory. When network resolution is used, implementations SHOULD minimize transmitted context, avoid sending the full Entity document unless explicitly required, partition caches where cross-user correlation is a concern, and apply retention and logging controls to requested identifiers.
+
+An exact versioned absolute identifier is semantic identity, not consent to contact every network location suggested by its URI form. Dereferencing policy MUST remain separate from identifier comparison and validation.
+
+## 93.5 Unknown Extensions and Derived Information
+
+An unknown Extension subtree can contain personal or confidential data even when Core preserves it opaquely. Opaque preservation, copying, canonical serialization, logging, signing, or forwarding are all data processing actions. Implementations SHOULD treat unknown Extension content as potentially sensitive and SHOULD avoid unnecessary inspection or propagation.
+
+Deterministic interoperability does not require behavioral or personal inference beyond declared semantics. Implementations MUST NOT require AI or LLM inference to decide privacy-sensitive meaning, conformance, or disclosure policy. Applications using AI to summarize or enrich AR-XML SHOULD disclose that processing where appropriate, minimize submitted data, and avoid deriving sensitive attributes without a separate lawful and user-visible basis.
+
+AR-XML conformance does not establish compliance with any privacy, data-protection, communications, sector-specific, or records-retention law. Publishers, registry operators, Runtime providers, and Applications remain responsible for the obligations that apply to their processing and deployment.
 
 # Part XIII — Namespace, Registry, and Evolution Considerations
 
