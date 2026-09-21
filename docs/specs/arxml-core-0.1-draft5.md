@@ -1727,7 +1727,310 @@ Projection state is derived Runtime evaluation data, not AR-XML description data
 
 # Part V — Profiles
 
-Sections 42–49 are reserved for the staged Profiles draft.
+# 42. Profile Model
+
+A Profile is a versioned deterministic interoperability constraint set. It states which semantic contracts and Entity characteristics are required or permitted for a defined interoperability context.
+
+A Profile is not a Capability Contract and MUST NOT define a new meaning for a Capability. It references Capability Contracts by exact-versioned identity and may add only compatible constraints.
+
+The conceptual model is:
+
+```text
+ProfileDefinition
+├─ identifier                    1
+├─ capabilityRequirements*       0..*
+├─ propertyRequirements*         0..*
+├─ identifierRequirements*       0..*
+├─ interfaceRequirements*        0..*
+├─ requirementPolicies*          0..*
+└─ extensionPolicy?              0..1
+```
+
+Profile `identifier` is the Profile's exact-versioned absolute Semantic Identifier.
+
+A Profile definition MAY constrain:
+
+- presence of Capabilities identified by exact Capability Contract identifiers;
+- Capability subjects;
+- Invocation Inputs and Result Outputs;
+- permitted Result Representations;
+- Properties and Identifiers;
+- Interface, InterfaceUse, Attachment, Realization, and Mapping characteristics;
+- Requirement policy; and
+- permitted, required, or prohibited Extensions.
+
+Every normative constraint intended for automated conformance evaluation MUST have deterministic machine-readable semantics. Human-readable prose MAY explain a Profile but MUST NOT be the sole source for a required automated comparison.
+
+This specification defines the Profile information model and evaluation semantics. A concrete Profile document serialization or registry protocol MAY be defined separately, but MUST preserve these semantics.
+
+## 42.1 Profile Claim Separation
+
+An AR-XML `conforms-to` item is a Profile Claim made by the document issuer. The Profile definition is an independently resolved semantic object.
+
+```text
+Profile Claim
+≠ Profile Definition
+≠ Profile Resolution
+≠ Profile Conformance Result
+≠ Certification
+```
+
+A processor MAY evaluate an Entity against a Profile even when the Entity does not claim that Profile. Conversely, the existence of a claim MUST NOT change the evaluation algorithm or force a `CONFORMANT` result.
+
+# 43. Profile Identity and Resolution
+
+## 43.1 Exact Versioned Identity
+
+A Profile identifier and every `conforms-to/@href` used as normative identity MUST be an exact-versioned absolute Semantic Identifier.
+
+Moving aliases such as `latest`, an unversioned family identifier, and relative references MUST NOT be treated as normative Profile identity. Discovery may begin with such a query only if it resolves to an exact identifier before conformance evaluation.
+
+Different exact identifiers denote different Profile versions. A processor MUST NOT substitute a newer, older, or allegedly compatible Profile version without an explicit external selection policy.
+
+## 43.2 Resolution
+
+Profile resolution uses the common Semantic Registry model defined in Part VI. A Profile may be obtained from a built-in source, local registry, cache, application-provided registry, installed Extension or plugin, or network source. URI syntax does not require network dereferencing.
+
+Profile resolution has two states:
+
+```text
+RESOLVED
+UNRESOLVED
+```
+
+`RESOLVED` means exactly one usable Profile definition has been selected for the exact identifier. `UNRESOLVED` includes absence of a definition and conflicting non-equivalent definitions that cannot be deterministically disambiguated.
+
+A resolver MUST NOT silently use the first of multiple conflicting definitions. An unresolved Profile Claim remains issuer-declared description data, but verified conformance for that Profile is `UNDETERMINED`.
+
+Resolution does not authenticate the Profile publisher or Entity issuer, establish trust, grant authorization, certify an Entity, or prove Runtime support.
+
+# 44. Capability Requirements
+
+## 44.1 Presence
+
+Each Profile Capability Requirement identifies one exact-versioned Capability Contract and declares one presence value:
+
+```text
+required
+optional
+```
+
+Draft 5 defines no `recommended`, weighted, preferred, prohibited, or conditional presence value.
+
+For `required`, at least one Entity-side Capability matching the exact Contract identifier and applicable subject constraints MUST be present. If none is present, the Entity is `NON_CONFORMANT`.
+
+For `optional`, absence does not affect conformance. If a matching Capability is present and is used to satisfy that Profile item, it MUST satisfy every applicable Profile constraint; `optional` does not mean unconstrained or exempt from validation.
+
+Document order of Entity Capabilities and order of Profile requirements MUST NOT be used to select a preferred match. When more than one Capability is eligible, the Profile definition MUST provide deterministic matching or cardinality rules if one particular match matters.
+
+## 44.2 Capability Contract and Projection
+
+A Capability Requirement references a Capability Contract; it MUST NOT copy and redefine that Contract's semantic meaning.
+
+For a Capability to satisfy a Profile requirement:
+
+1. its `type` MUST equal the required exact Contract identifier;
+2. the Contract MUST resolve when Contract-dependent constraints must be evaluated;
+3. its Entity-side projection MUST not be `CONFLICT`; and
+4. all Profile constraints applicable to that Capability MUST be satisfied or deterministically evaluated according to Section 49.
+
+A Profile MAY require `VALIDATED` projection. If it does not explicitly require that state, an `UNVALIDATED` projection still causes `UNDETERMINED` whenever unresolved or unknown semantics could affect whether the Capability satisfies the Profile.
+
+## 44.3 Subject Constraints
+
+A Profile MAY constrain whether a Capability applies to the described Entity or to a Subject meeting deterministic criteria. It MUST NOT treat Subject as a nested Entity or infer a component hierarchy.
+
+Runtime-selected targets are Invocation Inputs and MUST NOT be matched as static `subjectRef` values.
+
+## 44.4 Invocation, Result, and Representation Constraints
+
+A Profile MAY narrow Contract-permitted Invocation, Input, Result, Output, and Representation choices. It MUST NOT:
+
+- add a semantic Input or Output that changes the Contract;
+- remove a required Contract Input or Output;
+- change a Core data type, unit, format, or meaning;
+- weaken requiredness or constraints;
+- convert Result into Representation or transport data; or
+- use Representation order as preference.
+
+Any Profile narrowing is valid only under Section 48.
+
+# 45. Property and Identifier Requirements
+
+## 45.1 Property Requirements
+
+A Property Requirement identifies Property semantics by exact `type` and defines deterministic presence, value, unit, cardinality, or constraint rules as needed by the Profile.
+
+Because Core permits multiple Properties with the same `type`, a Profile MUST state deterministic matching and cardinality rules whenever the existence of multiple candidates affects conformance. It MUST NOT assume that the first Property is preferred, newest, authoritative, or unique.
+
+A Profile MAY require a Property to be present or constrain a known vocabulary-defined value. It MUST NOT transform an issuer-declared Property into verified truth or current Runtime state.
+
+Unknown Property vocabulary or unsupported comparison semantics produce `UNDETERMINED` when they are required to decide conformance. A known missing required Property or known violated Property constraint produces `NON_CONFORMANT`.
+
+## 45.2 Identifier Requirements
+
+An Identifier Requirement identifies an identifier scheme by exact `type` and defines deterministic presence, subject, value-shape, or cardinality rules.
+
+Because Core permits multiple Identifiers with the same `type`, a Profile MUST define how candidates are matched when multiplicity matters. Identifier order has no preference semantics.
+
+A Profile MUST NOT infer Canonical Entity Identity, a Locator, a credential, authentication, authorization, ownership, or trust from an Identifier unless a separate applicable specification defines an explicit deterministic rule. Such a rule does not alter the Core meaning of Identifier.
+
+An unknown required identifier scheme or unsupported validator produces `UNDETERMINED`; a known missing required Identifier or known violation produces `NON_CONFORMANT`.
+
+# 46. Interface Requirements
+
+A Profile MAY constrain Entity implementation characteristics needed for interoperability, including:
+
+- presence of an Interface;
+- required Attachment or Realization Extension roots;
+- Interface Requirements;
+- existence of an InterfaceUse from a matching Capability;
+- Mapping Extension roots; and
+- deterministically defined Extension-specific characteristics.
+
+Interface Requirements constrain the Entity implementation projection. They MUST NOT be inserted into, or treated as part of, the referenced Capability Contract.
+
+A Profile may require that a Capability have one or more InterfaceUse routes satisfying specified characteristics. Matching is based on explicit InterfaceUse references and Extension semantics, never on collection order.
+
+A Profile MUST NOT equate an Interface's presence with Runtime support or availability. A conformant Entity may describe an Interface that a particular Runtime cannot use.
+
+Unknown or unsupported Interface Extension semantics yield `UNDETERMINED` when they are necessary to decide a required Interface constraint. A known absence or known incompatible characteristic yields `NON_CONFORMANT`.
+
+Profiles SHOULD constrain standardized Interface Extensions rather than reproduce transport-specific vocabulary. They MUST NOT create a generic mapping DSL or redefine Attachment, Realization, or Mapping roles.
+
+# 47. Requirement and Extension Policies
+
+## 47.1 Requirement Policy
+
+A Profile MAY require the presence or absence of identified Requirement types, constrain understood Requirement data, or state policy for additional Requirements.
+
+A Profile MUST NOT remove, weaken, or contradict a Requirement imposed by a Capability Contract. It MAY add a stricter prerequisite only when the Contract permits that narrowing and the Requirement semantics are deterministically comparable.
+
+Capability Requirements and Interface Requirements remain scoped by placement. A Profile MUST NOT treat a route-specific Interface Requirement as though it changed the semantic Capability Contract.
+
+Profile evaluation of an authentication or authorization Requirement is a conformance check on declarations. It does not authenticate a caller, validate a live credential, grant authorization, or enforce access.
+
+If a required Requirement type or body is unknown to the evaluator, conformance is `UNDETERMINED` unless a separate known violation already determines `NON_CONFORMANT`.
+
+## 47.2 Extension Policy
+
+A Profile's optional Extension policy MAY identify:
+
+- Extension namespaces or semantic roots that are required;
+- Extension namespaces or roots that are permitted;
+- Extension namespaces or roots that are prohibited;
+- slots in which they may be used; and
+- Extension-specific validation or support requirements.
+
+Extension policy MUST NOT permit foreign content outside a Core Extension Slot or make an invalid slot envelope valid.
+
+The policy MUST distinguish document presence, Extension-specific validity, and Runtime support. Requiring an Extension declaration does not prove that a Runtime implements it.
+
+If the Profile requires semantics from an unknown Extension, conformance is `UNDETERMINED`, not guessed `CONFORMANT` or `NON_CONFORMANT`. If the Profile deterministically prohibits the Extension and it is present, the result is `NON_CONFORMANT` even if the evaluator does not understand the Extension's internal semantics.
+
+# 48. Profile Narrowing Rules
+
+A Profile may narrow a Capability Contract or other referenced semantic definition only when all of the following hold:
+
+1. the referenced exact definition is resolved;
+2. that definition permits the kind of narrowing;
+3. the Profile constraint denotes a semantic subset of the permitted behavior or values;
+4. the comparison relation is deterministic and implemented; and
+5. the narrowing does not redefine names, types, units, formats, Requirements, or behavioral meaning.
+
+Examples:
+
+```text
+Contract range: 0..100
+Contract permits range narrowing
+Profile range: 0..80
+→ permitted narrowing
+
+Contract representations: image/jpeg or image/png
+Contract permits representation subset
+Profile representation: image/jpeg
+→ permitted narrowing
+
+Contract unit: m/s
+Profile interprets the same value as km/h
+→ redefinition; prohibited
+
+Contract Input type: boolean
+Profile Input type: string
+→ redefinition; prohibited
+
+Constraint comparison semantics unknown
+→ narrowing not established
+```
+
+A Profile MUST NOT widen accepted values, weaken required Inputs or Requirements, add contradictory alternatives, or redefine the meaning of a Contract term.
+
+A narrower-looking lexical form is not sufficient. Unit conversion, subtype relationships, range inclusion, format compatibility, and Extension constraints require explicit semantic comparison rules.
+
+When narrowing cannot be established because required semantics or comparison support are unknown, evaluation uses `UNDETERMINED`. It MUST NOT silently accept the constraint as compatible.
+
+# 49. Profile Conformance
+
+Profile conformance has exactly three results:
+
+```text
+CONFORMANT
+NON_CONFORMANT
+UNDETERMINED
+```
+
+**CONFORMANT** means the exact Profile resolved and every applicable required comparison was deterministically satisfied.
+
+**NON_CONFORMANT** means at least one known Profile requirement was violated. Examples include a missing required Capability, a known projection conflict, a missing required Property, or a prohibited Extension.
+
+**UNDETERMINED** means no known violation determines non-conformance, but the evaluator lacks information or deterministic support required to establish conformance. Examples include an unresolved Profile or Contract, an unknown required Extension, or unsupported constraint comparison semantics.
+
+Aggregation follows this precedence:
+
+```text
+if Profile is unresolved
+→ UNDETERMINED
+
+else if any known requirement is violated
+→ NON_CONFORMANT
+
+else if any required evaluation is unknown
+→ UNDETERMINED
+
+else
+→ CONFORMANT
+```
+
+Once the Profile is resolved, a known violation takes precedence over unrelated unknown evaluations. A processor SHOULD expose diagnostics for every evaluated requirement rather than only the aggregate result.
+
+Core-invalid AR-XML cannot establish Profile conformance. A conformance processor MUST first report the Core validation failure and MUST NOT return `CONFORMANT` for that document.
+
+## 49.1 Independence from Claim, Certification, and Availability
+
+A conformance result does not modify the issuer's Profile Claim. A missing claim does not prevent evaluation, and a claim does not guarantee its result.
+
+```text
+Profile Claim
+≠ Verified Profile Conformance
+≠ Certification
+```
+
+Certification is an external assurance process and is not created by AR-XML or by a local conformance result.
+
+Profile conformance is also independent of current Runtime availability:
+
+```text
+CONFORMANT + UNAVAILABLE
+→ possible
+
+NON_CONFORMANT + READY route
+→ possible under Runtime policy, but not Profile-conformant
+
+UNDETERMINED + UNKNOWN availability
+→ possible
+```
+
+`CONFORMANT` does not guarantee Runtime support, connectivity, authentication, authorization, safety, remote acceptance, or execution success.
 
 # Part VI — Semantic Identification and Resolution
 
