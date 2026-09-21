@@ -3998,7 +3998,231 @@ AR-XML conformance does not establish compliance with any privacy, data-protecti
 
 # Part XIII — Namespace, Registry, and Evolution Considerations
 
-Sections 94–96 are reserved for the staged Namespace, Registry, and Evolution draft.
+# 94. Namespace Considerations
+
+XML namespaces distinguish the closed AR-XML Core vocabulary from independently defined Extension vocabularies. They identify vocabularies; they do not establish trust, ownership, availability, authorization, or a network retrieval requirement.
+
+## 94.1 Core Namespace and Document Version
+
+The Core 0.1 namespace name is:
+
+```text
+https://relink.dev/ns/arxml/core/0.1
+```
+
+The Draft 5 root version is:
+
+```text
+0.1-draft5
+```
+
+The namespace and root `version` value together select the Draft 5 Core grammar. A processor MUST compare the namespace name and version value exactly. It MUST NOT use URI normalization, redirects, fetched content, prefix spelling, or local-name-only comparison to decide that another name is equivalent.
+
+The namespace name is an identifier, not an instruction to retrieve a schema or other resource. A processor MAY use a built-in or locally installed schema, but parsing and Core validation MUST NOT depend on dereferencing the namespace URI.
+
+The unqualified root `version` attribute is part of the Core serialization. Default XML namespaces do not apply to attributes. Producers MUST therefore emit Core attributes unqualified unless this specification explicitly states otherwise. A namespace declaration is XML syntax and is not an AR-DOM Property or attribute.
+
+The `https://relink.dev/ns/arxml/core/0.1` namespace is reserved for elements and attributes defined by the AR-XML Core 0.1 specification family. Applications and Extensions MUST NOT mint private elements or attributes in that namespace.
+
+## 94.2 Core Vocabulary Closure
+
+Draft 5 is a closed Core vocabulary. The following are invalid:
+
+- an unknown Core-namespace element;
+- an unknown Core-namespace attribute;
+- an unknown unqualified attribute on a Core element;
+- a foreign namespaced attribute on a Core element; and
+- a foreign element outside an explicit Extension Slot.
+
+An implementation MUST NOT reinterpret invalid Core content as an Extension merely to obtain forward compatibility. It also MUST NOT accept a future Core element by ignoring it. A future Core grammar is processed under its own explicitly recognized version rules.
+
+XML namespace aliases have no semantic significance. The following declarations may denote the same Core namespace:
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5" />
+```
+
+```xml
+<ar:ar-entity
+  xmlns:ar="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1-draft5" />
+```
+
+A processor MUST preserve namespace identity rather than prefix spelling. A canonical serializer MAY choose stable prefixes, but changing a prefix alone does not change AR-DOM semantics.
+
+## 94.3 Extension Namespace Ownership
+
+Every Extension semantic element MUST use a non-Core namespace and occur in an Extension Slot permitted by Part III. An Extension specification SHOULD publish:
+
+- a stable namespace name under authority controlled by its maintainer;
+- the Extension versioning policy;
+- the elements and attributes permitted at each applicable slot;
+- deterministic validation and processing rules;
+- the semantic identifiers it defines or uses;
+- compatibility and deprecation policy; and
+- security and privacy considerations.
+
+Use of an Extension namespace does not imply endorsement by the Core specification. Namespace control does not prove that a particular document, definition, processor, or publisher is trusted.
+
+An Extension MUST NOT assign a new meaning to Core elements, Core attributes, Core cardinalities, local reference rules, or Runtime evaluation states. It MAY add semantics only through its declared Extension elements in the applicable slots. An Extension that needs incompatible Core structure requires a future Core version rather than namespace tricks or out-of-slot content.
+
+## 94.4 Namespace and Semantic Identifier Separation
+
+An XML namespace identifies a vocabulary. A Semantic Identifier identifies a semantic definition such as a Capability Contract, Profile, Property type, Identifier scheme, Requirement type, Subject type, or other registered concept. These roles are distinct:
+
+```text
+XML namespace
+= vocabulary identity
+
+Semantic Identifier
+= semantic definition identity
+```
+
+An Extension namespace MAY also be an absolute URI, but it MUST NOT be used as an implicit substitute for the exact identifiers of every semantic definition in that vocabulary. Conversely, sharing a URI authority or string prefix does not establish semantic equivalence, compatibility, trust, or common governance.
+
+Core does not reserve short prefixes such as `http`, `phys`, `auth`, or `geo`. Examples use readable prefixes only for presentation. Producers and consumers MUST compare namespace names, not those example prefixes.
+
+# 95. Registry Considerations
+
+AR-XML does not require a mandatory centralized registry. Deterministic resolution may use built-in definitions, a local registry, a cache, an Application-provided registry, an installed Extension or plugin, a network service, or a policy-controlled combination of these sources.
+
+This section defines requirements on registry behavior, not a registry protocol, server API, package format, discovery service, or governance organization.
+
+## 95.1 Registry Roles
+
+A Semantic Registry maps an exact Semantic Identifier to a semantic definition. It may contain or resolve:
+
+- Capability Contracts;
+- Profiles;
+- Property and Identifier type definitions;
+- Requirement semantics;
+- Subject or Category vocabularies;
+- Extension definitions and constraint semantics; and
+- other versioned semantic resources used by an AR-XML processor.
+
+A Semantic Registry is separate from an Entity Resolver:
+
+```text
+Entity Resolver
+= Entity identity → AR-XML location
+
+Semantic Registry
+= Semantic Identifier → semantic definition
+```
+
+A registry MUST NOT treat an Entity Identifier as a document locator unless a separately configured Entity Resolver rule defines that mapping. A registry also MUST NOT execute a Capability, supply Credentials, authenticate a publisher, authorize a caller, or certify conformance merely because it returned a definition.
+
+## 95.2 Registration Records and Exact Identity
+
+A registry record SHOULD preserve at least:
+
+- the exact Semantic Identifier;
+- the semantic resource kind;
+- the versioned definition or a stable reference to it;
+- source and provenance information;
+- integrity information when available;
+- publication, retrieval, or cache time when relevant;
+- lifecycle status such as active, deprecated, or withdrawn; and
+- the trust or admission policy under which the definition is usable.
+
+Registry metadata is not part of the semantic definition unless the applicable specification explicitly says so. Retrieval time, popularity, source priority, or lifecycle status MUST NOT silently change Contract or Profile meaning.
+
+Normative Capability Contract and Profile identities MUST be exact-versioned absolute identifiers. A moving alias such as `latest` MAY be offered for discovery, but the registry MUST return or select an exact identifier before deterministic validation. The alias itself MUST NOT be stored in AR-XML as normative Contract or Profile identity.
+
+Once published, a definition associated with an exact identifier SHOULD be immutable. Any normative semantic change requires a new exact identifier. Correcting transport metadata, registry indexing, or an editorial description MAY retain the identifier only when it cannot change deterministic interpretation or conformance results.
+
+## 95.3 Conflicts and Multiple Sources
+
+Multiple registry sources may return candidates for the same exact identifier. If the candidates are semantically or bytewise equivalent under a defined comparison rule, a registry MAY coalesce them while preserving provenance. If they conflict, the registry MUST NOT use silent first-wins, source order, document order, cache timing, or lexical preference as an implicit decision rule.
+
+A policy MAY deterministically reject untrusted candidates before semantic resolution. After that policy is applied, resolution is `RESOLVED` only when exactly one usable definition remains. Otherwise it is `UNRESOLVED`, and the processor SHOULD report the conflicting sources without exposing sensitive registry or credential data.
+
+Implementations SHOULD defend against namespace or identifier squatting, malicious re-registration, cache poisoning, rollback, downgrade, stale entries, and substitution. Appropriate controls may include authenticated publication, signatures, content digests, append-only logs, administrator approval, pinned definitions, or trusted local packages. Core does not mandate one trust mechanism.
+
+## 95.4 Caching and Offline Operation
+
+Caching is permitted but MUST preserve exact identity, source, and applicable trust policy. A cache MUST NOT answer an exact identifier with a newer, older, or allegedly compatible definition. Cache invalidation and retention policy are deployment concerns, but stale or withdrawn status SHOULD be observable to the Application when it can affect policy.
+
+Negative caching MAY reduce repeated failed lookups, provided it is bounded and does not turn a temporary failure into a permanent `UNRESOLVED` result. A cached definition MUST NOT become trusted solely because it was cached successfully in the past.
+
+Offline operation is a first-class deployment mode. A conforming processor MAY resolve all supported semantics from built-in, local, cached, or Application-provided sources. Network access is never required solely because a Semantic Identifier uses an HTTP or HTTPS URI form.
+
+## 95.5 Registry Extensibility and Governance
+
+A registry MAY support resource kinds beyond those defined by Draft 5, but unknown kinds MUST NOT be coerced into a known kind. Resource-kind dispatch, definition validation, and processor support SHOULD be explicit and versioned.
+
+Registry governance SHOULD define identifier allocation, maintainer authority, review policy, immutability, deprecation, dispute handling, archival availability, and security response. Federated registries SHOULD make authority and precedence rules visible rather than presenting federation order as semantic truth.
+
+Core does not recreate external identifier systems or standards. GTIN, VIN, MAC, IPv6, IMEI, OPC UA, AAS, WoT, and other domain identifiers remain governed by their respective specifications. A registry definition may reference such a scheme, but MUST NOT silently redefine it under an AR-XML-specific enum.
+
+# 96. Evolution and Compatibility
+
+Evolution must preserve machine readability and semantic certainty. Compatibility claims MUST be explicit and versioned; they MUST NOT be inferred from similar names, shared URI prefixes, document order, a successful parse, or AI-generated comparison.
+
+## 96.1 Draft 5 and Earlier Drafts
+
+Draft 5 does not guarantee syntax compatibility with earlier AR-XML drafts. A document with `version="0.1-draft4"`, an earlier grammar, or an absent Draft 5 version MUST NOT be interpreted as Draft 5.
+
+Migration from an earlier draft is an explicit transformation. A migration tool SHOULD:
+
+- validate the source document under the source grammar when possible;
+- preserve source data and provenance;
+- report every dropped, synthesized, split, merged, or semantically uncertain item;
+- require policy or user input where no deterministic mapping exists; and
+- validate the result independently as Draft 5.
+
+A migration MUST NOT infer Capability Contracts, Profile conformance, authorization, Interface mappings, Canonical Entity Identity, or current Runtime state from ambiguous legacy content. Successfully producing well-formed Draft 5 XML does not prove semantic equivalence to the source.
+
+## 96.2 Core Grammar Evolution
+
+Within the exact Draft 5 version, the Core grammar is closed. A processor MUST NOT assume that an unknown Core element or attribute is a compatible additive feature. Adding a Core element, Core attribute, cardinality, default, reference rule, validation rule, or processing behavior requires an explicitly distinguishable future specification version.
+
+Editorial corrections that do not alter deterministic parsing, validation, AR-DOM, semantic comparison, Runtime states, or conformance requirements may be published without changing document identity. Any normative change that can alter one of those results requires a new version designation and a documented compatibility and migration policy.
+
+A future specification decides its own namespace and version pairing. Draft 5 processors MUST rely only on the exact pairing defined in Section 19 and MUST fail closed for an unsupported Core version. They MAY expose the unsupported document as raw data or hand it to another processor, but MUST NOT claim Draft 5 validation or conformance for it.
+
+Canonical serialization order may remain stable across revisions, but order stability alone is not compatibility. Consumers MUST validate version and vocabulary before applying a serializer or parser profile.
+
+## 96.3 Extension Evolution
+
+Each Extension specification MUST define how its versions are identified. It may use versioned namespace names, exact versioned semantic roots, or another deterministic mechanism appropriate to the Extension. An Extension change that alters syntax, semantic interpretation, validation, mapping, constraint comparison, security behavior, or Runtime support expectations MUST be distinguishable from the prior version.
+
+Unknown foreign semantic roots remain Core-valid when placed in a correct Extension Slot. This provides Core-level forward carriage, not Extension-level compatibility. A processor that does not implement the Extension reports unknown validation, evaluation, or support states as defined elsewhere in this specification; it MUST NOT guess the new semantics.
+
+Opaque preservation SHOULD retain the complete foreign subtree and namespace identity. It does not require preservation of original prefix spelling, attribute order, quote style, or insignificant XML formatting unless an external signature or byte-preservation mechanism requires it. A processor MUST NOT claim lossless round-tripping when its XML processing model cannot preserve the properties required by that claim.
+
+An evolved Extension MUST NOT use new content to weaken Core requirements or reinterpret old Core data. If its new behavior requires a Core location that is not an Extension Slot, it must wait for or target an appropriate future Core version.
+
+## 96.4 Contract and Profile Evolution
+
+Every normative revision of a Capability Contract or Profile uses a new exact-versioned Semantic Identifier. This rule applies to both compatible and incompatible normative revisions. Compatibility metadata MAY relate two exact versions, but does not make their identifiers interchangeable.
+
+An Application MAY select a different Contract or Profile version through explicit policy before validation. The selected exact identifier and definition must then be used consistently. A Semantic Registry or Runtime MUST NOT upgrade, downgrade, or substitute versions silently.
+
+A revised Capability Contract MUST NOT retroactively change the meaning of existing Entity projections that reference an earlier identifier. A revised Profile MUST NOT retroactively change the result of conformance evaluation for an earlier Profile identifier. Deprecation may warn against new use, but it does not rewrite historical semantics.
+
+Contract compatibility does not imply Interface compatibility. Profile compatibility does not imply Runtime Availability. Neither implies trust, authorization, Certification, or successful execution.
+
+## 96.5 Runtime and Implementation Evolution
+
+Runtime implementations may gain or lose support for Extensions, transports, methods, representations, constraint evaluators, or registry sources. Such changes affect `Support`, evaluation certainty, and Availability; they do not alter the specification capability described by the document.
+
+```text
+Spec Capability
+≠ Runtime Implementation Capability
+```
+
+An implementation SHOULD version and disclose its claimed conformance classes and supported Extension features. A newer implementation MUST NOT rewrite a valid description merely to match its own feature set. An older implementation MUST represent unsupported or unknown semantics through the defined states rather than declaring known support or inventing results.
+
+No evolution mechanism defined here authorizes automatic execution. Loading, migrating, resolving, validating, upgrading a registry cache, or installing Extension support MUST NOT invoke a Capability. Side-effecting execution continues to require an explicit Application or Human request.
+
+## 96.6 Deferred Features
+
+Draft 5 deliberately leaves Relations, Observation, Subscription, Event, Stream, workflow, generic mapping DSLs, JSON serialization of AR-XML, credential management, authorization enforcement, and centralized registry requirements outside Core. Their absence is not an invitation to encode them as unknown Core content or to overload Invocation with contradictory semantics.
+
+Future specifications MAY define such features through an appropriate Extension, companion specification, or new Core version. They MUST preserve the separations on which Draft 5 relies, including Entity versus Location, Capability versus Interface and Invocation, Description versus Execution, Resolution versus Authentication, Authentication versus Authorization, Result versus Representation, and Profile Claim versus Verified Conformance and Certification.
 
 # Appendix A. AR-DOM Summary
 
