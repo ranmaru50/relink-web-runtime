@@ -1193,7 +1193,247 @@ Profile Claim order does not express preference, verification status, or certifi
 
 # Part III — Extension Model
 
-Sections 31–36 are reserved for the staged Extension Model draft.
+# 31. Extension Architecture
+
+AR-XML Core defines a closed vocabulary and a finite set of explicit Extension Slots. An Extension supplies domain-, device-, attachment-, constraint-, security-, or transport-specific semantics in a foreign XML namespace.
+
+An Extension MUST NOT redefine, weaken, or contradict Core semantics. In particular, an Extension MUST NOT:
+
+- change the meaning or cardinality of a Core information item;
+- make an invalid Core structure valid;
+- reinterpret a Core `id`, reference, data type, or Semantic Identifier;
+- turn document order into preference where Core declares order insignificant;
+- treat description as execution;
+- equate availability with authorization or execution success; or
+- cause document loading to invoke a Capability.
+
+An Extension MAY add semantics only through a slot that permits its semantic root. The same foreign namespace MAY define roots for more than one slot, but each root's meaning is determined by both its expanded XML name and its slot context.
+
+Extension specifications SHOULD define:
+
+- a stable, versioned namespace URI;
+- the Extension roots permitted in each slot;
+- child and attribute grammar;
+- semantic meaning and constraints;
+- Extension-specific validation errors;
+- processor support criteria;
+- interaction with Capability Contracts and Profiles; and
+- Runtime evaluation behavior where applicable.
+
+Namespace prefix text is not semantic identity. Processors MUST identify an Extension element by namespace URI and local name, not by prefix.
+
+The presence of Extension content does not establish that a Runtime implements it. Specification-defined Extension capability and Runtime implementation capability remain distinct.
+
+# 32. Extension Slots
+
+## 32.1 Defined Slots
+
+Draft 5 Core defines the following Extension Slots:
+
+| Slot | XML location | Foreign semantic roots | Purpose |
+|---|---|---:|---|
+| Property slot | direct child of `properties` | 0..* | Extension-defined Entity characteristics or declared state |
+| Requirement body | direct child of `require` | 0..1 | Data for the Requirement identified by `require/@type` |
+| Attachment | direct child of `attachment` | exactly 1 | Physical, spatial, or contact-oriented access boundary |
+| Realization | direct child of `realization` | exactly 1 | Concrete interaction mechanism |
+| Mapping | direct child of `mapping` | exactly 1 | Capability-specific use of an Interface |
+| Constraint area | direct child of `constraints` | 1..* | Extension-defined constraints on an Input or Output |
+
+`attachment`, `realization`, and `mapping` are explicit Core wrappers. If a wrapper is present but contains no foreign semantic root, it is invalid. If it contains more than one foreign semantic root, it is invalid.
+
+`constraints` is also an explicit Core wrapper. If present, it MUST contain at least one foreign namespaced constraint element. Multiple constraint roots are allowed because each root may state an independently evaluable constraint.
+
+The `properties` container is both the collection container for Core `property` elements and the Property Extension Slot. It MAY contain Core `property` children and foreign namespaced property roots in any order. Each foreign child is one Extension-defined property item; it does not become a Core `Property` and is not assigned implicit Core `type`, `value`, or `unit` fields.
+
+Example:
+
+```xml
+<properties
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:geo="https://example.org/ns/arxml/geo/1">
+
+  <property
+    type="https://example.org/properties/site-name/1"
+    value="Reference Lab" />
+
+  <geo:declared-location
+    latitude="35.6812"
+    longitude="139.7671" />
+</properties>
+```
+
+The Core does not define a generic `extensions` container and does not permit arbitrary foreign content at the root or inside other Core elements. New Extension Slots require a future Core revision.
+
+## 32.2 Slot Envelope Validation
+
+Core validation checks the envelope of an Extension Slot:
+
+- that the slot occurs in a permitted Core location;
+- that wrapper cardinality is satisfied;
+- that each semantic root uses a non-Core namespace; and
+- that no prohibited direct character data or extra Core content occurs.
+
+Core validation does not validate the internal grammar or domain meaning of a foreign subtree. That is Extension-specific validation.
+
+An Extension root in the Core namespace is never foreign content, even if a processor does not recognize its local name. It is an unknown Core element and is invalid.
+
+## 32.3 No Foreign Attribute Escape
+
+Extension Slots admit foreign elements, not arbitrary foreign attributes on Core elements. A foreign namespaced attribute attached to a Core element is invalid unless a future Core revision explicitly defines that attribute location as an Extension Slot.
+
+Attributes on a foreign Extension element are part of the foreign subtree and are governed by that Extension.
+
+# 33. Attachment
+
+Attachment describes a physical, spatial, contact-oriented, or otherwise direct access boundary associated with an Interface. The `attachment` wrapper MUST contain exactly one foreign namespaced semantic root.
+
+```xml
+<interface
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  id="display-connector">
+
+  <attachment>
+    <phys:connector
+      xmlns:phys="https://example.org/ns/arxml/physical/1"
+      family="hdmi"
+      form="type-a" />
+  </attachment>
+</interface>
+```
+
+Core does not define connector families, pinouts, orientation, mating rules, spatial tolerances, safety limits, or compatibility. Those semantics belong to the Attachment Extension.
+
+Attachment does not imply that the Interface supports programmatic Invocation. An Attachment-only Interface is valid and may describe a passive connector, contact point, marker, access region, or other non-network boundary.
+
+An Attachment Extension MUST NOT implicitly create a Capability, Capability Contract, Invocation, or InterfaceUse. Such Core declarations must remain explicit where applicable.
+
+Document order of Interfaces or Attachment content MUST NOT be treated as preference unless the Extension itself defines ordering inside its foreign subtree.
+
+# 34. Realization
+
+Realization describes the concrete interaction mechanism shared by an Interface. The `realization` wrapper MUST contain exactly one foreign namespaced semantic root.
+
+```xml
+<interface
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  id="web-api">
+
+  <realization>
+    <http:api
+      xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+      base="./api/" />
+  </realization>
+</interface>
+```
+
+A Realization Extension may define transport-, protocol-, or mechanism-level configuration shared by every applicable InterfaceUse. Capability-specific operation information belongs in Mapping, not Realization.
+
+Realization MUST NOT redefine the semantic function, Inputs, Result, Outputs, Requirements, or constraints of a Capability Contract. It describes how an Entity exposes an interaction surface, not what the Capability means.
+
+The presence of a Realization does not prove that a Runtime supports it, that its target is reachable, that authentication succeeds, or that any Capability is authorized or executable.
+
+An Interface has at most one Realization wrapper. If an Entity exposes distinct realization contexts, it SHOULD declare distinct Interfaces and reference them through the applicable InterfaceUses.
+
+# 35. Mapping
+
+Mapping describes how one Capability uses a referenced Interface. The `mapping` wrapper occurs only inside `interface-use` and MUST contain exactly one foreign namespaced semantic root.
+
+```xml
+<interface-use
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  ref="web-api">
+
+  <mapping>
+    <http:operation
+      xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+      method="POST"
+      path="light/state" />
+  </mapping>
+</interface-use>
+```
+
+Mapping is capability-specific. Shared connection or mechanism configuration belongs in the referenced Interface's Realization.
+
+A Mapping Extension MAY define deterministic correspondence between semantic Invocation data and the mechanism represented by the Interface. It MUST NOT:
+
+- rename a semantic Input or Output in the Core model;
+- change a Core data type;
+- remove a required Contract Input;
+- weaken or redefine Contract constraints;
+- change the subject of the Capability;
+- embed credentials or secrets; or
+- create a generic executable workflow.
+
+Core does not define a generic mapping DSL. Mapping semantics are owned by the specific Interface Extension, such as the HTTP Extension in Part IX.
+
+A Mapping is optional. A plain `interface-use` reference is valid when the applicable Interface Extension needs no capability-specific data.
+
+Multiple InterfaceUses MAY reference the same Interface, including multiple InterfaceUses in one Capability. Each InterfaceUse and Mapping remains a separate route description; processors MUST NOT merge them merely because `ref` values or Extension root names match.
+
+# 36. Unknown Extension Processing
+
+## 36.1 Core Validity
+
+An unknown or unsupported foreign namespaced Extension does not invalidate a document at the Core layer when all of the following are true:
+
+1. its semantic root occurs in a permitted Extension Slot;
+2. the Core slot envelope and cardinality are valid;
+3. the element is in a non-Core namespace; and
+4. surrounding Core structure is valid.
+
+Conversely, foreign content outside a permitted Extension Slot is a Core structural error even if a processor recognizes the foreign namespace.
+
+```text
+recognized Extension outside its slot
+→ Core invalid
+
+unknown Extension inside its slot
+→ Core valid
+```
+
+## 36.2 Layered Validation
+
+Processors MUST distinguish at least these outcomes:
+
+```text
+Core structural validation
+Extension recognition and support
+Extension-specific validation
+Runtime evaluation
+```
+
+An Extension-specific validation failure does not retroactively change the result of Core structural validation. It makes the Extension instance invalid for processors claiming that Extension's conformance class.
+
+An unknown Extension has no Extension-specific validity result from that processor. The processor MUST NOT guess its semantics from local names, attribute names, human-readable text, namespace similarity, or AI inference.
+
+For an unknown Requirement body, Core validity remains valid and Requirement evaluation is `UNKNOWN`. Runtime consequences for unknown Realization, Mapping, constraints, and other semantics are defined in Part VIII.
+
+## 36.3 Opaque Preservation
+
+A Core processor that exposes or reserializes Extension content SHOULD preserve an unknown foreign subtree as opaque extension data where practical. Preservation SHOULD retain:
+
+- namespace URI and local name for every element and attribute;
+- attribute values;
+- character data;
+- child element order; and
+- namespace bindings required to reserialize the subtree.
+
+The original namespace prefix, attribute order, quote style, entity spelling, comments, processing instructions, and byte-for-byte lexical form are not Core semantic data. Applications that require XML signatures or exact lexical round trips need a separate byte-preservation mechanism.
+
+A processor MUST NOT silently convert an unknown Extension subtree into a known Core item, discard it while claiming lossless round-trip support, or execute it as code.
+
+## 36.4 Resolution and Trust
+
+An Extension namespace URI is an identifier and need not be fetched from the network. Recognizing or resolving an Extension specification does not authenticate the document issuer, establish trust, grant authorization, or prove Runtime support.
+
+```text
+Extension identification
+≠ Extension support
+≠ Extension validity
+≠ Trust
+≠ Authorization
+≠ Execution
+```
 
 # Part IV — Capability Contracts
 
