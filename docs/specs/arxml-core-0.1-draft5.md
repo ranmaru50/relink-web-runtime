@@ -4638,7 +4638,266 @@ These questions are resolved through the semantic, validation, and Runtime evalu
 
 # Appendix C. Validation Error Categories
 
-_To be specified in a later staged update._
+This appendix is an informative diagnostic taxonomy for implementations, test suites, authoring tools, and conformance reports. It does not replace the normative outcome states or require a particular error-code spelling, exception hierarchy, API, or message format.
+
+The central rule is that failure domains remain distinct. A processor must not report every unsuccessful operation as “invalid AR-XML.”
+
+```text
+Entity resolution failure
+≠ resource fetch failure
+≠ XML parse failure
+≠ Core validation failure
+≠ Extension validation result
+≠ semantic resolution result
+≠ projection validation result
+≠ Profile conformance result
+≠ Runtime availability result
+≠ invocation result or error
+```
+
+## C.1 Diagnostic Record
+
+A machine-readable diagnostic SHOULD contain enough information to identify both the failure domain and the affected data without requiring natural-language interpretation. A useful record includes:
+
+| Field | Purpose |
+|---|---|
+| `category` | Stable failure or outcome family |
+| `code` | Specific implementation or specification-defined condition |
+| `severity` | Error, warning, or informational presentation level |
+| `phase` | Resolve, fetch, parse, Core validate, Extension validate, semantic resolve, evaluate, serialize, or invoke |
+| `location` | Source line/column, XML expanded name, AR-DOM path, semantic field, or route identity |
+| `specRef` | Relevant specification section or Extension rule |
+| `message` | Human-readable explanation |
+| `state` | Applicable normative state such as `UNRESOLVED`, `CONFLICT`, or `UNAVAILABLE` |
+| `cause` | Optional underlying diagnostic or platform failure |
+| `provenance` | Registry source, Extension version, policy context, or evaluation time when relevant |
+
+The exact record shape is implementation-defined. Category and state should be separately represented: for example, `SEMANTIC.CONTRACT_NOT_FOUND` may explain why `ContractResolution = UNRESOLVED`.
+
+Diagnostics MUST NOT disclose passwords, bearer tokens, private keys, API secrets, session cookies, or equivalent Credentials. Implementations SHOULD redact sensitive Identifier, Property, Input, Output, query, response, location, and opaque Extension values while retaining a structural path and useful reason.
+
+## C.2 Recommended Category Families
+
+The following symbolic families are recommended for interoperable reporting. Implementations MAY use different exact codes if they preserve the same distinctions.
+
+| Family | Domain | Does it make the AR-XML document Core-invalid? |
+|---|---|---|
+| `ENTITY_RESOLUTION.*` | Mapping an Entity reference to an AR-XML location | No document may have been obtained |
+| `FETCH.*` | Retrieving AR-XML resource bytes | No document may have been obtained |
+| `XML.*` | XML byte decoding and well-formed parsing | Yes; no conforming AR-DOM is produced |
+| `CORE.*` | Draft 5 namespace, grammar, values, IDs, and references | Yes |
+| `EXTENSION.*` | Extension recognition, support, or Extension-specific validation | Not by itself when the Core slot envelope is valid |
+| `SEMANTIC.*` | Capability Contract, Profile, or vocabulary resolution | No |
+| `PROJECTION.*` | Entity Capability versus resolved Contract | No; affects projection state and routes |
+| `PROFILE.*` | Profile resolution and conformance | No |
+| `REQUIREMENT.*` | Runtime prerequisite evaluation | No |
+| `SUPPORT.*` | Runtime implementation support | No |
+| `AVAILABILITY.*` | Route or Capability aggregation | No |
+| `SERIALIZATION.*` | AR-DOM output and preservation | Does not retroactively change input validity |
+| `INVOCATION.*` | Explicit execution attempt and its outcome | No |
+
+The severity chosen for UI presentation does not redefine the normative result. For example, an unresolved optional Profile may be displayed as a warning, but its ProfileResolution state remains `UNRESOLVED`.
+
+## C.3 Entity Resolution, Fetch, and XML Parsing
+
+| Recommended code | Condition | Processing consequence |
+|---|---|---|
+| `ENTITY_RESOLUTION.NOT_FOUND` | Entity Resolver selected no AR-XML location | Load cannot fetch a document |
+| `ENTITY_RESOLUTION.AMBIGUOUS` | Resolver cannot deterministically select one location | Load stops or requests explicit Application policy |
+| `ENTITY_RESOLUTION.POLICY_BLOCKED` | Location is prohibited by resolver or security policy | Load does not fetch that target |
+| `FETCH.NETWORK_FAILURE` | Connection, DNS, TLS, or equivalent retrieval failure | No XML parse result |
+| `FETCH.HTTP_FAILURE` | Document retrieval returned an unacceptable HTTP outcome | No conforming loaded document from that response |
+| `FETCH.SIZE_LIMIT` | Resource exceeds configured safe-processing limit | Parsing is refused |
+| `XML.DECODING` | Bytes cannot be decoded under the applicable XML rules | No conforming AR-DOM |
+| `XML.NOT_WELL_FORMED` | XML syntax is malformed | No conforming AR-DOM |
+| `XML.SECURITY_POLICY` | DTD, external entity, expansion, depth, or another parser-security limit is violated | Parsing is refused |
+
+Entity resolution and Fetch diagnostics occur before Core document validity can be established. They must not be reclassified as `CORE.*` solely because loading failed.
+
+Fetching an AR-XML resource is description retrieval. It is not Capability execution and must not produce an `INVOCATION.*` result.
+
+## C.4 Core Structural Validation
+
+`CORE.*` diagnostics indicate that parsed XML does not conform to the Draft 5 Core grammar. Any such error prevents exposure of the document as a conforming AR-DOM.
+
+| Recommended code | Example condition |
+|---|---|
+| `CORE.ROOT` | Document element is not Core `ar-entity` or a prohibited wrapper is present |
+| `CORE.NAMESPACE` | A Core element uses the wrong namespace or is matched only by local name |
+| `CORE.VERSION` | Root `version` is absent or not exactly `0.1-draft5` |
+| `CORE.UNKNOWN_ELEMENT` | Unknown element occurs in the Core namespace |
+| `CORE.UNKNOWN_ATTRIBUTE` | Unknown unqualified, Core, or foreign attribute occurs on a Core element |
+| `CORE.FOREIGN_CONTENT_LOCATION` | Foreign element occurs outside an Extension Slot |
+| `CORE.CONTAINMENT` | Known Core child occurs under a prohibited parent |
+| `CORE.CARDINALITY` | Singleton repeats, required item is missing, or collection envelope is malformed |
+| `CORE.CHARACTER_CONTENT` | Non-whitespace text occurs where Core permits none |
+| `CORE.REQUIRED_VALUE` | Required attribute or non-empty lexical value is absent or empty |
+| `CORE.DATA_TYPE` | Input or Output uses an unknown Core structural type |
+| `CORE.BOOLEAN_LEXICAL` | `required` is not exactly `true` or `false` |
+| `CORE.MEDIA_TYPE` | Representation `media-type` is absent or invalid under the Core rule |
+| `CORE.SEMANTIC_IDENTIFIER_SHAPE` | A field required to be an exact-versioned absolute identifier is not one |
+| `CORE.INTERFACE_EMPTY` | Interface has neither Attachment nor Realization |
+| `CORE.EXTENSION_ENVELOPE` | Attachment, Realization, Mapping, Requirement body, or Constraints violates its Core slot envelope |
+
+Core child order is not semantically significant. A validator MUST NOT emit `CORE.CONTAINMENT` or `CORE.CARDINALITY` solely because otherwise permitted children appear in non-canonical order.
+
+Unknown foreign content in a valid Extension Slot is not `CORE.UNKNOWN_ELEMENT`. The Core validator records a valid envelope and leaves Extension recognition and validation to the separate `EXTENSION.*` domain.
+
+## C.5 Uniqueness and Reference Diagnostics
+
+Uniqueness and local-reference failures are Core structural errors, but they benefit from more specific codes:
+
+| Recommended code | Condition |
+|---|---|
+| `CORE.DUPLICATE_SUBJECT_ID` | Two Subjects have the same exact `id` |
+| `CORE.DUPLICATE_INTERFACE_ID` | Two Interfaces have the same exact `id` |
+| `CORE.DUPLICATE_CAPABILITY_ID` | Two Capabilities have the same exact `id` |
+| `CORE.DUPLICATE_INPUT_NAME` | Two Inputs in one Invocation have the same exact `name` |
+| `CORE.DUPLICATE_OUTPUT_NAME` | Two Outputs in one Result have the same exact `name` |
+| `CORE.DANGLING_SUBJECT_REF` | Identifier or Capability `subject-ref` matches no Subject |
+| `CORE.DANGLING_INTERFACE_REF` | InterfaceUse `ref` matches no Interface |
+
+Exact equality after XML attribute-value processing is used. Diagnostics should include the typed collection or scope because the same lexical ID in different typed collections is valid.
+
+Forward references are valid. A validator must finish collecting the applicable targets before reporting a dangling reference. It must not create a placeholder, choose a similar spelling, search another document, or resolve through a network service.
+
+Repeated Property or Identifier `type` values and repeated InterfaceUse `ref` values are permitted and must not be reported as duplicate-ID errors.
+
+## C.6 Extension Diagnostics
+
+Extension processing separates Core slot validity, Extension recognition, implementation support, and Extension-specific validity:
+
+| Recommended code | Meaning | Core validity | Typical derived effect |
+|---|---|---|---|
+| `EXTENSION.UNKNOWN` | Namespace/root/slot semantics are not recognized | Remains valid | Applicable evaluation becomes unknown |
+| `EXTENSION.UNSUPPORTED` | Extension is recognized but required processing is not implemented | Remains valid | `Support = UNSUPPORTED` for affected feature |
+| `EXTENSION.INVALID` | Recognized supported Extension violates its own grammar or semantics | Core envelope remains valid | Extension conformance fails; affected route is not usable |
+| `EXTENSION.PROCESSOR_FAILURE` | Extension processor fails to complete safely | Core result unchanged | Support or evaluation is unknown unless a known blocker exists |
+| `EXTENSION.PRESERVATION_LOSS` | Processor cannot preserve the foreign subtree for a claimed output mode | Core input result unchanged | Lossless round-trip claim is unavailable |
+
+An invalid Core slot envelope uses `CORE.EXTENSION_ENVELOPE`, not `EXTENSION.INVALID`. For example, an empty `mapping` wrapper is Core-invalid; a syntactically invalid known `http:operation` inside a correctly formed Mapping envelope is an HTTP Extension validation failure.
+
+Preserving or displaying a foreign subtree does not establish Extension support. An Extension processor must not alter the Core result, repair the Core envelope, access Credentials, or execute a Capability during validation.
+
+## C.7 Semantic Resolution and Projection Diagnostics
+
+Semantic-definition resolution does not determine Core document validity.
+
+| Recommended code | Normative state | Meaning |
+|---|---|---|
+| `SEMANTIC.CONTRACT_NOT_FOUND` | `ContractResolution = UNRESOLVED` | No usable exact Contract definition is available |
+| `SEMANTIC.CONTRACT_CONFLICT` | `ContractResolution = UNRESOLVED` | Non-equivalent definitions claim the same exact Contract identifier |
+| `SEMANTIC.PROFILE_NOT_FOUND` | `ProfileResolution = UNRESOLVED` | No usable exact Profile definition is available |
+| `SEMANTIC.PROFILE_CONFLICT` | `ProfileResolution = UNRESOLVED` | Non-equivalent definitions claim the same exact Profile identifier |
+| `SEMANTIC.POLICY_BLOCKED` | applicable resolution state is `UNRESOLVED` | Registry or trust policy rejects every candidate |
+| `SEMANTIC.DEFINITION_INVALID` | applicable resolution state is `UNRESOLVED` | Candidate definition cannot be used under its defining specification |
+
+A resolver should report requested exact identity, candidate source, and conflict or policy reason without silently substituting versions or using first-wins behavior.
+
+Projection diagnostics explain `ProjectionValidation`:
+
+| Recommended code | State | Example |
+|---|---|---|
+| `PROJECTION.UNRESOLVED_CONTRACT` | `UNVALIDATED` | Exact Contract did not resolve |
+| `PROJECTION.UNKNOWN_COMPARISON` | `UNVALIDATED` | Constraint or Extension comparison semantics are unsupported |
+| `PROJECTION.MISSING_REQUIRED_INPUT` | `CONFLICT` | Required Contract Input is absent |
+| `PROJECTION.TYPE_CONFLICT` | `CONFLICT` | Entity projects `boolean` as `string` |
+| `PROJECTION.REQUIREMENT_WEAKENED` | `CONFLICT` | Projection omits or weakens a Contract Requirement |
+| `PROJECTION.PROHIBITED_WIDENING` | `CONFLICT` | Entity constraints permit values forbidden by the Contract |
+
+A known `CONFLICT` is not hidden by another unknown comparison. A diagnostic for `UNVALIDATED` must not be worded as verified compatibility or incompatibility.
+
+## C.8 Profile Diagnostics
+
+Profile resolution and Profile conformance are separate:
+
+| Recommended code | State | Meaning |
+|---|---|---|
+| `PROFILE.UNRESOLVED` | `ProfileResolution = UNRESOLVED` | Exact Profile definition is unavailable, conflicting, invalid, or rejected |
+| `PROFILE.MISSING_REQUIRED_CAPABILITY` | `ProfileConformance = NON_CONFORMANT` | Deterministically required Capability is absent |
+| `PROFILE.PROHIBITED_OR_INCOMPATIBLE_FEATURE` | `NON_CONFORMANT` | A known Profile constraint is violated |
+| `PROFILE.UNKNOWN_REQUIRED_SEMANTICS` | `UNDETERMINED` | Required Extension or comparison cannot be evaluated |
+| `PROFILE.UNVALIDATED_PROJECTION` | `UNDETERMINED` | Required Capability projection cannot be established as compatible |
+
+`NON_CONFORMANT` requires a known violation. Unresolved definitions and unknown required semantics produce `UNDETERMINED`, not a guessed failure. A Profile Claim does not suppress diagnostics and does not force `CONFORMANT`.
+
+## C.9 Runtime Evaluation Diagnostics
+
+Requirement, Support, and Availability are evaluation states rather than Core validation errors:
+
+| Family | State values | Diagnostic purpose |
+|---|---|---|
+| `REQUIREMENT.*` | `SATISFIED`, `UNSATISFIED`, `UNKNOWN` | Explain evidence and prerequisite evaluation |
+| `SUPPORT.*` | `SUPPORTED`, `UNSUPPORTED`, `UNKNOWN` | Identify implemented or missing route features |
+| `AVAILABILITY.*` | `READY`, `UNAVAILABLE`, `UNKNOWN` | Explain route and Capability aggregation |
+
+Recommended examples include:
+
+| Code | Result |
+|---|---|
+| `REQUIREMENT.UNSATISFIED` | Known mandatory prerequisite makes the route `UNAVAILABLE` |
+| `REQUIREMENT.UNKNOWN` | Unknown evaluator contributes `UNKNOWN` absent a known blocker |
+| `SUPPORT.REALIZATION_UNSUPPORTED` | Required Realization makes the route `UNAVAILABLE` |
+| `SUPPORT.MAPPING_UNKNOWN` | Unknown Mapping support contributes `UNKNOWN` |
+| `AVAILABILITY.NO_INVOCATION` | Request-oriented availability is `UNAVAILABLE` for a Capability without Invocation |
+| `AVAILABILITY.NO_ROUTE` | Capability has no InterfaceUse route |
+| `AVAILABILITY.POLICY_BLOCKED` | Runtime or Application policy deterministically makes the route `UNAVAILABLE` |
+
+Diagnostics should identify contributing states and preserve precedence: known conflicts, unsatisfied mandatory Requirements, unsupported required features, and deterministic policy blocks produce `UNAVAILABLE` even if an unrelated evaluation is unknown.
+
+`READY` is not a success diagnostic. It does not establish authorization, target reachability, remote acceptance, safety, or execution outcome.
+
+## C.10 Serialization and Invocation Diagnostics
+
+Serialization diagnostics occur when emitting XML from AR-DOM:
+
+| Recommended code | Condition |
+|---|---|
+| `SERIALIZATION.INVALID_MODEL` | Requested model cannot be emitted as valid Draft 5 Core |
+| `SERIALIZATION.EXTENSION_LOSS` | Required foreign subtree information cannot be preserved |
+| `SERIALIZATION.ENCODING` | Output cannot be encoded as requested |
+| `SERIALIZATION.NON_CANONICAL_REQUEST` | Requested mode intentionally differs from canonical Core order |
+
+A serialization failure does not retroactively make the successfully parsed source document Core-invalid. A processor must not claim canonical or lossless output when it cannot meet that claim.
+
+Invocation diagnostics occur only after an explicit Application or Human request. Useful subcategories include:
+
+| Recommended code | Failure domain |
+|---|---|
+| `INVOCATION.INPUT_VALIDATION` | Caller Inputs violate known semantic rules |
+| `INVOCATION.ROUTE_NOT_READY` | Selected route is not `READY` under current evaluation |
+| `INVOCATION.POLICY_BLOCKED` | Execution policy refuses the request |
+| `INVOCATION.TRANSPORT` | Network, TLS, timeout, CORS, or protocol failure |
+| `INVOCATION.AUTHENTICATION` | Target rejects or cannot establish authentication |
+| `INVOCATION.AUTHORIZATION` | Target denies the requested operation |
+| `INVOCATION.HTTP_STATUS` | HTTP Interface returns non-`2xx` baseline outcome |
+| `INVOCATION.REPRESENTATION` | Content type, body shape, or decoding is incompatible |
+| `INVOCATION.RESULT_VALIDATION` | Decoded Output violates declared type or understood constraint |
+| `INVOCATION.SEMANTIC_ERROR` | Versioned Capability semantics identify a domain error |
+
+Transport and HTTP failures are not Core validation failures. HTTP status alone must not be relabeled as a Capability semantic error without an applicable versioned semantic mapping.
+
+## C.11 Aggregation, Repair, and Reporting
+
+A processor MAY return multiple diagnostics. It SHOULD preserve causal structure instead of duplicating one cause as unrelated errors. For example, one unresolved Contract can cause `ProjectionValidation = UNVALIDATED` and contribute to route `Availability = UNKNOWN`; the report should retain the resolution diagnostic as the underlying cause.
+
+Diagnostic aggregation must not erase known information:
+
+```text
+known conflict + unknown comparison
+→ report both
+→ ProjectionValidation remains CONFLICT
+
+known route blocker + unrelated uncertainty
+→ report both
+→ Availability remains UNAVAILABLE
+```
+
+A processor MUST NOT silently repair an invalid document while claiming that the original validated. Suggested edits, migration, or editor recovery are separate workflows. Repaired content is a new document and must pass the entire applicable validation pipeline.
+
+Conformance reports SHOULD state the specification version, claimed conformance class, Extension versions, policy context, and whether diagnostics are parse-time, Core, Extension, semantic, evaluation, serialization, or invocation results. Natural-language messages may be localized; machine category and state identity should remain stable.
+
+AI or LLM assistance MAY explain diagnostics or propose repairs, but deterministic classification, normative state selection, and conformance decisions MUST NOT depend on probabilistic interpretation.
 
 # Appendix D. Draft 4 → Draft 5 Changes
 
