@@ -648,13 +648,13 @@ An Input is a semantic value supplied by the caller. Its Core information is:
 Input
 ├─ name        1
 ├─ type        1
-├─ required?   0..1, default false
+├─ required?   0..1, default true
 ├─ format?     0..1
 ├─ unit?       0..1
 └─ constraints 0..*
 ```
 
-`name` is a non-empty semantic field name unique among Inputs in the same Invocation. `type` is one Core data type. `required`, when absent, is `false`. `format`, `unit`, and constraints refine interpretation but MUST NOT contradict the Input semantics defined by the resolved Capability Contract.
+`name` is a non-empty semantic field name unique among Inputs in the same Invocation. `type` is one Core data type. `required`, when absent, is `true`. `format`, `unit`, and constraints refine interpretation but MUST NOT contradict the Input semantics defined by the resolved Capability Contract.
 
 Input constraints are expressed only in the explicit constraint area defined by Parts II and III. Unknown constraint semantics affect projection or Runtime evaluation as specified later; they MUST NOT be guessed.
 
@@ -853,7 +853,7 @@ An empty Entity is valid:
   version="0.1" />
 ```
 
-The root permits only the Core children defined in Section 21 and the required unqualified `version` attribute. Unknown Core-namespace children and unknown unqualified or Core-namespace attributes are invalid.
+The root permits only the Core children defined in Section 21 and the required unqualified `version` Core attribute, plus foreign metadata attributes under Section 32.3. Unknown Core-namespace children and unknown unqualified or Core-namespace attributes are invalid.
 
 Foreign namespaced children are not accepted directly under `ar-entity`. They are permitted only in the explicit Extension Slots defined by Part III.
 
@@ -927,7 +927,7 @@ Unless explicitly declared by this specification:
 - an unknown Core-namespace attribute is invalid; and
 - a foreign namespaced element is invalid outside an Extension Slot.
 
-Foreign subtree content inside an Extension Slot is governed by Part III rather than by Core child grammar.
+Foreign subtree content inside an Extension Slot is governed by Part III rather than by Core child grammar. All Core elements also permit foreign namespaced metadata attributes under Section 32.3; this does not permit foreign child elements outside the defined slots.
 
 # 22. Category Serialization
 
@@ -937,7 +937,7 @@ Category is serialized as the character content of `category`:
 <category>environment.sensor</category>
 ```
 
-`category` MUST contain a non-empty value after excluding XML markup-only whitespace. It MUST NOT contain child elements or attributes.
+`category` MUST contain a non-empty value after excluding XML markup-only whitespace. It MUST NOT contain child elements or Core/unqualified attributes. Foreign metadata attributes follow Section 32.3.
 
 Core does not otherwise normalize Category content. Producers SHOULD avoid leading or trailing whitespace. Vocabulary-specific comparison and normalization are outside Core unless an applicable Profile defines them.
 
@@ -1054,7 +1054,7 @@ Inputs, when present, are serialized in one `inputs` container:
 
 Each `input` MUST have `name` and `type`. It MAY have `required`, `format`, and `unit`. Input `name` values MUST be non-empty and unique within that Invocation. `type` MUST be one of `string`, `number`, `integer`, `boolean`, `binary`, `object`, or `array`.
 
-If `required` is absent its value is `false`. If present, its lexical value MUST be exactly `true` or `false`. `format` and `unit`, when present, MUST be non-empty.
+If `required` is absent its value is `true`. An Input is optional only when `required="false"` is explicitly present. If present, its lexical value MUST be exactly `true` or `false`. `format` and `unit`, when present, MUST be non-empty.
 
 An `input` MAY contain one optional `constraints` Extension Slot. The slot contains foreign namespaced constraint elements as defined by Part III. No other children are permitted.
 
@@ -1211,7 +1211,7 @@ An Extension MUST NOT redefine, weaken, or contradict Core semantics. In particu
 - equate availability with authorization or execution success; or
 - cause document loading to invoke a Capability.
 
-An Extension MAY add semantics only through a slot that permits its semantic root. The same foreign namespace MAY define roots for more than one slot, but each root's meaning is determined by both its expanded XML name and its slot context.
+An Extension MAY add element-based semantics only through a slot that permits its semantic root. Foreign namespaced metadata attributes on Core elements are separately permitted under Section 32.3. The same foreign namespace MAY define roots for more than one slot, but each root's meaning is determined by both its expanded XML name and its slot context.
 
 Extension specifications SHOULD define:
 
@@ -1266,7 +1266,7 @@ Example:
 </properties>
 ```
 
-The Core does not define a generic `extensions` container and does not permit arbitrary foreign content at the root or inside other Core elements. New Extension Slots require a future Core revision.
+The Core does not define a generic `extensions` container and does not permit arbitrary foreign child elements at the root or inside other Core elements. Foreign metadata attributes are governed separately by Section 32.3. New Extension Slots require a future Core revision.
 
 ## 32.2 Slot Envelope Validation
 
@@ -1281,9 +1281,21 @@ Core validation does not validate the internal grammar or domain meaning of a fo
 
 An Extension root in the Core namespace is never foreign content, even if a processor does not recognize its local name. It is an unknown Core element and is invalid.
 
-## 32.3 No Foreign Attribute Escape
+## 32.3 Foreign Metadata Attributes
 
-Extension Slots admit foreign elements, not arbitrary foreign attributes on Core elements. A foreign namespaced attribute attached to a Core element is invalid unless a future Core revision explicitly defines that attribute location as an Extension Slot.
+A foreign namespaced attribute on any Core element MAY add metadata. It MUST NOT redefine Core semantics, replace a required Core attribute, change defaults or cardinalities, or override Core reference or HTTP base-resolution rules. For example, `meta:required="false"` cannot make an Input optional; only the Core unqualified `required` attribute controls that field.
+
+Unknown foreign metadata attributes MUST NOT make an otherwise valid Core document invalid. Core validation checks XML namespace correctness and the unchanged Core rules; a recognized metadata Extension is validated separately. A processor SHOULD preserve each foreign attribute by expanded name (namespace URI and local name), its XML-processed string value, and its owning Core element, even when its semantics are unknown. A claimed lossless serializer MUST retain this metadata or disclose its inability to do so.
+
+This permission does not admit unknown Core/unqualified attributes, foreign child elements outside slots, or executable processing instructions. Namespace declarations remain XML syntax rather than metadata attributes. Reading metadata MUST NOT trigger network retrieval or Capability execution.
+
+Example of Core-valid metadata:
+
+```xml
+<ar-entity xmlns="https://relink.dev/ns/arxml/core/0.1"
+           xmlns:meta="https://example.org/ns/metadata/1"
+           version="0.1" meta:source="catalog" />
+```
 
 Attributes on a foreign Extension element are part of the foreign subtree and are governed by that Extension.
 
@@ -2355,8 +2367,8 @@ A Core validator MUST verify at least:
 9. Core data type and boolean lexical values are permitted;
 10. Input and Output constraint wrappers satisfy their slot envelope;
 11. Attachment, Realization, Mapping, and Requirement body envelopes are valid;
-12. every Interface contains Attachment or Realization; and
-13. the uniqueness and reference rules in Section 58 hold.
+12. Every Interface contains Attachment or Realization; and
+13. The uniqueness and reference rules in Section 58 hold.
 
 Core child order MUST NOT affect validity. A document using a non-canonical but otherwise permitted child order is valid.
 
@@ -2371,7 +2383,7 @@ Validation applies the following matrix:
 | unknown unqualified or Core attribute on Core element | anywhere | invalid |
 | foreign element | permitted Extension Slot | Core-valid if slot envelope is valid |
 | foreign element | outside an Extension Slot | invalid |
-| foreign attribute on a Core element | not an Extension Slot in Draft 5 | invalid |
+| foreign namespaced attribute on a Core element | metadata under Section 32.3 | Core-valid; metadata semantics validated separately |
 
 Recognizing a foreign Extension does not permit it outside its Core-defined slot. Failing to recognize a foreign Extension inside a valid slot does not make the document Core-invalid.
 
@@ -2453,7 +2465,7 @@ Extension processor supported?
 Extension subtree valid under that Extension?
 ```
 
-An Extension processor MUST NOT alter the Core validation result, relax Core cardinality, or reinterpret Core attributes. It validates only the foreign semantics assigned to its slot.
+An Extension processor MUST NOT alter the Core validation result, relax Core cardinality, or reinterpret Core attributes. It validates only the foreign semantics assigned to its slot or metadata-attribute definition.
 
 ## 59.2 Recognized Extensions
 
@@ -2891,7 +2903,7 @@ After an explicit request, a Runtime may conceptually:
 7. perform the interaction
 8. classify transport and Interface outcomes
 9. decode and validate the Result Representation
-10. expose semantic Outputs or errors
+10. Expose semantic Outputs or errors
 ```
 
 Each step may fail independently and MUST preserve the error-layer distinctions defined by this specification.
@@ -3943,7 +3955,7 @@ An AR-XML processor MUST use a namespace-aware XML parser and MUST NOT fetch ext
 
 Implementations MUST apply resource limits appropriate to their environment, including limits on document size, element depth, attribute count and size, text length, collection length, and diagnostic accumulation. Extension subtrees are subject to the same resource controls even when they are preserved as opaque data.
 
-Core processors MUST enforce the closed Core vocabulary defined by this specification. They MUST NOT repair an unknown Core element or Core/unqualified attribute by silently dropping it, treating it as an Extension, or guessing a replacement. Foreign content is accepted only in an Extension Slot. Acceptance of an unknown foreign subtree does not authorize parsing it with an unsafe format-specific processor or executing content found within it.
+Core processors MUST enforce the closed Core vocabulary defined by this specification. They MUST NOT repair an unknown Core element or Core/unqualified attribute by silently dropping it, treating it as an Extension, or guessing a replacement. Foreign child elements are accepted only in an Extension Slot; foreign metadata attributes follow Section 32.3. Acceptance of an unknown foreign subtree does not authorize parsing it with an unsafe format-specific processor or executing content found within it.
 
 ## 92.2 Claims, Trust, and Semantic Definitions
 
@@ -4112,8 +4124,7 @@ Draft 5 is a closed Core vocabulary. The following are invalid:
 
 - an unknown Core-namespace element;
 - an unknown Core-namespace attribute;
-- an unknown unqualified attribute on a Core element;
-- a foreign namespaced attribute on a Core element; and
+- an unknown unqualified attribute on a Core element; and
 - a foreign element outside an explicit Extension Slot.
 
 An implementation MUST NOT reinterpret invalid Core content as an Extension merely to obtain forward compatibility. It also MUST NOT accept a future Core element by ignoring it. A future Core grammar is processed under its own explicitly recognized version rules.
@@ -4148,7 +4159,7 @@ Every Extension semantic element MUST use a non-Core namespace and occur in an E
 
 Use of an Extension namespace does not imply endorsement by the Core specification. Namespace control does not prove that a particular document, definition, processor, or publisher is trusted.
 
-An Extension MUST NOT assign a new meaning to Core elements, Core attributes, Core cardinalities, local reference rules, or Runtime evaluation states. It MAY add semantics only through its declared Extension elements in the applicable slots. An Extension that needs incompatible Core structure requires a future Core version rather than namespace tricks or out-of-slot content.
+An Extension MUST NOT assign a new meaning to Core elements, Core attributes, Core cardinalities, local reference rules, or Runtime evaluation states. It MAY add element-based semantics through its declared Extension elements in the applicable slots and metadata through foreign attributes as defined in Section 32.3. An Extension that needs incompatible Core structure requires a future Core version rather than namespace tricks or out-of-slot content.
 
 ## 94.4 Namespace and Semantic Identifier Separation
 
@@ -4368,13 +4379,13 @@ The XML collection wrappers `identifiers`, `properties`, `subjects`, `profiles`,
 | `Capability` | `id`, `type`, optional `subjectRef`, Requirements, optional Invocation, InterfaceUses | `id` is unique within Capabilities; `type` identifies an exact Capability Contract |
 | `Requirement` | `type`, optional foreign body | Placement determines Capability or Interface scope |
 | `Invocation` | Inputs, optional Result | May be empty; presence never causes execution |
-| `Input` | `name`, `type`, `required`, optional `format`, optional `unit`, Constraints | `name` is unique within its Invocation; absent `required` means `false` |
+| `Input` | `name`, `type`, `required`, optional `format`, optional `unit`, Constraints | `name` is unique within its Invocation; absent `required` means `true` |
 | `Result` | one or more Outputs, Representations | Present Result is non-empty; it is not a Runtime result value |
 | `Output` | `name`, `type`, optional `format`, optional `unit`, Constraints | `name` is unique within its Result |
 | `Representation` | `mediaType` | Describes the Result as a whole; order is not preference |
 | `InterfaceUse` | `ref`, optional Mapping | `ref` resolves to a local Interface; repeated references are allowed |
 
-Core attributes retain their XML lexical values except where the normative processing rules define a typed value or default. In particular, `required` is exposed semantically as a boolean with default `false`, while identifiers, Property values, units, formats, paths, and semantic identifiers are not heuristically coerced.
+Core attributes retain their XML lexical values except where the normative processing rules define a typed value or default. In particular, `required` is exposed semantically as a boolean with default `true`, while identifiers, Property values, units, formats, paths, and semantic identifiers are not heuristically coerced.
 
 Input and Output `type` is one of:
 
@@ -4402,7 +4413,7 @@ Capability
 │  │  └─ Input
 │  │     ├─ name                  1
 │  │     ├─ type                  1
-│  │     ├─ required              1, default false
+│  │     ├─ required              1, default true
 │  │     ├─ format?               0..1
 │  │     ├─ unit?                 0..1
 │  │     └─ constraints           0..*
@@ -4463,7 +4474,7 @@ AR-DOM preserves foreign Extension subtrees at the Core-defined slots:
 | Mapping | `InterfaceUse` | exactly one when wrapper is present |
 | Constraint area | `Input` or `Output` | one or more when wrapper is present |
 
-A preserved foreign root includes its expanded name and sufficient subtree information for the processor's claimed inspection or serialization mode. Namespace prefix spelling is not semantic identity. Attributes and descendants of the foreign root remain Extension-owned data.
+A preserved foreign root includes its expanded name and sufficient subtree information for the processor's claimed inspection or serialization mode. Namespace prefix spelling is not semantic identity. Attributes and descendants of the foreign root remain Extension-owned data. Foreign metadata attributes attached to Core elements are preserved separately with their owning element and expanded name under Section 32.3; they are not Core model fields.
 
 Unknown Extension content is not converted into invented Core fields. Core validation records that the slot envelope is valid; Extension-specific validation and Runtime support remain separate. If the implementation cannot preserve an unknown subtree sufficiently for a requested serialization mode, it reports that limitation rather than claiming lossless round-tripping.
 
@@ -4622,7 +4633,7 @@ Draft 5 defines no Core `errors` child under Result.
 |---|---|---|---:|---|
 | Input | `name` | attribute | `1` | Non-empty; unique among sibling Inputs |
 | Input | `type` | attribute | `1` | One Core structural data type |
-| Input | `required` | attribute | `0..1` | Defaults to `false`; lexical value `true` or `false` |
+| Input | `required` | attribute | `0..1` | Defaults to `true`; lexical value `true` or `false` |
 | Input | `format` | attribute | `0..1` | Non-empty when present |
 | Input | `unit` | attribute | `0..1` | Non-empty when present |
 | Input | Constraints | `constraints` wrapper | `0..1` | Wrapper contains `1..*` foreign constraint roots |
@@ -4667,7 +4678,7 @@ An Interface may be unreferenced by every Capability. Conversely, an InterfaceUs
 | `mapping` | wrapper `0..1` per InterfaceUse | exactly `1` | whitespace only | Wrapper invalid when empty |
 | `constraints` | wrapper `0..1` per Input or Output | `1..*` | whitespace only | Multiple independent constraint roots allowed |
 
-The grammar inside each foreign semantic root is not cardinality-constrained by Core. It is validated by the applicable Extension specification. Foreign elements outside these slots and foreign attributes on Core elements are invalid in Draft 5.
+The grammar inside each foreign semantic root is not cardinality-constrained by Core. It is validated by the applicable Extension specification. Foreign child elements outside these slots are invalid. Foreign namespaced metadata attributes on Core elements are permitted under Section 32.3 and do not count toward child cardinalities.
 
 Each `require` has exactly one non-empty `type` attribute and no Core `kind` or `scope` attribute. Requirement scope comes from its owner:
 
@@ -4810,7 +4821,7 @@ Fetching an AR-XML resource is description retrieval. It is not Capability execu
 | `CORE.NAMESPACE` | A Core element uses the wrong namespace or is matched only by local name |
 | `CORE.VERSION` | Root `version` is absent or not exactly `0.1` |
 | `CORE.UNKNOWN_ELEMENT` | Unknown element occurs in the Core namespace |
-| `CORE.UNKNOWN_ATTRIBUTE` | Unknown unqualified, Core, or foreign attribute occurs on a Core element |
+| `CORE.UNKNOWN_ATTRIBUTE` | Unknown unqualified or Core-namespace attribute occurs on a Core element; foreign metadata attributes are permitted |
 | `CORE.FOREIGN_CONTENT_LOCATION` | Foreign element occurs outside an Extension Slot |
 | `CORE.CONTAINMENT` | Known Core child occurs under a prohibited parent |
 | `CORE.CARDINALITY` | Singleton repeats, required item is missing, or collection envelope is malformed |
@@ -5102,7 +5113,7 @@ The Core structural data types remain:
 string | number | integer | boolean | binary | object | array
 ```
 
-Input `required` still defaults to `false`; Input names remain scoped to an Invocation, and Output names remain scoped to a Result. Draft 5 makes the scoped uniqueness checks normative and deterministic.
+Draft 5 Input `required` defaults to `true`; migration must preserve source requiredness explicitly when it differs from this default; Input names remain scoped to an Invocation, and Output names remain scoped to a Result. Draft 5 makes the scoped uniqueness checks normative and deterministic.
 
 ## D.5 Result, Representation, and Errors
 
@@ -5258,7 +5269,7 @@ Draft 5 defines explicit Extension Slots:
 | Mapping | Capability-specific use of an Interface |
 | Constraint area | Extension-defined Input or Output constraints |
 
-Unknown foreign roots are Core-valid only in the correct slot. Unknown Core elements and attributes, foreign attributes on Core elements, and foreign elements outside a slot are invalid. Draft 4's general statement that Extensions use another namespace is therefore replaced by a closed, machine-validatable placement model.
+Unknown foreign roots are Core-valid only in the correct slot. Unknown Core elements, unknown Core/unqualified attributes, and foreign child elements outside a slot are invalid. Foreign namespaced metadata attributes on Core elements are permitted and cannot redefine Core semantics. Draft 5 specifies a closed, machine-validatable child-placement model with a separate metadata-attribute rule.
 
 ## D.9 Contracts, Profiles, and Semantic Resolution
 
@@ -5365,13 +5376,13 @@ A Draft 4 to Draft 5 migration tool or review should perform at least these step
 7. Assign unique Interface IDs and create Capability InterfaceUses with valid local references.
 8. Convert HTTP binding information into HTTP Realization and Mapping data.
 9. Split each legacy endpoint into `base` and `path` without changing URL resolution semantics.
-10. replace the single-output JSON scalar shortcut with the Draft 5 object mapping where the baseline applies.
-11. map Requirement types only through an explicit semantic vocabulary decision.
-12. avoid inventing Identifiers, Subjects, Properties, Canonical Entity Identity, trust, or Profile conformance.
-13. preserve all uncertain or unmapped source information in a migration report.
-14. validate the new XML under the complete Draft 5 Core grammar and applicable Extensions.
-15. resolve exact Contracts and Profiles independently where available.
-16. report ProjectionValidation and ProfileConformance separately from Core validity.
+10. Replace the single-output JSON scalar shortcut with the Draft 5 object mapping where the baseline applies.
+11. Map Requirement types only through an explicit semantic vocabulary decision.
+12. Avoid inventing Identifiers, Subjects, Properties, Canonical Entity Identity, trust, or Profile conformance.
+13. Preserve all uncertain or unmapped source information in a migration report.
+14. Validate the new XML under the complete Draft 5 Core grammar and applicable Extensions.
+15. Resolve exact Contracts and Profiles independently where available.
+16. Report ProjectionValidation and ProfileConformance separately from Core validity.
 
 A migration that cannot make a deterministic choice must stop, request policy or user input, or emit an explicit unresolved migration diagnostic. It must not guess by natural-language similarity, endpoint shape, common convention, or AI output while claiming deterministic conformance.
 
