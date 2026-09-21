@@ -823,10 +823,10 @@ Draft 5 documents MUST use this namespace as the namespace name of every Core el
 The root `version` attribute is REQUIRED and its value for this draft is exactly:
 
 ```text
-0.1-draft5
+0.1
 ```
 
-The namespace identifies the Core 0.1 vocabulary family; `version` makes the Draft 5 grammar machine-distinguishable from earlier grammars that used the same provisional namespace. A processor MUST NOT interpret `version="0.1"`, `version="0.1-draft4"`, or an absent version as Draft 5.
+The namespace and root `version="0.1"` identify the Core 0.1 family. They do not distinguish Draft 4 from Draft 5. A consumer MUST select Draft 5 processing through explicit application configuration or an out-of-band specification agreement and validate the complete Draft 5 grammar. It MUST NOT infer the draft solely from this namespace/version pair or silently fall back to another draft on validation failure. An absent version or a value other than `0.1` is invalid under the selected Draft 5 grammar.
 
 Extension elements MUST use a non-Core namespace. Namespace prefix spelling has no semantic significance. A namespace declaration is not an information-model attribute.
 
@@ -840,7 +840,7 @@ The document element MUST be `ar-entity` in the Core namespace. No Core wrapper 
 <?xml version="1.0" encoding="UTF-8"?>
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5">
+  version="0.1">
   <!-- Core children, if any -->
 </ar-entity>
 ```
@@ -850,7 +850,7 @@ An empty Entity is valid:
 ```xml
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5" />
+  version="0.1" />
 ```
 
 The root permits only the Core children defined in Section 21 and the required unqualified `version` attribute. Unknown Core-namespace children and unknown unqualified or Core-namespace attributes are invalid.
@@ -886,7 +886,7 @@ Collection item order is preserved as document data but MUST NOT imply preferenc
 
 ## 21.3 Canonical Serializer Order
 
-A canonical Draft 5 serializer MUST emit root children in this order when present:
+A canonical Draft 5 serializer SHOULD emit root children in this order when present:
 
 ```text
 category
@@ -898,7 +898,7 @@ interfaces
 capabilities
 ```
 
-Within a Capability it MUST emit:
+Within a Capability it SHOULD emit:
 
 ```text
 requirements
@@ -906,7 +906,7 @@ invocation
 interface-uses
 ```
 
-Within an Interface it MUST emit:
+Within an Interface it SHOULD emit:
 
 ```text
 attachment
@@ -914,7 +914,7 @@ realization
 requirements
 ```
 
-Canonical order provides stable output; it does not change the order-insensitive validation rule and does not assign preference to collection items.
+Canonical order provides recommended stable output; it does not change the order-insensitive validation rule and does not assign preference to collection items. A different permitted child order does not invalidate a Producer conformance claim. This recommendation is not an XML byte-canonicalization or signature algorithm.
 
 ## 21.4 Closed Core Content
 
@@ -1544,7 +1544,9 @@ RESOLVED
 UNRESOLVED
 ```
 
-`RESOLVED` means that exactly one usable semantic definition has been selected for the exact identifier under the active registry policy. `UNRESOLVED` means no usable definition was selected, including when no definition is available or conflicting definitions prevent deterministic selection.
+`RESOLVED` means that exactly one usable semantic definition has been selected for the exact identifier under the active registry policy. `UNRESOLVED` means no usable definition was selected, including when no definition is available, a definition is known invalid, or conflicting definitions prevent deterministic selection.
+
+A usable Contract MUST self-identify with the requested exact-versioned absolute identifier and satisfy its declared definition format and the Contract model in Section 37. Known structural errors, forbidden transport content, missing normative data, or known internally contradictory constraints make it unusable; the resolver MUST report a definition defect rather than an Entity projection conflict. Explicitly identified but unsupported constraint semantics do not alone invalidate a definition. They can leave ContractResolution `RESOLVED` while required projection comparisons remain `UNVALIDATED` under Part IV.
 
 If multiple non-equivalent definitions claim the same exact identifier, a resolver MUST NOT silently select the first result. It MUST report the conflict and produce `UNRESOLVED` unless an external trust policy deterministically rejects all but one candidate before semantic resolution.
 
@@ -1746,7 +1748,6 @@ ProfileDefinition
 ├─ propertyRequirements*         0..*
 ├─ identifierRequirements*       0..*
 ├─ interfaceRequirements*        0..*
-├─ requirementPolicies*          0..*
 └─ extensionPolicy?              0..1
 ```
 
@@ -1804,7 +1805,11 @@ RESOLVED
 UNRESOLVED
 ```
 
-`RESOLVED` means exactly one usable Profile definition has been selected for the exact identifier. `UNRESOLVED` includes absence of a definition and conflicting non-equivalent definitions that cannot be deterministically disambiguated.
+`RESOLVED` means exactly one usable Profile definition has been selected for the exact identifier. `UNRESOLVED` includes absence of a definition, a rejected invalid definition, and conflicting non-equivalent definitions that cannot be deterministically disambiguated.
+
+A usable Profile definition MUST self-identify with the requested exact-versioned absolute identifier, conform to its declared definition format and the model in Section 42, and provide machine-readable normative constraints with unambiguous scope and matching rules (including the defaults in Sections 44–45). A definition with a known structural error, missing required rule for which Core supplies no default, known prohibited redefinition or narrowing, or known mutually inconsistent constraints MUST be rejected as unusable. The resolver MUST report the definition defect separately from any Entity evaluation; an invalid Profile is not evidence of Entity non-conformance.
+
+An unfamiliar but explicitly identified constraint language is different from a missing constraint definition. A structurally usable Profile MAY remain `RESOLVED` when referenced Contracts or constraint semantics are unresolved or unsupported. Any such uncertainty needed to establish legality of a required Profile constraint or satisfaction of the required subset MUST produce `UNDETERMINED`, never assumed compatibility. This includes unresolved narrowing comparisons. If later resolution proves the Profile itself invalid, ProfileResolution becomes `UNRESOLVED` and its conformance result is `UNDETERMINED`, with a definition-invalid diagnostic. No additional Core state domain is introduced.
 
 A resolver MUST NOT silently use the first of multiple conflicting definitions. An unresolved Profile Claim remains issuer-declared description data, but verified conformance for that Profile is `UNDETERMINED`.
 
@@ -1825,17 +1830,17 @@ Draft 5 defines no `recommended`, weighted, preferred, prohibited, or conditiona
 
 Matching candidates are Entity-side Capabilities whose exact Contract identifier and applicable subject constraints match the Profile item. Unless the Profile explicitly declares another cardinality or matching rule, the default quantifier is existential: one candidate satisfying every applicable Profile constraint is sufficient. Document order MUST NOT select the candidate.
 
-For `required`, at least one matching candidate MUST satisfy the Profile item. If no matching candidate exists, the Entity is `NON_CONFORMANT`. If matching candidates exist but none can be shown to satisfy the item, a known failure produces `NON_CONFORMANT`; unresolved or unknown required semantics produce `UNDETERMINED` when no known failure already determines the result.
+For `required`, the evaluator MUST aggregate candidates existentially: any satisfying candidate satisfies the item; otherwise, any candidate with unknown required matching or comparison semantics makes the item `UNDETERMINED`; otherwise, no candidates or all candidates known to fail makes the item `NON_CONFORMANT`. A failing candidate does not override another satisfying or indeterminate candidate. Candidate membership that cannot be decided MUST remain indeterminate rather than being silently excluded.
 
-For `optional`, absence of matching candidates does not affect conformance. If matching candidates are present, the same default existential rule applies: at least one candidate must satisfy the item; if all candidates are known not to satisfy it, the result is `NON_CONFORMANT`, and if no candidate can be established as satisfying because required semantics are unknown, the result is `UNDETERMINED`. An optional item is not an arbitrary evaluator-selected exemption.
+For `optional`, both absence and presence are outside the baseline required subset. Projection conflicts, unresolved Contracts, and failed or unknown comparisons for an optional Capability MUST be reported separately when evaluated, but MUST NOT by themselves change baseline Profile conformance. An Entity meeting the required subset can therefore be `CONFORMANT` even when an optional Capability has `ProjectionValidation = CONFLICT`. This does not validate that projection or make its routes available. An independently declared required constraint, including an explicit presence-conditional constraint, still applies to its stated scope; optional presence alone MUST NOT create such a constraint.
 
-A Profile MAY explicitly require all matching candidates, a bounded cardinality, or another deterministic matching rule. If it does so, that rule governs the item and MUST be machine-readable. Additional Entity Capabilities that do not match the item remain allowed under the open-world default unless the Profile explicitly restricts additional declarations.
+A Profile MAY explicitly require all matching candidates, a bounded cardinality, or another deterministic matching rule. If it does so, that rule governs evaluation of the item and MUST be machine-readable; it does not turn an optional item into a baseline required condition. Additional Entity Capabilities that do not match the item remain allowed under the open-world default unless the Profile explicitly restricts additional declarations.
 
 ## 44.2 Capability Contract and Projection
 
 A Capability Requirement references a Capability Contract; it MUST NOT copy and redefine that Contract's semantic meaning.
 
-For a Capability to satisfy a Profile requirement:
+For a Capability to satisfy a required Profile item (or a separately reported optional-item comparison):
 
 1. its `type` MUST equal the required exact Contract identifier;
 2. the Contract MUST resolve when Contract-dependent constraints must be evaluated;
@@ -1869,21 +1874,21 @@ Any Profile narrowing is valid only under Section 48.
 
 A Property Requirement identifies Property semantics by exact `type` and defines deterministic presence, value, unit, cardinality, or constraint rules as needed by the Profile.
 
-Because Core permits multiple Properties with the same `type`, a Profile MUST state deterministic matching and cardinality rules whenever the existence of multiple candidates affects conformance. It MUST NOT assume that the first Property is preferred, newest, authoritative, or unique.
+Properties with the exact required `type` are matching candidates. Unless the Profile explicitly declares another deterministic cardinality or quantifier, a required Property item uses existential aggregation: any candidate satisfying all value, unit, and constraint tests satisfies the item; otherwise any indeterminate candidate makes the item `UNDETERMINED`; otherwise no candidates or all candidates known to fail makes it `NON_CONFORMANT`. The evaluator MUST use this default when a Profile omits a multiplicity rule. It MUST NOT assume that the first Property is preferred, newest, authoritative, or unique. For example, a required rated-voltage value of `5` is satisfied by candidates with values `5` and `9`, unless an explicit rule requires every candidate to equal `5`.
 
 A Profile MAY require a Property to be present or constrain a known vocabulary-defined value. It MUST NOT transform an issuer-declared Property into verified truth or current Runtime state.
 
-Unknown Property vocabulary or unsupported comparison semantics produce `UNDETERMINED` when they are required to decide conformance. A known missing required Property or known violated Property constraint produces `NON_CONFORMANT`.
+Unknown Property vocabulary or unsupported comparison semantics produce `UNDETERMINED` when they are required to decide conformance. A known missing required Property or violation of a required Property item after candidate aggregation produces `NON_CONFORMANT`.
 
 ## 45.2 Identifier Requirements
 
 An Identifier Requirement identifies an identifier scheme by exact `type` and defines deterministic presence, subject, value-shape, or cardinality rules.
 
-Because Core permits multiple Identifiers with the same `type`, a Profile MUST define how candidates are matched when multiplicity matters. Identifier order has no preference semantics.
+Identifiers with the exact required `type` and matching subject scope are candidates. Unless a Profile explicitly supplies another deterministic rule, a required Identifier item uses the same existential aggregation as Property items: any satisfying candidate succeeds; otherwise any candidate with unknown required membership or value comparisons yields `UNDETERMINED`; otherwise no candidates or all known failures yields `NON_CONFORMANT`. Unknown subject matching MUST NOT silently exclude a candidate. Identifier order has no preference semantics.
 
 A Profile MUST NOT infer Canonical Entity Identity, a Locator, a credential, authentication, authorization, ownership, or trust from an Identifier unless a separate applicable specification defines an explicit deterministic rule. Such a rule does not alter the Core meaning of Identifier.
 
-An unknown required identifier scheme or unsupported validator produces `UNDETERMINED`; a known missing required Identifier or known violation produces `NON_CONFORMANT`.
+An unknown required identifier scheme or unsupported validator produces `UNDETERMINED`; a known missing required Identifier or known violation of the required item after candidate aggregation produces `NON_CONFORMANT`.
 
 # 46. Interface Requirements
 
@@ -1910,7 +1915,7 @@ Profiles SHOULD constrain standardized Interface Extensions rather than reproduc
 
 ## 47.1 Requirement Policy
 
-A Profile MAY require the presence or absence of identified Requirement types, constrain understood Requirement data, or state policy for additional Requirements.
+A Profile MAY require the presence or absence of identified Requirement types, constrain understood Requirement data, or state policy for additional Requirements. Such policies are constraints within the applicable Capability or Interface requirement item; Draft 5 adds no independent top-level Requirement-policy collection. A companion Profile serialization defines their concrete encoding.
 
 Unless a Profile explicitly states otherwise, additional Capability or Interface Requirements are allowed. A Profile that restricts additional Requirements MUST identify the applicable owner scope and deterministic rule, such as `additional Requirements prohibited` or an explicit allowed type set. Silence in the Profile MUST NOT be interpreted as prohibition.
 
@@ -1991,7 +1996,7 @@ UNDETERMINED
 
 **CONFORMANT** means the exact Profile resolved and every applicable required comparison was deterministically satisfied.
 
-**NON_CONFORMANT** means at least one known Profile requirement was violated. Examples include a missing required Capability, a known projection conflict, a missing required Property, or a prohibited Extension.
+**NON_CONFORMANT** means at least one known Profile requirement was violated. Examples include a missing required Capability, a projection conflict that leaves a required item with no satisfying or indeterminate candidate, a missing required Property, or a prohibited Extension.
 
 **UNDETERMINED** means no known violation determines non-conformance, but the evaluator lacks information or deterministic support required to establish conformance. Examples include an unresolved Profile or Contract, an unknown required Extension, or unsupported constraint comparison semantics.
 
@@ -2011,7 +2016,7 @@ else
 → CONFORMANT
 ```
 
-Once the Profile is resolved, a known violation takes precedence over unrelated unknown evaluations. A processor SHOULD expose diagnostics for every evaluated requirement rather than only the aggregate result.
+Once the Profile is resolved, aggregation uses required item results after candidate aggregation under Sections 44–45, together with independently required Profile constraints. Optional-item diagnostics are excluded. A known violation of one required item takes precedence over unrelated unknown evaluations; failure of one candidate within an existential item does not. A processor SHOULD expose diagnostics for every evaluated requirement rather than only the aggregate result.
 
 Core-invalid AR-XML cannot establish Profile conformance. A conformance processor MUST first report the Core validation failure and MUST NOT return `CONFORMANT` for that document.
 
@@ -2331,7 +2336,7 @@ A Core validator MUST verify at least:
 
 1. the resource is well-formed XML;
 2. the document element is Core `ar-entity`;
-3. the Core namespace and `version="0.1-draft5"` are correct;
+3. the Core namespace and `version="0.1"` are correct;
 4. only defined Core elements and attributes occur;
 5. foreign elements occur only in explicit Extension Slots;
 6. singleton elements and containers do not repeat;
@@ -2739,7 +2744,7 @@ For a Core-valid document and a request-oriented Capability, route Availability 
 
 Known blockers take precedence over unrelated uncertainty. For example, a known unsupported Mapping makes a route `UNAVAILABLE` even when a separate Requirement evaluator is unknown.
 
-If a Capability has no Invocation, request-oriented invocation availability is `UNAVAILABLE`; this does not make the Capability or document invalid. If a Capability has no InterfaceUse, it has no routes and Capability availability is determined by Section 67.
+The Core three-state invocation Availability evaluation applies only to a Capability with Invocation. For a Capability without Invocation, a Runtime MUST NOT generate a Core Availability value; it MAY report that this interaction model is not applicable as a diagnostic, not a fourth Availability state. If Invocation is present but no InterfaceUse exists, Section 67 defines the empty route-set result.
 
 An Interface with both Attachment and Realization uses the explicit composition rule, if any, supplied by its applicable Extension semantics. Without such a rule, the Attachment remains descriptive context and does not block a route; the Realization and Mapping determine the interaction mechanism. Core does not assume that both must be used, that either is preferred, or that Attachment alone is executable.
 
@@ -2759,7 +2764,7 @@ Diagnostics MUST distinguish known blockers from unknown information and MUST NO
 
 # 67. Capability Availability Aggregation
 
-Capability Availability aggregates all applicable InterfaceUse route results without assigning order-based preference:
+For a Capability with Invocation, Capability Availability aggregates all applicable InterfaceUse route results without assigning order-based preference:
 
 ```text
 if any route is READY
@@ -2774,9 +2779,9 @@ else
 
 Thus, one ready route is sufficient for Capability `READY` even when another route is unavailable or unknown. If no route is ready but at least one might become usable after unknown information is resolved, the result is `UNKNOWN`.
 
-A Capability with zero InterfaceUses has zero routes and aggregates to `UNAVAILABLE` for request-oriented invocation. This is not a validation error; the Capability may remain useful as description data or for interaction patterns outside Core Invocation.
+A Capability with Invocation and zero InterfaceUses aggregates to `UNAVAILABLE` only for an explicit evaluation of invocation routes in this document: no route for that request is described. This is not a statement that the semantic function is impossible or that the description is invalid. A semantic-only Capability without Invocation has no Core Availability value, regardless of its InterfaceUse count.
 
-A Capability without Invocation is also `UNAVAILABLE` for Core request-oriented invocation even if it has InterfaceUses. A future Extension defining another interaction pattern may expose a separate availability model without changing this result.
+A Capability without Invocation is outside Core request-oriented Availability evaluation, even if it has InterfaceUses. Its Core Availability value is absent. A future Extension defining another interaction pattern may expose a separate availability model.
 
 Capability Availability is Runtime-specific and context-specific. Different conforming Runtimes may report different states because their installed support or policy differs, while using the same deterministic rules on their respective inputs.
 
@@ -3225,7 +3230,7 @@ An AR-XML resource conforms as a **Core Document** when it satisfies every appli
 
 - well-formed XML;
 - Core `ar-entity` as the document element;
-- the Core 0.1 namespace and `version="0.1-draft5"`;
+- the Core 0.1 namespace and `version="0.1"`;
 - permitted Core elements, attributes, containment, and cardinalities;
 - singleton container rules;
 - required lexical values and Core data types;
@@ -3283,7 +3288,7 @@ It SHOULD preserve unknown foreign subtrees as opaque data. If it advertises rou
 
 ## 78.3 Serializer
 
-A conforming Draft 5 serializer MUST emit well-formed XML using the Core namespace and `version="0.1-draft5"`. It MUST emit only structures valid for the Core model and MUST use the canonical Core child order defined in Section 21.
+A conforming Draft 5 serializer MUST emit well-formed XML using the Core namespace and `version="0.1"`. It MUST emit only structures valid for the Core model and SHOULD use the recommended canonical Core child order defined in Section 21.
 
 Canonical child order does not authorize reordering collection members to imply preference. A serializer MUST preserve semantic collection membership, local references, and Extension subtree meaning.
 
@@ -3398,7 +3403,7 @@ The smallest Draft 5 document describes a valid passive Entity with no other dec
 <?xml version="1.0" encoding="UTF-8"?>
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5" />
+  version="0.1" />
 ```
 
 This document is Core-valid. It does not imply a CPU, network connection, API, Interface, Capability, Canonical Entity Identity, or current availability.
@@ -3411,7 +3416,7 @@ An Entity may contain declared characteristics without being invocable:
 <?xml version="1.0" encoding="UTF-8"?>
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5">
+  version="0.1">
 
   <category>laboratory.instrument</category>
 
@@ -3443,7 +3448,7 @@ Identifiers may apply either to the described Entity or to a lightweight Subject
 <?xml version="1.0" encoding="UTF-8"?>
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5">
+  version="0.1">
 
   <identifiers>
     <identifier
@@ -3475,7 +3480,7 @@ A passive physical connector can be described without a Capability or network Re
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
   xmlns:phys="https://example.org/ns/arxml/physical/1"
-  version="0.1-draft5">
+  version="0.1">
 
   <interfaces>
     <interface id="display-connector">
@@ -3499,7 +3504,7 @@ A Capability may describe a semantic affordance without defining a request-orien
 <?xml version="1.0" encoding="UTF-8"?>
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5">
+  version="0.1">
 
   <capabilities>
     <capability
@@ -3519,7 +3524,7 @@ A Capability may define its request and Result contract projection without decla
 <?xml version="1.0" encoding="UTF-8"?>
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5">
+  version="0.1">
 
   <capabilities>
     <capability
@@ -3555,7 +3560,7 @@ One Entity-level HTTP Interface can be shared by multiple Capabilities:
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
   xmlns:http="https://relink.dev/ns/arxml/http/0.1"
-  version="0.1-draft5">
+  version="0.1">
 
   <interfaces>
     <interface id="web-api">
@@ -3620,7 +3625,7 @@ One semantic Capability can have routes over different Interface Extensions with
   xmlns="https://relink.dev/ns/arxml/core/0.1"
   xmlns:http="https://relink.dev/ns/arxml/http/0.1"
   xmlns:ble="https://example.org/ns/arxml/ble/1"
-  version="0.1-draft5">
+  version="0.1">
 
   <interfaces>
     <interface id="web-api">
@@ -3679,7 +3684,7 @@ Unknown foreign content remains Core-valid when it occurs in a permitted Extensi
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
   xmlns:vendor="https://vendor.example/ns/arxml/device/7"
-  version="0.1-draft5">
+  version="0.1">
 
   <properties>
     <property
@@ -3718,7 +3723,7 @@ It is represented by one semantic Capability, one Entity-level shared HTTP Inter
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
   xmlns:http="https://relink.dev/ns/arxml/http/0.1"
-  version="0.1-draft5">
+  version="0.1">
 
   <category>reference-lab.device</category>
 
@@ -3784,7 +3789,7 @@ The following complete document combines it with the light control Capability wh
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
   xmlns:http="https://relink.dev/ns/arxml/http/0.1"
-  version="0.1-draft5">
+  version="0.1">
 
   <category>reference-lab.device</category>
 
@@ -4029,10 +4034,10 @@ https://relink.dev/ns/arxml/core/0.1
 The Draft 5 root version is:
 
 ```text
-0.1-draft5
+0.1
 ```
 
-The namespace and root `version` value together select the Draft 5 Core grammar. A processor MUST compare the namespace name and version value exactly. It MUST NOT use URI normalization, redirects, fetched content, prefix spelling, or local-name-only comparison to decide that another name is equivalent.
+The namespace and root `version` value identify the Core 0.1 family; selecting the Draft 5 grammar additionally requires the explicit processing context defined in Section 19. A processor MUST compare the namespace name and version value exactly. It MUST NOT use URI normalization, redirects, fetched content, prefix spelling, or local-name-only comparison to decide that another name is equivalent.
 
 The namespace name is an identifier, not an instruction to retrieve a schema or other resource. A processor MAY use a built-in or locally installed schema, but parsing and Core validation MUST NOT depend on dereferencing the namespace URI.
 
@@ -4057,13 +4062,13 @@ XML namespace aliases have no semantic significance. The following declarations 
 ```xml
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5" />
+  version="0.1" />
 ```
 
 ```xml
 <ar:ar-entity
   xmlns:ar="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5" />
+  version="0.1" />
 ```
 
 A processor MUST preserve namespace identity rather than prefix spelling. A canonical serializer MAY choose stable prefixes, but changing a prefix alone does not change AR-DOM semantics.
@@ -4179,7 +4184,7 @@ Evolution must preserve machine readability and semantic certainty. Compatibilit
 
 ## 96.1 Draft 5 and Earlier Drafts
 
-Draft 5 does not guarantee syntax compatibility with earlier AR-XML drafts. A document with `version="0.1-draft4"`, an earlier grammar, or an absent Draft 5 version MUST NOT be interpreted as Draft 5.
+Draft 5 does not guarantee syntax compatibility with earlier AR-XML drafts. The wire token remains `version="0.1"`; it is not a draft discriminator. A consumer configured for Draft 5 MUST validate against Draft 5 and MUST NOT silently accept an earlier grammar. An absent or unsupported root version is invalid under that processing context.
 
 Migration from an earlier draft is an explicit transformation. A migration tool SHOULD:
 
@@ -4197,7 +4202,7 @@ Within the exact Draft 5 version, the Core grammar is closed. A processor MUST N
 
 Editorial corrections that do not alter deterministic parsing, validation, AR-DOM, semantic comparison, Runtime states, or conformance requirements may be published without changing document identity. Any normative change that can alter one of those results requires a new version designation and a documented compatibility and migration policy.
 
-A future specification decides its own namespace and version pairing. Draft 5 processors MUST rely only on the exact pairing defined in Section 19 and MUST fail closed for an unsupported Core version. They MAY expose the unsupported document as raw data or hand it to another processor, but MUST NOT claim Draft 5 validation or conformance for it.
+A future specification decides its own namespace and version pairing. Draft 5 processors MUST use the exact pairing and explicit draft-selection context defined in Section 19 and MUST fail closed for an unsupported Core version. They MAY expose the unsupported document as raw data or hand it to another processor, but MUST NOT claim Draft 5 validation or conformance for it.
 
 Canonical serialization order may remain stable across revisions, but order stability alone is not compatibility. Consumers MUST validate version and vocabulary before applying a serializer or parser profile.
 
@@ -4253,7 +4258,7 @@ One Draft 5 document produces one AR Entity root:
 ```text
 ARDocumentView
 ├─ coreNamespace = https://relink.dev/ns/arxml/core/0.1
-├─ version       = 0.1-draft5
+├─ version       = 0.1
 └─ entity        = AREntity
 ```
 
@@ -4491,7 +4496,7 @@ Collection wrappers are optional singletons even when their item collections hav
 | Parent | XML name | Kind | XML occurrence | AR-DOM item | AR-DOM cardinality | Normative note |
 |---|---|---|---:|---|---:|---|
 | XML document | `ar-entity` | Core element | `1` | `AREntity` | `1` | Sole document element; no Core wrapper is permitted |
-| `ar-entity` | `version` | unqualified attribute | `1` | document version | `1` | Exactly `0.1-draft5` |
+| `ar-entity` | `version` | unqualified attribute | `1` | document version | `1` | Exactly `0.1` |
 | `ar-entity` | `category` | Core element | `0..1` | Category | `0..1` | Non-empty character value |
 | `ar-entity` | `identifiers` | Core container | `0..1` | Identifiers collection | `0..*` | Container may be empty |
 | `ar-entity` | `properties` | Core container and Extension Slot | `0..1` | Properties and Property Extensions | `0..*` | Core and foreign items may be interleaved |
@@ -4740,7 +4745,7 @@ Fetching an AR-XML resource is description retrieval. It is not Capability execu
 |---|---|
 | `CORE.ROOT` | Document element is not Core `ar-entity` or a prohibited wrapper is present |
 | `CORE.NAMESPACE` | A Core element uses the wrong namespace or is matched only by local name |
-| `CORE.VERSION` | Root `version` is absent or not exactly `0.1-draft5` |
+| `CORE.VERSION` | Root `version` is absent or not exactly `0.1` |
 | `CORE.UNKNOWN_ELEMENT` | Unknown element occurs in the Core namespace |
 | `CORE.UNKNOWN_ATTRIBUTE` | Unknown unqualified, Core, or foreign attribute occurs on a Core element |
 | `CORE.FOREIGN_CONTENT_LOCATION` | Foreign element occurs outside an Extension Slot |
@@ -4855,8 +4860,8 @@ Recommended examples include:
 | `REQUIREMENT.UNKNOWN` | Unknown evaluator contributes `UNKNOWN` absent a known blocker |
 | `SUPPORT.REALIZATION_UNSUPPORTED` | Required Realization makes the route `UNAVAILABLE` |
 | `SUPPORT.MAPPING_UNKNOWN` | Unknown Mapping support contributes `UNKNOWN` |
-| `AVAILABILITY.NO_INVOCATION` | Request-oriented availability is `UNAVAILABLE` for a Capability without Invocation |
-| `AVAILABILITY.NO_ROUTE` | Capability has no InterfaceUse route |
+| `AVAILABILITY.NO_INVOCATION` | Evaluation is outside Core Invocation scope; no Availability value is generated |
+| `AVAILABILITY.NO_ROUTE` | Capability with Invocation has no described InterfaceUse route; invocation-route aggregation is `UNAVAILABLE` |
 | `AVAILABILITY.POLICY_BLOCKED` | Runtime or Application policy deterministically makes the route `UNAVAILABLE` |
 
 Diagnostics should identify contributing states and preserve precedence: known conflicts, unsatisfied mandatory Requirements, unsupported required features, and deterministic policy blocks produce `UNAVAILABLE` even if an unrelated evaluation is unknown.
@@ -4939,7 +4944,7 @@ These classifications do not assert that two serializations are automatically in
 | Area | Draft 4 | Draft 5 | Classification |
 |---|---|---|---|
 | Root | `ar-entity` | `ar-entity` | Retained |
-| Root version | `version="0.1"` | `version="0.1-draft5"` | Restructured |
+| Root version | `version="0.1"` | `version="0.1"` with explicit Draft 5 processing context | Retained |
 | Core namespace | `https://relink.dev/ns/arxml/core/0.1` | Same provisional Core 0.1 namespace | Retained with exact version pairing |
 | Entity model | Category, Profile Claims, Capabilities | Adds Identifiers, Properties, Subjects, Entity-level Interfaces | Added and restructured |
 | Capability interaction shape | Inputs and Result directly under Capability | Optional request-oriented Invocation contains Inputs and Result | Restructured |
@@ -4973,10 +4978,10 @@ Draft 5 requires:
 ```xml
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
-  version="0.1-draft5" />
+  version="0.1" />
 ```
 
-Changing this attribute is necessary but not sufficient for migration.
+The namespace and root version are unchanged. Migration changes the document structure under an explicitly selected Draft 5 processing context; changing a version token is neither required nor sufficient.
 
 Draft 5 adds three Entity description areas that Draft 4 did not model:
 
@@ -5075,7 +5080,7 @@ Draft 5 places shared Interfaces at Entity level and references them from Capabi
 <ar-entity
   xmlns="https://relink.dev/ns/arxml/core/0.1"
   xmlns:http="https://relink.dev/ns/arxml/http/0.1"
-  version="0.1-draft5">
+  version="0.1">
 
   <interfaces>
     <interface id="web-api">
@@ -5290,7 +5295,7 @@ A Draft 4 to Draft 5 migration tool or review should perform at least these step
 
 1. Parse and preserve the original Draft 4 resource without modifying it.
 2. Record provenance and every transformation decision.
-3. Keep `ar-entity` as the document root and set the exact Draft 5 version only on the transformed document.
+3. Keep `ar-entity`, the Core 0.1 namespace, and `version="0.1"`; record the Draft 5 processing context separately.
 4. Move request-oriented Inputs and Result under an explicit Invocation.
 5. Remove no Draft 4 Result error declaration silently; report it for Contract or Extension mapping.
 6. Lift inline Interfaces to the Entity-level Interfaces collection.
