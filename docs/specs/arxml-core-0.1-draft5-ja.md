@@ -4325,3 +4325,238 @@ deterministic interoperabilityはdeclared semanticsを超えるbehavioralまた�
 AR-XML conformanceはprivacy、data-protection、communications、sector-specific、またはrecords-retention lawへのcomplianceを確立しない。publisher、registry operator、Runtime provider、およびApplicationは、そのprocessingおよびdeploymentに適用されるobligationについて引き続き責任を負う。
 
 ---
+
+<a id="part-xiii--namespace-registry-and-evolution-considerations"></a>
+# Part XIII — Namespace, Registry, and Evolution Considerations
+
+<a id="94-namespace-considerations"></a>
+# 94. Namespace Considerations
+
+XML namespaceはclosed AR-XML Core vocabularyを独立して定義されたExtension vocabularyから区別する。vocabularyを識別するものであり、trust、ownership、availability、authorization、またはnetwork retrieval requirementを確立しない。
+
+## 94.1 Core NamespaceおよびDocument Version
+
+Core 0.1 namespace nameは次のとおりである。
+
+```text
+https://relink.dev/ns/arxml/core/0.1
+```
+
+Draft 5 root versionは次のとおりである。
+
+```text
+0.1
+```
+
+namespaceおよびroot `version` valueはCore 0.1 familyを識別する。Draft 5 grammarのselectionには、Section 19で定義されたexplicit processing contextも必要である。processorはnamespace nameおよびversion valueを正確に比較しなければならない（MUST）。URI normalization、redirect、fetched content、prefix spelling、またはlocal-name-only comparisonを用いて別のnameがequivalentであると判断してはならない（MUST NOT）。
+
+namespace nameはidentifierであり、schemaまたはその他のresourceをretrieveするinstructionではない。processorはbuilt-inまたはlocally installed schemaを使用してもよいが（MAY）、parsingおよびCore validationはnamespace URIのdereferencingに依存してはならない（MUST NOT）。
+
+unqualified root `version` attributeはCore serializationの一部である。default XML namespaceはattributeへ適用されない。したがってProducerは、本仕様が別途明示しない限りCore attributeをunqualifiedでemitしなければならない（MUST）。namespace declarationはXML syntaxであり、AR-DOM Propertyまたはattributeではない。
+
+`https://relink.dev/ns/arxml/core/0.1` namespaceはAR-XML Core 0.1 specification familyが定義するelementおよびattribute用にreservedである。ApplicationおよびExtensionはそのnamespaceにprivate elementまたはattributeをmintしてはならない（MUST NOT）。
+
+## 94.2 Core Vocabulary Closure
+
+Draft 5はclosed Core vocabularyである。次はinvalidである。
+
+- unknown Core-namespace element
+- unknown Core-namespace attribute
+- Core element上のunknown unqualified attribute
+- explicit Extension Slot外のforeign element
+
+implementationはforward compatibilityを得るためだけにinvalid Core contentをExtensionとしてreinterpretしてはならない（MUST NOT）。またfuture Core elementをignoreしてacceptしてはならない（MUST NOT）。future Core grammarは独自のexplicitly recognized version ruleの下でprocessされる。
+
+XML namespace aliasはsemantic significanceを持たない。次のdeclarationは同じCore namespaceを示し得る。
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1" />
+```
+
+```xml
+<ar:ar-entity
+  xmlns:ar="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1" />
+```
+
+processorはprefix spellingではなくnamespace identityをpreserveしなければならない（MUST）。canonical serializerはstable prefixを選択してもよいが（MAY）、prefixだけを変更してもAR-DOM semanticsは変わらない。
+
+## 94.3 Extension Namespace Ownership
+
+すべてのExtension semantic elementはnon-Core namespaceを使用し、Part IIIがpermitするExtension Slotに現れなければならない（MUST）。Extension specificationは次をpublishすることが望ましい（SHOULD）。
+
+- maintainerがcontrolするauthority下のstable namespace name
+- Extension versioning policy
+- 各applicable slotでpermittedなelementおよびattribute
+- deterministic validationおよびprocessing rule
+- 定義または使用するsemantic identifier
+- compatibilityおよびdeprecation policy
+- securityおよびprivacy consideration
+
+Extension namespaceの使用はCore specificationによるendorsementを意味しない。namespace controlは特定のdocument、definition、processor、またはpublisherがtrustedであることを証明しない。
+
+ExtensionはCore element、Core attribute、Core cardinality、local reference rule、またはRuntime evaluation stateへ新しいmeaningを割り当ててはならない（MUST NOT）。applicable slot内のdeclared Extension elementを通じてelement-based semanticsを追加し、Section 32.3で定義されたforeign attributeを通じてmetadataを追加してもよい（MAY）。incompatible Core structureを必要とするExtensionには、namespace trickまたはout-of-slot contentではなくfuture Core versionが必要である。
+
+## 94.4 NamespaceおよびSemantic Identifierの分離
+
+XML namespaceはvocabularyを識別する。Semantic IdentifierはCapability Contract、Profile、Property type、Identifier scheme、Requirement type、Subject type、またはその他のregistered conceptなどのsemantic definitionを識別する。これらのroleはdistinctである。
+
+```text
+XML namespace
+= vocabulary identity
+
+Semantic Identifier
+= semantic definition identity
+```
+
+Extension namespaceもabsolute URIであってよいが（MAY）、そのvocabulary内のすべてのsemantic definitionのexact identifierに対するimplicit substituteとして使用してはならない（MUST NOT）。逆に、URI authorityまたはstring prefixの共有はsemantic equivalence、compatibility、trust、またはcommon governanceを確立しない。
+
+Coreは`http`、`phys`、`auth`、または`geo`などのshort prefixをreserveしない。exampleではpresentationのためだけにreadable prefixを使用する。Producerおよびconsumerはexample prefixではなくnamespace nameを比較しなければならない（MUST）。
+
+<a id="95-registry-considerations"></a>
+# 95. Registry Considerations
+
+AR-XMLはmandatory centralized registryを要求しない。deterministic resolutionはbuilt-in definition、local registry、cache、Application-provided registry、installed Extensionまたはplugin、network service、あるいはこれらsourceのpolicy-controlled combinationを使用できる。
+
+normative Core registry boundaryはPart VIのresolution modelである。built-in、local、cache、Application、plugin、およびnetwork sourceがpermittedであり、source priorityはRuntime policyであり、exact identityはpreserveされなければならず（MUST）、conflicting acceptable definitionにsilent first-winsを使用してはならず（MUST NOT）、resolutionはtrust、authentication、authorization、およびexecutionから分離されたままでなければならない（MUST）。cache designはimplementation detailである。registry protocol、discovery、registration record、lifecycle、governance、federation、およびtrust mechanismはCoreの範囲外である。
+
+以下のSections 95.1–95.5は**informative implementation guidance**であり、mandatory registry fieldまたは新しいCore conformance gateを定義せずにrationaleおよびoperational optionを保持する。resolution ruleをsummaryするstatementはPart VIを参照する。
+
+## 95.1 Registry Role
+
+Semantic Registryはexact Semantic Identifierをsemantic definitionへmapする。次をcontainまたはresolveし得る。
+
+- Capability Contract
+- Profile
+- PropertyおよびIdentifier type definition
+- Requirement semantics
+- SubjectまたはCategory vocabulary
+- Extension definitionおよびconstraint semantics
+- AR-XML processorが使用するその他のversioned semantic resource
+
+Semantic RegistryはEntity Resolverとは別である。
+
+```text
+Entity Resolver
+= Entity identity → AR-XML location
+
+Semantic Registry
+= Semantic Identifier → semantic definition
+```
+
+別途configured Entity Resolver ruleがmappingを定義しない限り、registryはEntity Identifierをdocument locatorとして扱ってはならない。またdefinitionを返したという理由だけでCapabilityをexecuteしたり、Credentialをsupplyしたり、publisherをauthenticateしたり、callerをauthorizeしたり、conformanceをcertifyしたりしてはならない。
+
+## 95.2 Registration RecordおよびExact Identity
+
+registry recordは少なくとも次をpreserveすることが望ましい。
+
+- exact Semantic Identifier
+- semantic resource kind
+- versioned definitionまたはそのstable reference
+- sourceおよびprovenance information
+- 利用可能な場合のintegrity information
+- relevantな場合のpublication、retrieval、またはcache time
+- active、deprecated、withdrawnなどのlifecycle status
+- definitionがusableとなるtrustまたはadmission policy
+
+applicable specificationが明示しない限り、registry metadataはsemantic definitionの一部ではない。retrieval time、popularity、source priority、またはlifecycle statusによってContractまたはProfile meaningをsilentに変更してはならない。
+
+normative Capability ContractおよびProfile identityはexact-versioned absolute identifierでなければならない。`latest`などのmoving aliasをdiscovery用に提供してもよいが、registryはdeterministic validation前にexact identifierをreturnまたはselectしなければならない。alias自体をnormative ContractまたはProfile identityとしてAR-XMLにstoreしてはならない。
+
+いったんpublishedとなったexact identifier関連definitionはimmutableであることが望ましい。normative semantic changeにはnew exact identifierが必要である。transport metadata、registry indexing、またはeditorial descriptionのcorrectionがidentifierを維持できるのは、deterministic interpretationまたはconformance resultを変更し得ない場合だけである。
+
+## 95.3 ConflictおよびMultiple Source
+
+複数registry sourceが同じexact identifierに対するcandidateを返す場合がある。定義済みcomparison ruleの下でcandidateがsemanticallyまたはbytewise equivalentなら、registryはprovenanceをpreserveしながらcoalesceしてもよい。conflictする場合、silent first-wins、source order、document order、cache timing、またはlexical preferenceをimplicit decision ruleとして使用してはならない。
+
+policyはsemantic resolution前にuntrusted candidateをdeterministicallyにrejectしてもよい。そのpolicy適用後、exactly one usable definitionが残る場合だけresolutionは`RESOLVED`である。それ以外は`UNRESOLVED`であり、processorはsensitive registryまたはcredential dataをexposeせずにconflicting sourceをreportすることが望ましい。
+
+implementationはnamespaceまたはidentifier squatting、malicious re-registration、cache poisoning、rollback、downgrade、stale entry、およびsubstitutionを防御することが望ましい。適切なcontrolにはauthenticated publication、signature、content digest、append-only log、administrator approval、pinned definition、またはtrusted local packageが含まれ得る。Coreは単一のtrust mechanismをmandateしない。
+
+## 95.4 CachingおよびOffline Operation
+
+cachingはpermittedだが、exact identity、source、およびapplicable trust policyをpreserveしなければならない。cacheはexact identifierに対してnewer、older、またはallegedly compatibleなdefinitionでanswerしてはならない。cache invalidationおよびretention policyはdeployment concernだが、staleまたはwithdrawn statusがpolicyへ影響し得る場合はApplicationからobservableであることが望ましい。
+
+negative cachingはboundedで、temporary failureをpermanent `UNRESOLVED` resultに変えない限り、repeated failed lookupを削減し得る。cached definitionは過去に正常にcacheされたという理由だけでtrustedになってはならない。
+
+offline operationはfirst-class deployment modeである。conforming processorはsupportするすべてのsemanticsをbuilt-in、local、cached、またはApplication-provided sourceからresolveしてもよい。Semantic IdentifierがHTTPまたはHTTPS URI formを使用するという理由だけでnetwork accessが要求されることはない。
+
+## 95.5 Registry ExtensibilityおよびGovernance
+
+registryはDraft 5で定義されたもの以外のresource kindをsupportしてもよいが、unknown kindをknown kindへcoerceしてはならない。resource-kind dispatch、definition validation、およびprocessor supportはexplicitかつversionedであることが望ましい。
+
+registry governanceはidentifier allocation、maintainer authority、review policy、immutability、deprecation、dispute handling、archival availability、およびsecurity responseを定義することが望ましい。federated registryはfederation orderをsemantic truthとして提示せず、authorityおよびprecedence ruleを可視にすることが望ましい。
+
+Coreはexternal identifier systemまたはstandardを再実装しない。GTIN、VIN、MAC、IPv6、IMEI、OPC UA、AAS、WoT、およびその他のdomain identifierは、それぞれのspecificationによってgovernされる。registry definitionはそのようなschemeを参照してもよいが、AR-XML-specific enumの下でsilentにredefineしてはならない。
+
+<a id="96-evolution-and-compatibility"></a>
+# 96. EvolutionおよびCompatibility
+
+evolutionはmachine readabilityおよびsemantic certaintyをpreserveしなければならない。compatibility claimはexplicitかつversionedでなければならず（MUST）、similar name、shared URI prefix、document order、successful parse、またはAI-generated comparisonからinferしてはならない（MUST NOT）。
+
+## 96.1 Draft 5およびEarlier Draft
+
+Draft 5は以前のAR-XML draftとのsyntax compatibilityを保証しない。wire tokenは`version="0.1"`のままであり、draft discriminatorではない。Draft 5用にconfiguredされたconsumerはDraft 5に対してvalidateしなければならず（MUST）、earlier grammarをsilentにacceptしてはならない（MUST NOT）。absentまたはunsupported root versionは、そのprocessing contextの下でinvalidである。
+
+earlier draftからのmigrationはexplicit transformationである。migration toolは次を行うことが望ましい（SHOULD）。
+
+- 可能な場合、source grammarの下でsource documentをvalidateする。
+- source dataおよびprovenanceをpreserveする。
+- dropped、synthesized、split、merged、またはsemantically uncertainなすべてのitemをreportする。
+- deterministic mappingがない場合にpolicyまたはuser inputをrequireする。
+- resultをDraft 5として独立してvalidateする。
+
+migrationはambiguous legacy contentからCapability Contract、Profile conformance、authorization、Interface mapping、Canonical Entity Identity、またはcurrent Runtime stateをinferしてはならない（MUST NOT）。well-formed Draft 5 XMLを正常にproduceしてもsourceとのsemantic equivalenceを証明しない。
+
+## 96.2 Core Grammar Evolution
+
+exact Draft 5 version内ではCore grammarはclosedである。processorはunknown Core elementまたはattributeをcompatible additive featureとassumeしてはならない（MUST NOT）。Core element、Core attribute、cardinality、default、reference rule、validation rule、またはprocessing behaviorの追加には、明示的にdistinguishableなfuture specification versionが必要である。
+
+deterministic parsing、validation、AR-DOM、semantic comparison、Runtime state、またはconformance requirementを変更しないeditorial correctionはdocument identityを変更せずにpublishしてもよい。これらresultのいずれかを変更し得るnormative changeにはnew version designationおよびdocumented compatibility and migration policyが必要である。
+
+future specificationは独自のnamespaceおよびversion pairingを決定する。Draft 5 processorはSection 19で定義されたexact pairingおよびexplicit draft-selection contextを使用しなければならず（MUST）、unsupported Core versionではfail closedしなければならない（MUST）。unsupported documentをraw dataとしてexposeしたり別processorへ渡したりしてもよいが（MAY）、それに対してDraft 5 validationまたはconformanceをclaimしてはならない（MUST NOT）。
+
+canonical serialization orderはrevision間でstableなままの場合があるが、order stabilityだけではcompatibilityではない。consumerはserializerまたはparser profileを適用する前にversionおよびvocabularyをvalidateしなければならない（MUST）。
+
+## 96.3 Extension Evolution
+
+各Extension specificationはversionの識別方法を定義しなければならない（MUST）。versioned namespace name、exact versioned semantic root、またはそのExtensionに適した別のdeterministic mechanismを使用してもよい。syntax、semantic interpretation、validation、mapping、constraint comparison、security behavior、またはRuntime support expectationを変更するExtension changeは、prior versionからdistinguishableでなければならない（MUST）。
+
+unknown foreign semantic rootはcorrect Extension Slotに配置される場合Core-validのままである。これはCore-level forward carriageを提供するが、Extension-level compatibilityではない。Extensionを実装しないprocessorは、本仕様の別sectionで定義されたunknown validation、evaluation、またはsupport stateをreportする。new semanticsをguessしてはならない（MUST NOT）。
+
+opaque preservationはcomplete foreign subtreeおよびnamespace identityを保持することが望ましい（SHOULD）。external signatureまたはbyte-preservation mechanismが要求しない限り、original prefix spelling、attribute order、quote style、またはinsignificant XML formattingのpreservationは要求しない。XML processing modelがclaimに必要なpropertyをpreserveできない場合、processorはlossless round-trippingをclaimしてはならない（MUST NOT）。
+
+evolved Extensionはnew contentを使用してCore requirementをweakenしたり、old Core dataをreinterpretしたりしてはならない（MUST NOT）。new behaviorがExtension SlotでないCore locationを必要とする場合、appropriate future Core versionを待つかtargetにしなければならない。
+
+## 96.4 ContractおよびProfile Evolution
+
+Capability ContractまたはProfileのすべてのnormative revisionはnew exact-versioned Semantic Identifierを使用する。このruleはcompatibleおよびincompatibleなnormative revisionの両方に適用される。compatibility metadataは2つのexact versionを関連付けてもよいが（MAY）、identifierをinterchangeableにはしない。
+
+Applicationはvalidation前にexplicit policyを通じて異なるContractまたはProfile versionをselectしてもよい（MAY）。その後、selected exact identifierおよびdefinitionをconsistentlyに使用しなければならない。Semantic RegistryまたはRuntimeはversionをsilentにupgrade、downgrade、またはsubstituteしてはならない（MUST NOT）。
+
+revised Capability Contractはearlier identifierを参照するexisting Entity projectionのmeaningをretroactivelyに変更してはならない（MUST NOT）。revised Profileはearlier Profile identifierに対するconformance evaluation resultをretroactivelyに変更してはならない（MUST NOT）。deprecationはnew useに対してwarningを出してもよいが、historical semanticsを書き換えない。
+
+Contract compatibilityはInterface compatibilityを意味しない。Profile compatibilityはRuntime Availabilityを意味しない。いずれもtrust、authorization、Certification、またはsuccessful executionを意味しない。
+
+## 96.5 RuntimeおよびImplementation Evolution
+
+Runtime implementationはExtension、transport、method、representation、constraint evaluator、またはregistry sourceのsupportをgainまたはloseする場合がある。このようなchangeは`Support`、evaluation certainty、およびAvailabilityへ影響するが、documentが記述するspecification capabilityを変更しない。
+
+```text
+Spec Capability
+≠ Runtime Implementation Capability
+```
+
+implementationはclaimed conformance classおよびsupported Extension featureをversion化してdiscloseすることが望ましい（SHOULD）。newer implementationは自身のfeature setにmatchさせるためだけにvalid descriptionを書き換えてはならない（MUST NOT）。older implementationはknown supportを宣言したりresultを発明したりせず、定義済みstateを通じてunsupportedまたはunknown semanticsを表現しなければならない（MUST）。
+
+ここで定義するevolution mechanismはいずれもautomatic executionをauthorizeしない。loading、migrating、resolving、validating、registry cacheのupgrading、またはExtension supportのinstallingによってCapabilityをinvokeしてはならない（MUST NOT）。side effectを伴うexecutionは引き続きexplicit ApplicationまたはHuman requestを必要とする。
+
+## 96.6 Deferred Feature
+
+Draft 5はRelations、Observation、Subscription、Event、Stream、workflow、generic mapping DSL、AR-XMLのJSON serialization、credential management、authorization enforcement、およびcentralized registry requirementを意図的にCoreの範囲外とする。そのabsenceはunknown Core contentとしてencodeしたり、Invocationへcontradictory semanticsをoverloadしたりする誘因ではない。
+
+future specificationはappropriate Extension、companion specification、またはnew Core versionを通じてそのようなfeatureを定義してもよい（MAY）。EntityとLocation、CapabilityとInterfaceおよびInvocation、DescriptionとExecution、ResolutionとAuthentication、AuthenticationとAuthorization、ResultとRepresentation、ならびにProfile ClaimとVerified ConformanceおよびCertificationなど、Draft 5が依拠する分離をpreserveしなければならない（MUST）。
+
+---
