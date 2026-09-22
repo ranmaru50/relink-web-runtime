@@ -2173,3 +2173,223 @@ UNDETERMINED + UNKNOWN availability
 `CONFORMANT`はRuntime support、connectivity、authentication、authorization、safety、remote acceptance、またはexecution successを保証しない。
 
 ---
+
+<a id="part-vi--semantic-identification-and-resolution"></a>
+# Part VI — Semantic Identification and Resolution
+
+<a id="50-semantic-identifiers"></a>
+# 50. Semantic Identifier
+
+Semantic Identifierはsemantic definitionまたはvocabulary termを識別する。これはidentityを示すものであり、それ自体でretrieval locationを示したり、ownershipを証明したり、publisherをauthenticateしたり、network accessを要求したりしない。
+
+Semantic Identifierは、とりわけ次のものに使用される。
+
+- Capability Contract
+- Profile
+- Identifier scheme
+- Property type
+- Subject type
+- Requirement type
+- Extension定義constraint
+- その他のversioned vocabulary term
+
+Capability ContractおよびProfileのidentifierは、exact-versioned absolute identifierでなければならない（MUST）。その他のsemantic vocabularyは、cross-document interoperabilityまたはregistry resolutionが必要な場合、stable absolute identifierを使用することが望ましい（SHOULD）。
+
+processorは、適用可能なidentifier schemeが定義するequality ruleを用いてSemantic Identifierを比較しなければならない（MUST）。そのようなruleがない場合、XML attribute-value processing後のexact code-point equalityを使用しなければならず（MUST）、case folding、URI rewriting、percent-decoding、path normalization、redirect、label、natural-language similarity、またはAI inferenceによってequivalenceを作り出してはならない（MUST NOT）。
+
+Capability Contract identifierおよびProfile identifier（`capability/@type`と`conforms-to/@href`を含む）については、XML attribute-value processing後のexact code-point equalityがnormative identity ruleである。URI normalization、percent-decoding、case folding、default-port removal、dot-segment resolution、redirect target、またはdereferenced representationによってalternate spellingを作成したりidentityを変更したりしてはならない（MUST NOT）。その他のSemantic Identifier schemeは明示的なcomparison ruleを定義してもよいが（MAY）、そのruleはContractおよびProfile identifierに対するexact identity ruleをoverrideしてはならない（MUST NOT）。
+
+```text
+Semantic Identifier
+≠ Locator
+≠ Canonical Entity Identity
+≠ Credential
+```
+
+`https` syntaxを使用するidentifierはdereference可能な場合があるが、dereferenceabilityはoptionalのままである。そのURIのfetch failureはidentifierのlexical identityを変更しない。
+
+semantic identificationは、識別されたdefinitionが現在のRuntimeによってtrustedまたはsupportedであることも確立しない。
+
+<a id="51-exact-versioned-identity"></a>
+# 51. Exact Versioned Identity
+
+exact-versioned identifierは1つのimmutable semantic versionを示す。version syntaxは所有するspecificationまたはregistryが定義する。CoreはSemantic Versioningまたは特定のpath layoutを要求しない。
+
+Capability ContractおよびProfile identityには、次のpropertyが要求される（REQUIRED）。
+
+- identifierがabsoluteである。
+- 1つのspecific semantic versionを示す。
+- 識別されたnormative meaningが、そのidentifierを維持したままincompatibleに変更されない。
+- resolved definitionが、要求されたexact identifierによってself-identifyする。
+
+`latest`、`current`、mutable branch name、またはunversioned family identifierのようなmoving labelは、exact-versioned normative identityではない。そのようなlabelをdiscoveryに使用してもよいが（MAY）、deterministicなContract resolution、Profile resolution、projection validation、またはProfile conformanceの前に、discoveryはexact-versioned identifierを生成しなければならない（MUST）。
+
+exact identifierはdefinitionのbytesを二度とrepublishできないというclaimではない。2つのnon-equivalent semantic definitionが同じexact identifierをclaimする場合、Section 54におけるconflicting definitionである。
+
+version間のcompatibility metadataはidentityをmergeしない。processorはversionがcompatibleであると判断したために、1つのexact identifierを別のものへsilentにreplaceしてはならない（MUST NOT）。
+
+要求されたexact identityは、documentが保持するlexical identifierである。redirect、dereferenced resource、registry source、またはcanonicalized retrieval URIはalternate spellingではなく、ContractまたはProfileのidentity comparison中にsubstituteしてはならない（MUST NOT）。
+
+次はdistinct operationである。
+
+```text
+discover a version
+select an exact identifier
+resolve the exact definition
+validate semantic compatibility
+```
+
+Applicationはpolicyに従ってdiscoveryおよびselectionを実行してもよい（MAY）。Core validationおよびdeterministic conformanceは、その結果得られたexact identityに対して動作する。
+
+<a id="52-semantic-registry"></a>
+# 52. Semantic Registry
+
+Semantic RegistryはSemantic Identifierをsemantic definitionへmapする。これはconceptual componentであり、本仕様は単一のnetwork service、単一のstorage format、または単一のglobal authorityを要求しない。
+
+概念的には次のとおりである。
+
+```text
+resolve(semanticIdentifier, expectedDefinitionKind)
+→ RESOLVED(definition, provenance)
+  | UNRESOLVED(reason, candidates)
+```
+
+`expectedDefinitionKind`は、例えばCapability Contract、Profile、vocabulary definitionを区別する。返されるdefinitionは、要求されたidentifierによってself-identifyし、かつexpected kindでなければならない（MUST）。
+
+registry implementationは、次を報告するのに十分なprovenanceを保持することが望ましい（SHOULD）。
+
+- 各candidateを提供したsource
+- cacheが使用されたか
+- どのtrustまたはapplication policyがcandidateをfilterしたか
+- candidateがequivalentであったかconflictingであったか
+- 最終resultがresolvedまたはunresolvedとなった理由
+
+semantic definitionはAR-XML Entity description dataとは別にexposeされる。Capability ContractのresolutionによってそのfieldをEntityのAR-DOMへ挿入してはならない（MUST NOT）。ProfileのresolutionによってProfile Claimをverified conformanceへ変換してはならない（MUST NOT）。
+
+registry lookupはeager、lazy、またはapplication-requestedであってよい（MAY）。semantic definitionが利用できない場合でも、Core-valid documentはload可能なままである。
+
+registryはsemantic resolutionのside effectとして、Capabilityをexecuteしたり、credentialをacquireしたり、Entityをauthenticateしたり、authorization decisionを行ったり、Runtime routeをselectしたりしてはならない（MUST NOT）。
+
+<a id="53-resolution-sources"></a>
+# 53. Resolution Source
+
+Semantic Registryは、次を含む1つ以上のsourceからcandidateを取得してもよい（MAY）。
+
+```text
+built-in definitions
+local registry
+cache
+application-provided registry
+installed Extension or plugin
+network source
+```
+
+Coreは、どのsource categoryにもuniversal priorityを定義しない。source order、allowlist、trust anchor、offline behavior、freshness、およびnetwork policyはRuntimeまたはApplicationのpolicyである。
+
+conforming policyは、同じcandidate setおよびpolicy inputに対してdeterministicでなければならない（MUST）。arrival orderまたはunspecified iteration orderをsemantic precedenceとしてsilentに使用してはならない（MUST NOT）。
+
+## 53.1 Built-inおよびInstalled Source
+
+built-in definitionおよびinstalled Extensionまたはpluginは、offline resolutionを提供してもよい（MAY）。installationはRuntimeに対するavailabilityを確立するが、そのdefinitionを参照するすべてのdocumentに対するautomatic trustは確立しない。
+
+## 53.2 LocalおよびApplication-provided Registry
+
+localおよびapplication-provided registryは、private、deployment-specific、またはtest definitionを提供してもよい（MAY）。definitionのsourceは、宣言されたSemantic Identifierを変更しない。
+
+applicationは、consultするregistryを制限してもよい（MAY）。除外されたsourceをconsultしないことはpolicy behaviorであり、semantic identifierがinvalidであることのevidenceではない。
+
+## 53.3 Cache
+
+cacheはexact-versioned identifierのresolutionをsatisfyしてもよい（MAY）。provenance、integrity metadata、expiry、およびstorage layoutはimplementation detailであり、mandatory Core cache fieldではない。cache freshness policyはmutable aliasをexact identityへtransformしてはならない（MUST NOT）。
+
+cached candidateが同じexact identifierに対する別のacceptable candidateとconflictする場合、Section 54が適用される。cache orderはsilent first-wins behaviorをauthorizeしない。
+
+## 53.4 Network
+
+Semantic IdentifierがHTTPまたはHTTPS URIである場合を含め、network resolutionはOPTIONALである。Runtimeはnetwork resolutionをprohibitし、originをrestrictし、integrity metadataをrequireし、または完全にofflineでoperationしてもよい（MAY）。
+
+network failure、DNS failure、TLS failure、HTTP failure、CORS policy、またはdereference refusalは、candidate sourceがunavailableであることを表す。AR-XML documentをstructurally invalidにはせず、Semantic Identifierがinvalidであることを証明しない。
+
+network経由のsemantic resolutionはdefinition-retrieval operationである。Capability executionではない。
+
+<a id="54-conflicting-definitions"></a>
+# 54. Conflicting Definition
+
+複数のsourceが、同じexact Semantic Identifierに対するcandidateを返すことがある。registryは、definition formatが規定するequivalenceまたはintegrity ruleに基づいてcandidateがsemantically equivalentであるかを判断しなければならない（MUST）。
+
+byte-identicalまたはnormatively equivalentなduplicateは、すべてのprovenanceを保持したまま1つのresolved definitionとして扱ってもよい（MAY）。title、description、version label、選択されたfield、またはexampleが似て見えるという理由だけでdefinitionをequivalentとして扱ってはならない（MUST NOT）。
+
+2つのacceptable candidateがnon-equivalentで、同じexact identifierをclaimする場合は次のとおりである。
+
+```text
+silent first-wins
+→ prohibited
+
+silent last-wins
+→ prohibited
+
+merge candidate fields
+→ prohibited
+
+guess intended definition
+→ prohibited
+```
+
+明示的なtrustまたはapplication policyがsemantic selectionの前に1つを除くすべてのcandidateをdeterministicallyにexcludeしない限り、registryはconflictを報告し、`UNRESOLVED`を返さなければならない（MUST）。
+
+trust policyは、configured source identity、signature、integrity metadata、allowlist、または同等のexternal evidenceを使用してcandidateをfilterしてもよい。resolution自体はそのpolicyを定義も暗示もしない。
+
+conflict diagnosticは、credentialまたはsecretをexposeせずに、Semantic Identifier、expected definition kind、candidate source、および利用可能なintegrityまたはversion metadataを識別することが望ましい（SHOULD）。
+
+conflicting Capability Contract definitionは、独立した既知Entity projection contradictionがすでに`CONFLICT`を生成する場合を除き、Contract resolutionを`UNRESOLVED`、projectionを`UNVALIDATED`にする。conflicting Profile definitionは、Profile resolutionを`UNRESOLVED`、Profile conformanceを`UNDETERMINED`にする。
+
+processorは、conforming deterministic resolutionの一部として、AIまたはhuman-language heuristicにconflicting normative definition間の選択を行わせてはならない（MUST NOT）。
+
+<a id="55-entity-resolver-separation"></a>
+# 55. Entity Resolverの分離
+
+Entity resolutionとsemantic-definition resolutionは別々の責務である。
+
+```text
+Entity Resolver
+= entity identity or application reference → AR-XML location
+
+Semantic Registry
+= Semantic Identifier → semantic definition
+```
+
+Entity ResolverはAR-XML representationをlocateする。次のことは行わない。
+
+- Capability ContractまたはProfileをresolveする。
+- どのsemantic definitionがauthoritativeであるかを決定する。
+- Entityまたはdocument issuerをauthenticateする。
+- authorizationをgrantする。
+- Capability availabilityをevaluateする。
+- Capabilityをexecuteする。
+
+Semantic Registryはsemantic definitionをresolveする。applicationが同じimplementationを両方のroleに別途configureしない限り、Entityの現在のAR-XML representationをlocateしない。1つのsoftware componentが両方のroleを実装する場合でも、そのinput、output、state、diagnostic、およびsecurity policyは区別可能なままでなければならない（MUST）。
+
+Entity Identifierは自動的にLocatorまたはCanonical Entity Identityにはならない。applicationまたはidentity schemeは、どのidentifierをEntity Resolver inputとして使用するかを明示的に決定しなければならない。
+
+AR-XML document retrieval URLはRuntime contextである。Part IXのHTTP Extension ruleなど、明示的に定義されたrelative locator resolutionのbaseとして機能する場合があるが、implicit Entity Identifier、Property、またはCanonical Entity Identityにはならない。
+
+概念的に、loadは次のままである。
+
+```text
+ARRuntime.load()
+= Resolve Entity / Fetch / Parse / Validate / Expose
+```
+
+semantic definition resolutionは、load中、exposure後のlazy処理、または明示的application request時に実行してもよい（MAY）。どのtimingを選択しても、Capabilityを自動的にinvokeしてはならない（MUST NOT）。
+
+次の分離は常に適用される。
+
+```text
+Resolution ≠ Trust
+Resolution ≠ Authentication
+Resolution ≠ Authorization
+Resolution ≠ Availability
+Resolution ≠ Execution
+```
+
+---
