@@ -831,3 +831,418 @@ InterfaceUse
 Capability Contractは、Interface、InterfaceUse、Attachment、Realization、Mapping、endpoint、またはtransport informationを含んではならない（MUST NOT）。これらはEntity implementation projectionと利用可能interaction routeを記述するものであり、規範的semantic functionではない。
 
 ---
+
+<a id="part-ii--xml-serialization"></a>
+# Part II — XMLシリアライゼーション
+
+<a id="19-xml-namespace-and-version"></a>
+# 19. XML名前空間とバージョン
+
+AR-XML Core 0.1のnamespaceは次のとおりである。
+
+```text
+https://relink.dev/ns/arxml/core/0.1
+```
+
+Draft 5文書は、すべてのCore elementのnamespace nameとしてこのnamespaceを使用しなければならない（MUST）。exampleではdefault namespaceとして使用する。
+
+rootの`version`属性は必須（REQUIRED）であり、このdraftにおけるvalueは正確に次のとおりである。
+
+```text
+0.1
+```
+
+namespaceとrootの`version="0.1"`はCore 0.1 familyを識別する。Draft 4とDraft 5は区別しない。consumerは明示的なApplication configurationまたはout-of-bandな仕様上の合意によってDraft 5 processingを選択し、Draft 5 grammar全体をvalidateしなければならない（MUST）。このnamespace/version pairだけからdraftを推論してはならず、validation failure時に別draftへ暗黙にfallbackしてもならない（MUST NOT）。versionがない場合、または`0.1`以外の場合、選択されたDraft 5 grammarではinvalidである。
+
+Extension elementはnon-Core namespaceを使用しなければならない（MUST）。namespace prefixの表記はsemantic significanceを持たない。namespace declarationはinformation-model attributeではない。
+
+Core processorはnamespace-awareなXML processingを行わなければならない（MUST）。namespaceを無視してlocal nameだけでelementをmatchする実装はnon-conformingである。
+
+<a id="20-root-element"></a>
+# 20. ルート要素
+
+document elementはCore namespaceの`ar-entity`でなければならない（MUST）。その外側にCore wrapperを置くことは許可されない。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1">
+  <!-- Core children, if any -->
+</ar-entity>
+```
+
+空のEntityもvalidである。
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1" />
+```
+
+rootに許可されるのは、Section 21で定義するCore child、必須のunqualified `version` Core attribute、およびSection 32.3に従うforeign metadata attributeだけである。未知のCore-namespace child、および未知のunqualifiedまたはCore-namespace attributeはinvalidである。
+
+foreign namespaced childを`ar-entity`直下に置くことはできない。Part IIIで定義する明示的なExtension Slot内でのみ許可される。
+
+<a id="21-core-containers-and-child-order"></a>
+# 21. Coreコンテナと子要素順序
+
+## 21.1 Singleton Container
+
+次の任意collection containerは、それぞれ最大1回、`ar-entity`直下に出現できる。
+
+```text
+identifiers
+properties
+subjects
+profiles
+interfaces
+capabilities
+```
+
+`category`は任意のsingleton value elementであり、collection containerではない。最大1回出現できる。
+
+singleton containerの反復は、そのうち1つが空であってもinvalidである。空のcollection containerはvalidであり、containerがない場合と同じcollection cardinalityを持つ。canonical serializerは空のcollection containerを省略することが望ましい（SHOULD）。
+
+このPartで定義するnested singleton container（`requirements`、`invocation`、`inputs`、`result`、`outputs`、`representations`、`interface-uses`、`attachment`、`realization`、`mapping`、`constraints`を含む）は、後のsectionが明示的に別の規則を定めない限り、そのowner element内でそれぞれ最大1回出現できる。
+
+## 21.2 順序に依存しないValidation
+
+許可されたCore child elementの順序は、Core validationにおいてsemantic significanceを持たない。validatorは、cardinalityおよびcontainment規則を満たす限り、許可されたchildをどの順序でも受け入れなければならない（MUST）。
+
+collection itemの順序はdocument dataとして保持されるが、適用可能なnon-Core仕様がそのsemanticsを明示的に定義しない限り、preference、priority、recency、fallback、またはexecution orderを意味してはならない（MUST NOT）。
+
+## 21.3 Canonical Serializerの順序
+
+canonical Draft 5 serializerは、root childが存在する場合、次の順序で出力することが望ましい（SHOULD）。
+
+```text
+category
+identifiers
+properties
+subjects
+profiles
+interfaces
+capabilities
+```
+
+Capability内では、次の順序で出力することが望ましい（SHOULD）。
+
+```text
+requirements
+invocation
+interface-uses
+```
+
+Interface内では、次の順序で出力することが望ましい（SHOULD）。
+
+```text
+attachment
+realization
+requirements
+```
+
+canonical orderは安定した出力の推奨を提供するが、順序に依存しないvalidation規則を変更せず、collection itemへpreferenceを付与しない。許可された別のchild orderを使用しても、Producer conformance claimはinvalidにならない。この推奨はXML byte canonicalizationまたはsignature algorithmではない。
+
+## 21.4 ClosedなCore Content
+
+attributeだけを含むCore elementは、element childまたはnon-whitespace character dataを含んではならない（MUST NOT）。Core container elementはnon-whitespace character dataを含んではならない（MUST NOT）。このPartでelement character dataをvalueとするCore elementは`category`だけである。
+
+この仕様が明示的に宣言しない限り、次の規則を適用する。
+
+- 未知のCore-namespace elementはinvalidである。
+- Core element上の未知のunqualified attributeはinvalidである。
+- 未知のCore-namespace attributeはinvalidである。
+- Extension Slot外のforeign namespaced elementはinvalidである。
+
+Extension Slot内のforeign subtree contentは、Core child grammarではなくPart IIIに従う。すべてのCore elementはSection 32.3に従うforeign namespaced metadata attributeも許可するが、これは定義済みslot外のforeign child elementを許可するものではない。
+
+<a id="22-category-serialization"></a>
+# 22. Categoryのシリアライゼーション
+
+Categoryは`category`のcharacter contentとしてserializeされる。
+
+```xml
+<category>environment.sensor</category>
+```
+
+`category`は、XML markup-only whitespaceを除外した後に空でないvalueを含まなければならない（MUST）。child elementまたはCore/unqualified attributeを含んではならない（MUST NOT）。foreign metadata attributeはSection 32.3に従う。
+
+Coreは、それ以外のCategory content normalizationを行わない。producerはleadingまたはtrailing whitespaceを避けることが望ましい（SHOULD）。vocabulary固有のcomparisonおよびnormalizationは、適用可能Profileが定義しない限りCoreの範囲外である。
+
+<a id="23-identifier-serialization"></a>
+# 23. Identifierのシリアライゼーション
+
+Identifierは、任意の`identifiers` container内にserializeされる。
+
+```xml
+<identifiers>
+  <identifier
+    type="https://example.org/identifier-schemes/asset-id/1"
+    value="A-1042" />
+
+  <identifier
+    type="https://example.org/identifier-schemes/serial/1"
+    value="S-77"
+    subject-ref="sensor-module" />
+</identifiers>
+```
+
+各`identifier`はunqualified attributeの`type`および`value`を持たなければならない（MUST）。`subject-ref`を持ってもよい（MAY）。他のCoreまたはunqualified attribute、およびCore childは許可されない。
+
+`type`および`value`は空であってはならない（MUST）。`subject-ref`が存在する場合、空であってはならず、同じ文書内の`subject`の`id`と一致しなければならない（MUST）。forward referenceはvalidである。whole-document validation後にdangling referenceが残る場合はinvalidである。
+
+複数の`identifier`が同じ`type`を使用してもよい（MAY）。Identifier orderはCore上のpreference semanticsを持たない。
+
+<a id="24-property-serialization"></a>
+# 24. Propertyのシリアライゼーション
+
+Propertyは、任意の`properties` container内にserializeされる。
+
+```xml
+<properties>
+  <property
+    type="https://example.org/properties/manufacturer/1"
+    value="Example Devices" />
+
+  <property
+    type="https://example.org/properties/rated-voltage/1"
+    value="5"
+    unit="V" />
+</properties>
+```
+
+各`property`はunqualified attributeの`type`および`value`を持たなければならない（MUST）。`unit`を持ってもよい（MAY）。このPartでは、他のCoreまたはunqualified attribute、およびCore childは許可されない。
+
+`type`および`value`は空であってはならない（MUST）。`unit`が存在する場合、空であってはならない（MUST）。Coreはlexical valueを保持し、適用可能なsemantic definitionなしにnumeric、boolean、date、location、または別のRuntime typeへcoerceしない。
+
+複数の`property`が同じ`type`を使用してもよい（MAY）。Property orderはCore上のpreferenceまたはrecency semanticsを持たない。
+
+<a id="25-subject-serialization"></a>
+# 25. Subjectのシリアライゼーション
+
+Subjectは、任意の`subjects` container内にserializeされる。
+
+```xml
+<subjects>
+  <subject
+    id="sensor-module"
+    type="https://example.org/subject-types/sensor/1" />
+</subjects>
+```
+
+各`subject`はunqualified `id` attributeを持たなければならず（MUST）、`type`を持ってもよい（MAY）。child elementまたはnon-whitespace character dataを含んではならない（MUST NOT）。
+
+`id`は空であってはならず（MUST）、文書のSubject collection内で一意でなければならない（MUST）。`type`が存在する場合、空であってはならない（MUST）。Subject IDとInterface IDまたはCapability IDは別々のtyped collectionに属するため、異なるtyped collectionで同じlexical valueを使用してもよい（MAY）。
+
+Subject serializationは、nested `ar-entity`、`subjects`、relationship、component、またはhierarchy contentを許可しない。
+
+<a id="26-capability-serialization"></a>
+# 26. Capabilityのシリアライゼーション
+
+Capabilityは、任意の`capabilities` container内にserializeされる。
+
+```xml
+<capabilities>
+  <capability
+    id="temperature-read"
+    type="https://example.org/capabilities/temperature/read/1"
+    subject-ref="sensor-module">
+
+    <requirements />
+    <invocation />
+    <interface-uses />
+  </capability>
+</capabilities>
+```
+
+各`capability`はunqualified attributeの`id`および`type`を持たなければならない（MUST）。`subject-ref`を持ってもよい（MAY）。`id`は空であってはならず（MUST）、文書のCapability collection内で一意でなければならない（MUST）。`type`は空でないexact-versioned absolute Capability Contract identifierでなければならない（MUST）。
+
+`subject-ref`が存在する場合、同じ文書内のSubject IDと一致しなければならない（MUST）。存在しない場合、記述対象Entityがsubjectである。
+
+`capability`に許可されるCore childは、任意のsingleton `requirements`、`invocation`、および`interface-uses`だけである。3つすべてを省略してもよい（MAY）。Invocationを持たないCapability、およびInterfaceUseを持たないCapabilityはvalidである。
+
+<a id="27-invocation-and-result-serialization"></a>
+# 27. InvocationとResultのシリアライゼーション
+
+## 27.1 InvocationとInput
+
+InvocationはCapabilityの任意の`invocation` childとしてserializeされる。空elementもvalidである。
+
+```xml
+<invocation />
+```
+
+Inputが存在する場合、1つの`inputs` container内にserializeされる。
+
+```xml
+<invocation>
+  <inputs>
+    <input
+      name="on"
+      type="boolean"
+      required="true" />
+  </inputs>
+</invocation>
+```
+
+各`input`は`name`および`type`を持たなければならない（MUST）。`required`、`format`、および`unit`を持ってもよい（MAY）。Inputの`name` valueは空であってはならず（MUST）、同じInvocation内で一意でなければならない（MUST）。`type`は`string`、`number`、`integer`、`boolean`、`binary`、`object`、`array`のいずれかでなければならない（MUST）。
+
+`required`がない場合、そのvalueは`true`である。Inputがoptionalになるのは、`required="false"`が明示的に存在する場合だけである。`required`が存在する場合、そのlexical valueは正確に`true`または`false`でなければならない（MUST）。`format`および`unit`が存在する場合、空であってはならない（MUST）。
+
+`input`は任意の`constraints` Extension Slotを1つ含んでもよい（MAY）。slotはPart IIIで定義するforeign namespaced constraint elementを含む。他のchildは許可されない。
+
+## 27.2 ResultとOutput
+
+Resultは`invocation`の任意の`result` childとしてserializeされる。存在する場合、Resultは少なくとも1つのOutputを含まなければならない（MUST）。valueを返さないinvocationでは`result` childを省略する。
+
+```xml
+<result>
+  <outputs>
+    <output
+      name="temperature"
+      type="number"
+      unit="Cel" />
+  </outputs>
+
+  <representations>
+    <representation media-type="application/json" />
+  </representations>
+</result>
+```
+
+`result`は、1つ以上の`output` childを持つ`outputs` containerを正確に1つ含まなければならず（MUST）、`representations` containerを1つ含んでもよい（MAY）。各`output`は`name`および`type`を持たなければならず（MUST）、`format`および`unit`を持ってもよい（MAY）。Outputの`name` valueは空であってはならず（MUST）、そのResult内で一意でなければならない（MUST）。Outputの`type`、`format`、および`unit`は、OutputにCore `required` attributeがない点を除き、上記Input規則に従う。
+
+`output`は任意の`constraints` Extension Slotを1つ含んでもよい（MAY）。他のchildは許可されない。
+
+Draft 5 Coreには`result`配下の`errors` childはない。Core namespaceの`errors` elementはinvalidである。
+
+## 27.3 Representation
+
+各`representation`は、Core定義attributeの`media-type`を正確に1つ持たなければならない（MUST）。その空でないvalueは[RFC 9110 Section 8.3.1](https://httpwg.org/specs/rfc9110.html#media.type)のmedia-type syntaxに適合しなければならない。Core validationはsyntaxを検査し、IANA registrationは検査しない。syntax上validなvendor、personal、およびunregistered type/subtype nameは、未登録またはunknownであるという理由だけではrejectされない。Core validationはregistry lookupを要求したり、local registration snapshotに依存したりしてはならない（MUST NOT）。registration status、Runtime support、およびavailabilityは別のpolicyまたはExtension concernである。HTTP JSON baseline matchingは引き続きSection 75.2に従う。
+
+例:
+
+```xml
+<representations>
+  <representation media-type="application/json" />
+  <representation media-type="text/plain" />
+</representations>
+```
+
+`representation`はCoreまたはforeign child elementを含んではならない（MUST NOT）。Representation orderはpreferenceを表さない。
+
+<a id="28-requirement-serialization"></a>
+# 28. Requirementのシリアライゼーション
+
+Requirementは、CapabilityまたはInterfaceが所有する任意の`requirements` container内にserializeされる。
+
+```xml
+<requirements>
+  <requirement type="https://example.org/requirements/authentication/1">
+    <auth:oauth2
+      xmlns:auth="https://example.org/ns/auth/1"
+      scope="light.write" />
+  </requirement>
+</requirements>
+```
+
+各`requirement`はunqualified `type` attributeを持たなければならない（MUST）。`type`は空であってはならない（MUST）。Coreの`kind`または`scope` attributeは定義されない。
+
+`requirement` elementは、0個以上のforeign namespaced Extension elementを含むExtension Slotである。空でもよく（MAY）、異なるforeign namespaceのelementを含む複数のparameter elementを持ってもよい（MAY）。各subtreeはPart IIIに従って処理され、Requirement definitionがそれらを組み合わせた意味を規定する。`requirement`直下のnon-whitespace character dataはinvalidである。Attachment、Realization、およびMappingのexactly-one-root規則はRequirement bodyには適用されない。
+
+次の例は、2つのExtension parameter elementを持つCore-validなbodyを示す。domain meaningには、識別されたRequirementおよびExtension definitionが必要である。
+
+```xml
+<requirement xmlns="https://relink.dev/ns/arxml/core/0.1"
+             xmlns:access="https://example.org/ns/access/1"
+             type="https://example.org/requirements/access-zone/1">
+  <access:zone value="front" />
+  <access:distance maximum="1" unit="m" />
+</requirement>
+```
+
+配置によってscopeが決まる。Capability配下の同じXML shapeはCapability prerequisiteを、Interface配下ではInterface prerequisiteを宣言する。
+
+<a id="29-interface-and-interfaceuse-serialization"></a>
+# 29. InterfaceとInterfaceUseのシリアライゼーション
+
+## 29.1 Interface
+
+Interfaceは、任意のroot-level `interfaces` container内にserializeされる。
+
+```xml
+<interfaces>
+  <interface id="web-api">
+    <realization>
+      <http:api
+        xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+        base="./api/" />
+    </realization>
+  </interface>
+</interfaces>
+```
+
+各`interface`はunqualified `id` attributeを持たなければならない（MUST）。空であってはならず（MUST）、Interface collection内で一意でなければならない（MUST）。許可されるCore childは、任意のsingleton `attachment`、任意のsingleton `realization`、および任意のsingleton `requirements`だけである。
+
+`attachment`または`realization`の少なくとも一方が存在しなければならない（MUST）。したがって、`<interface id="x"/>`および`requirements`だけを含むInterfaceはinvalidである。
+
+`attachment`および`realization`は明示的なExtension wrapperである。各wrapperが存在する場合、foreign namespaced semantic rootを正確に1つ含み、direct non-whitespace character dataを含んではならない（MUST）。
+
+Attachmentのみを持つInterfaceはvalidである。
+
+```xml
+<interface id="display-port">
+  <attachment>
+    <phys:connector
+      xmlns:phys="https://example.org/ns/physical/1"
+      type="hdmi" />
+  </attachment>
+</interface>
+```
+
+## 29.2 InterfaceUse
+
+InterfaceUseは、Capabilityの任意の`interface-uses` container内にserializeされる。
+
+```xml
+<interface-uses>
+  <interface-use ref="web-api">
+    <mapping>
+      <http:operation
+        xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+        method="POST"
+        path="light/state" />
+    </mapping>
+  </interface-use>
+</interface-uses>
+```
+
+各`interface-use`はunqualified `ref` attributeを持たなければならない（MUST）。`ref`は空であってはならず（MUST）、同じ文書内のInterface IDと一致しなければならない（MUST）。forward referenceは許可される。whole-document validation後にdangling referenceが残る場合はinvalidである。
+
+`interface-use`は`mapping` wrapperを1つ含んでもよい（MAY）。`mapping`が存在する場合、foreign namespaced semantic rootを正確に1つ含み、direct non-whitespace character dataを含んではならない（MUST）。
+
+plain referenceはvalidである。
+
+```xml
+<interface-use ref="display-port" />
+```
+
+同じCapability内の複数のInterfaceUseが同じ`ref`を持ってもよい（MAY）。InterfaceUse orderはpreferenceを表さない。
+
+<a id="30-profile-claim-serialization"></a>
+# 30. Profile Claimのシリアライゼーション
+
+Profile Claimは、任意の`profiles` container内にserializeされる。
+
+```xml
+<profiles>
+  <conforms-to href="https://example.org/profiles/reference-lab/1" />
+</profiles>
+```
+
+各`conforms-to`はunqualified `href` attributeを持ち（MUST）、child elementまたはnon-whitespace character dataを含んではならない（MUST NOT）。`href`は空でないexact-versioned absolute Profile identifierでなければならない（MUST）。relative referenceおよび`latest`のようなmoving version aliasは、規範的Profile identityとしてinvalidである。
+
+Profile Claim orderはpreference、verification status、またはcertification levelを表さない。
+
+---
