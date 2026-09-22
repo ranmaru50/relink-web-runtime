@@ -4978,3 +4978,273 @@ cardinalityはpresenceおよびmultiplicityだけを記述する。priority、pr
 これらのquestionは、ここで要約されたcardinalityの変更ではなく、normative bodyのsemantic、validation、およびRuntime evaluation ruleによってresolveされる。
 
 ---
+
+<a id="appendix-c-validation-error-categories"></a>
+# Appendix C. Validation Error分類
+
+このappendixはimplementation、test suite、authoring tool、およびconformance report用のinformative diagnostic taxonomyである。normative outcome stateを置換せず、特定のerror-code spelling、exception hierarchy、API、またはmessage formatを要求しない。
+
+中心的ruleはfailure domainをdistinctに保つことである。processorはすべてのunsuccessful operationを「invalid AR-XML」として報告してはならない。
+
+```text
+Entity resolution failure
+≠ resource fetch failure
+≠ XML parse failure
+≠ Core validation failure
+≠ Extension validation result
+≠ semantic resolution result
+≠ projection validation result
+≠ Profile conformance result
+≠ Runtime availability result
+≠ invocation result or error
+```
+
+## C.1 Diagnostic Record
+
+machine-readable diagnosticはnatural-language interpretationを要求せずにfailure domainおよびaffected dataの両方を識別するのに十分なinformationを含むことが望ましい（SHOULD）。有用なrecordには次が含まれる。
+
+| Field | Purpose |
+|---|---|
+| `category` | stable failureまたはoutcome family |
+| `code` | specific implementationまたはspecification-defined condition |
+| `severity` | error、warning、またはinformational presentation level |
+| `phase` | Resolve、fetch、parse、Core validate、Extension validate、semantic resolve、evaluate、serialize、またはinvoke |
+| `location` | source line/column、XML expanded name、AR-DOM path、semantic field、またはroute identity |
+| `specRef` | relevant specification sectionまたはExtension rule |
+| `message` | human-readable explanation |
+| `state` | `UNRESOLVED`、`CONFLICT`、`UNAVAILABLE`などのapplicable normative state |
+| `cause` | optional underlying diagnosticまたはplatform failure |
+| `provenance` | relevantな場合のregistry source、Extension version、policy context、またはevaluation time |
+
+exact record shapeはimplementation-definedである。categoryとstateは別々に表現することが望ましい。例えば`SEMANTIC.CONTRACT_NOT_FOUND`は`ContractResolution = UNRESOLVED`の理由を説明し得る。
+
+diagnosticはpassword、bearer token、private key、API secret、session cookie、または同等のCredentialをdiscloseしてはならない（MUST NOT）。implementationはstructural pathおよび有用なreasonを保持しながら、sensitive Identifier、Property、Input、Output、query、response、location、およびopaque Extension valueをredactすることが望ましい（SHOULD）。
+
+## C.2 Recommended Category Family
+
+interoperable reportingには次のsymbolic familyを推奨する。implementationは同じ区別をpreserveするなら異なるexact codeを使用してもよい（MAY）。
+
+| Family | Domain | AR-XML documentをCore-invalidにするか |
+|---|---|---|
+| `ENTITY_RESOLUTION.*` | Entity referenceからAR-XML locationへのmapping | No。documentが取得されていない場合がある |
+| `FETCH.*` | AR-XML resource byteのretrieval | No。documentが取得されていない場合がある |
+| `XML.*` | XML byte decodingおよびwell-formed parsing | Yes。conforming AR-DOMは生成されない |
+| `CORE.*` | Draft 5 namespace、grammar、value、ID、およびreference | Yes |
+| `EXTENSION.*` | Extension recognition、support、またはExtension-specific validation | Core slot envelopeがvalidなら、それ自体ではNo |
+| `SEMANTIC.*` | Capability Contract、Profile、またはvocabulary resolution | No |
+| `PROJECTION.*` | Entity Capabilityとresolved Contractの比較 | No。projection stateおよびrouteへ影響 |
+| `PROFILE.*` | Profile resolutionおよびconformance | No |
+| `REQUIREMENT.*` | Runtime prerequisite evaluation | No |
+| `SUPPORT.*` | Runtime implementation support | No |
+| `AVAILABILITY.*` | routeまたはCapability aggregation | No |
+| `SERIALIZATION.*` | AR-DOM outputおよびpreservation | input validityをretroactivelyに変更しない |
+| `INVOCATION.*` | explicit execution attemptおよびoutcome | No |
+
+UI presentation用に選択されたseverityはnormative resultをredefineしない。例えばunresolved optional Profileをwarningとして表示してもよいが、そのProfileResolution stateは`UNRESOLVED`のままである。
+
+## C.3 Entity Resolution、Fetch、およびXML Parsing
+
+| Recommended code | Condition | Processing consequence |
+|---|---|---|
+| `ENTITY_RESOLUTION.NOT_FOUND` | Entity ResolverがAR-XML locationをselectしなかった | Loadはdocumentをfetchできない |
+| `ENTITY_RESOLUTION.AMBIGUOUS` | resolverが1つのlocationをdeterministicallyにselectできない | Loadは停止するかexplicit Application policyを要求 |
+| `ENTITY_RESOLUTION.POLICY_BLOCKED` | resolverまたはsecurity policyがlocationをprohibit | Loadはそのtargetをfetchしない |
+| `FETCH.NETWORK_FAILURE` | connection、DNS、TLS、または同等のretrieval failure | XML parse resultなし |
+| `FETCH.HTTP_FAILURE` | document retrievalがunacceptable HTTP outcomeを返した | そのresponseからconforming loaded documentなし |
+| `FETCH.SIZE_LIMIT` | resourceがconfigured safe-processing limitを超える | parsingをrefuse |
+| `XML.DECODING` | applicable XML ruleの下でbyteをdecodeできない | conforming AR-DOMなし |
+| `XML.NOT_WELL_FORMED` | XML syntaxがmalformed | conforming AR-DOMなし |
+| `XML.SECURITY_POLICY` | DTD、external entity、expansion、depth、または別のparser-security limitに違反 | parsingをrefuse |
+
+Entity resolutionおよびFetch diagnosticはCore document validityを確立できる前に発生する。loadingがfailしたという理由だけで`CORE.*`へreclassifyしてはならない。
+
+AR-XML resourceのfetchはdescription retrievalである。Capability executionではなく、`INVOCATION.*` resultを生成してはならない。
+
+## C.4 Core Structural Validation
+
+`CORE.*` diagnosticはparsed XMLがDraft 5 Core grammarへconformしないことを示す。そのようなerrorはいずれも、documentをconforming AR-DOMとしてexposeすることを妨げる。
+
+| Recommended code | Example condition |
+|---|---|
+| `CORE.ROOT` | document elementがCore `ar-entity`でない、または禁止wrapperがpresent |
+| `CORE.NAMESPACE` | Core elementがwrong namespaceを使用、またはlocal nameだけでmatch |
+| `CORE.VERSION` | root `version`がabsent、または正確に`0.1`でない |
+| `CORE.UNKNOWN_ELEMENT` | unknown elementがCore namespaceに出現 |
+| `CORE.UNKNOWN_ATTRIBUTE` | unknown unqualifiedまたはCore-namespace attributeがCore elementに出現。foreign metadata attributeはpermitted |
+| `CORE.FOREIGN_CONTENT_LOCATION` | foreign elementがExtension Slot外に出現 |
+| `CORE.CONTAINMENT` | known Core childがprohibited parent下に出現 |
+| `CORE.CARDINALITY` | singletonのrepeat、required itemの欠落、またはmalformed collection envelope |
+| `CORE.CHARACTER_CONTENT` | Coreが許可しない場所にnon-whitespace textが出現 |
+| `CORE.REQUIRED_VALUE` | required attributeまたはnon-empty lexical valueがabsentまたはempty |
+| `CORE.DATA_TYPE` | InputまたはOutputがunknown Core structural typeを使用 |
+| `CORE.BOOLEAN_LEXICAL` | `required`が正確に`true`または`false`でない |
+| `CORE.MEDIA_TYPE` | Representation `media-type`がabsent、またはCore ruleの下でinvalid |
+| `CORE.SEMANTIC_IDENTIFIER_SHAPE` | exact-versioned absolute identifierを要求されるfieldがその形式でない |
+| `CORE.INTERFACE_EMPTY` | InterfaceがAttachmentもRealizationも持たない |
+| `CORE.EXTENSION_ENVELOPE` | Attachment、Realization、Mapping、Requirement body、またはConstraintsがCore slot envelopeに違反 |
+
+Core child orderはsemantically significantでない。それ以外はpermittedなchildがnon-canonical orderで現れるという理由だけで、validatorは`CORE.CONTAINMENT`または`CORE.CARDINALITY`をemitしてはならない（MUST NOT）。
+
+valid Extension Slot内のunknown foreign contentは`CORE.UNKNOWN_ELEMENT`ではない。Core validatorはvalid envelopeを記録し、Extension recognitionおよびvalidationを別の`EXTENSION.*` domainへ残す。
+
+## C.5 UniquenessおよびReference Diagnostic
+
+uniquenessおよびlocal-reference failureはCore structural errorだが、よりspecificなcodeが有用である。
+
+| Recommended code | Condition |
+|---|---|
+| `CORE.DUPLICATE_SUBJECT_ID` | 2つのSubjectが同じexact `id`を持つ |
+| `CORE.DUPLICATE_INTERFACE_ID` | 2つのInterfaceが同じexact `id`を持つ |
+| `CORE.DUPLICATE_CAPABILITY_ID` | 2つのCapabilityが同じexact `id`を持つ |
+| `CORE.DUPLICATE_INPUT_NAME` | 1つのInvocation内の2つのInputが同じexact `name`を持つ |
+| `CORE.DUPLICATE_OUTPUT_NAME` | 1つのResult内の2つのOutputが同じexact `name`を持つ |
+| `CORE.DANGLING_SUBJECT_REF` | IdentifierまたはCapability `subject-ref`がどのSubjectにもmatchしない |
+| `CORE.DANGLING_INTERFACE_REF` | InterfaceUse `ref`がどのInterfaceにもmatchしない |
+
+XML attribute-value processing後のexact equalityを使用する。同じlexical IDは異なるtyped collection間ではvalidなので、diagnosticはtyped collectionまたはscopeを含むことが望ましい。
+
+forward referenceはvalidである。validatorはdangling referenceを報告する前にapplicable targetのcollectionを完了しなければならない。placeholderを作成したり、similar spellingを選択したり、別documentをsearchしたり、network serviceを通じてresolveしたりしてはならない。
+
+repeated PropertyまたはIdentifier `type` value、およびrepeated InterfaceUse `ref` valueはpermittedであり、duplicate-ID errorとして報告してはならない。
+
+## C.6 Extension Diagnostic
+
+Extension processingはCore slot validity、Extension recognition、implementation support、およびExtension-specific validityを分離する。
+
+| Recommended code | Meaning | Core validity | Typical derived effect |
+|---|---|---|---|
+| `EXTENSION.UNKNOWN` | namespace/root/slot semanticsがrecognizeされない | validのまま | applicable evaluationはunknownになる |
+| `EXTENSION.UNSUPPORTED` | Extensionはrecognizedだがrequired processingが未実装 | validのまま | affected featureの`Support = UNSUPPORTED` |
+| `EXTENSION.INVALID` | recognized supported Extensionが独自grammarまたはsemanticsに違反 | Core envelopeはvalidのまま | Extension conformanceはfail。affected routeはusableでない |
+| `EXTENSION.PROCESSOR_FAILURE` | Extension processorが安全に完了できない | Core resultはunchanged | known blockerがなければsupportまたはevaluationはunknown |
+| `EXTENSION.PRESERVATION_LOSS` | claimed output modeでforeign subtreeをpreserveできない | Core input resultはunchanged | lossless round-trip claimは利用不可 |
+
+invalid Core slot envelopeは`EXTENSION.INVALID`ではなく`CORE.EXTENSION_ENVELOPE`を使用する。例えばempty `mapping` wrapperはCore-invalidであり、正しく形成されたMapping envelope内のsyntactically invalid known `http:operation`はHTTP Extension validation failureである。
+
+foreign subtreeのpreservationまたはdisplayはExtension supportを確立しない。Extension processorはCore resultを変更したり、Core envelopeをrepairしたり、Credentialへaccessしたり、validation中にCapabilityをexecuteしたりしてはならない。
+
+## C.7 Semantic ResolutionおよびProjection Diagnostic
+
+semantic-definition resolutionはCore document validityを決定しない。
+
+| Recommended code | Normative state | Meaning |
+|---|---|---|
+| `SEMANTIC.CONTRACT_NOT_FOUND` | `ContractResolution = UNRESOLVED` | usable exact Contract definitionが利用できない |
+| `SEMANTIC.CONTRACT_CONFLICT` | `ContractResolution = UNRESOLVED` | non-equivalent definitionが同じexact Contract identifierをclaim |
+| `SEMANTIC.PROFILE_NOT_FOUND` | `ProfileResolution = UNRESOLVED` | usable exact Profile definitionが利用できない |
+| `SEMANTIC.PROFILE_CONFLICT` | `ProfileResolution = UNRESOLVED` | non-equivalent definitionが同じexact Profile identifierをclaim |
+| `SEMANTIC.POLICY_BLOCKED` | applicable resolution stateは`UNRESOLVED` | registryまたはtrust policyがすべてのcandidateをreject |
+| `SEMANTIC.DEFINITION_INVALID` | applicable resolution stateは`UNRESOLVED` | candidate definitionを定義元specificationの下で使用できない |
+
+resolverはversionをsilentにsubstituteしたりfirst-wins behaviorを使用したりせず、requested exact identity、candidate source、およびconflictまたはpolicy reasonを報告することが望ましい。
+
+Projection diagnosticは`ProjectionValidation`を説明する。
+
+| Recommended code | State | Example |
+|---|---|---|
+| `PROJECTION.UNRESOLVED_CONTRACT` | `UNVALIDATED` | exact Contractがresolveされなかった |
+| `PROJECTION.UNKNOWN_COMPARISON` | `UNVALIDATED` | constraintまたはExtension comparison semanticsがunsupported |
+| `PROJECTION.MISSING_REQUIRED_INPUT` | `CONFLICT` | required Contract Inputがabsent |
+| `PROJECTION.TYPE_CONFLICT` | `CONFLICT` | Entityが`boolean`を`string`としてproject |
+| `PROJECTION.REQUIREMENT_WEAKENED` | `CONFLICT` | ProjectionがContract Requirementをomitまたはweaken |
+| `PROJECTION.PROHIBITED_WIDENING` | `CONFLICT` | Entity constraintがContractでforbiddenなvalueをpermit |
+
+known `CONFLICT`は別のunknown comparisonによって隠されない。`UNVALIDATED`のdiagnosticはverified compatibilityまたはincompatibilityとして記述してはならない。
+
+## C.8 Profile Diagnostic
+
+Profile resolutionとProfile conformanceは別である。
+
+| Recommended code | State | Meaning |
+|---|---|---|
+| `PROFILE.UNRESOLVED` | `ProfileResolution = UNRESOLVED` | exact Profile definitionがunavailable、conflicting、invalid、またはrejected |
+| `PROFILE.MISSING_REQUIRED_CAPABILITY` | `ProfileConformance = NON_CONFORMANT` | deterministically required Capabilityがabsent |
+| `PROFILE.PROHIBITED_OR_INCOMPATIBLE_FEATURE` | `NON_CONFORMANT` | required Profile itemまたはSections 46–47で定義されたexplicit Interface、Requirement、もしくはExtension policyがknown failure |
+| `PROFILE.UNKNOWN_REQUIRED_SEMANTICS` | `UNDETERMINED` | required Extensionまたはcomparisonをevaluateできない |
+| `PROFILE.UNVALIDATED_PROJECTION` | `UNDETERMINED` | required itemにsatisfying candidateがなく、candidate projectionがindeterminateのまま |
+
+`NON_CONFORMANT`にはknown violationが必要である。unresolved definitionおよびunknown required semanticsはguessed failureではなく`UNDETERMINED`を生成する。Profile Claimはdiagnosticをsuppressせず、`CONFORMANT`を強制しない。
+
+## C.9 Runtime Evaluation Diagnostic
+
+Requirement、Attachment、Support、およびAvailability evaluationはCore validation errorではなくRuntime stateを生成する。
+
+| Family | State values | Diagnostic purpose |
+|---|---|---|
+| `REQUIREMENT.*` | `SATISFIED`、`UNSATISFIED`、`UNKNOWN` | evidenceおよびprerequisite evaluationを説明 |
+| `ATTACHMENT_*` | `SATISFIED`、`UNSATISFIED`、`UNKNOWN` | declared access-condition satisfactionをmechanism supportとは別に説明 |
+| `SUPPORT.*` | `SUPPORTED`、`UNSUPPORTED`、`UNKNOWN` | implementedまたはmissing route featureを識別 |
+| `AVAILABILITY.*` | `READY`、`UNAVAILABLE`、`UNKNOWN` | routeおよびCapability aggregationを説明 |
+
+推奨exampleには次が含まれる。
+
+| Code | Result |
+|---|---|
+| `REQUIREMENT.UNSATISFIED` | known mandatory prerequisiteがrouteを`UNAVAILABLE`にする |
+| `REQUIREMENT.UNKNOWN` | known blockerがなければunknown evaluatorが`UNKNOWN`に寄与 |
+| `ATTACHMENT_UNSATISFIED` | known unmet Attachment access conditionがこのrouteを`UNAVAILABLE`にする |
+| `ATTACHMENT_UNKNOWN` | known blockerがなければunknown Attachment semanticsまたはevidenceが`UNKNOWN`に寄与 |
+| `AVAILABILITY.NO_REALIZATION` | 参照先InterfaceにRealizationがない。request-oriented routeは`UNAVAILABLE`だがInterfaceはCore-validのまま |
+| `SUPPORT.REALIZATION_UNSUPPORTED` | required Realizationがrouteを`UNAVAILABLE`にする |
+| `SUPPORT.MAPPING_UNKNOWN` | unknown Mapping supportが`UNKNOWN`に寄与 |
+| `AVAILABILITY.NO_INVOCATION` | evaluationはCore Invocation scope外。Availability valueは生成されない |
+| `AVAILABILITY.NO_ROUTE` | Invocationを持つCapabilityにdescribed InterfaceUse routeがない。invocation-route aggregationは`UNAVAILABLE` |
+| `AVAILABILITY.POLICY_BLOCKED` | RuntimeまたはApplication policyがdeterministicallyにrouteを`UNAVAILABLE`にする |
+
+diagnosticはcontributing stateを識別し、precedenceをpreserveすることが望ましい。known conflict、unsatisfied mandatory Requirement、unsupported required feature、およびdeterministic policy blockは、unrelated evaluationがunknownでも`UNAVAILABLE`を生成する。
+
+`READY`はsuccess diagnosticではない。authorization、target reachability、remote acceptance、safety、またはexecution outcomeを確立しない。
+
+## C.10 SerializationおよびInvocation Diagnostic
+
+serialization diagnosticはAR-DOMからXMLをemitするときに発生する。
+
+| Recommended code | Condition |
+|---|---|
+| `SERIALIZATION.INVALID_MODEL` | requested modelをvalid Draft 5 Coreとしてemitできない |
+| `SERIALIZATION.EXTENSION_LOSS` | required foreign subtree informationをpreserveできない |
+| `SERIALIZATION.ENCODING` | requestedのとおりoutputをencodeできない |
+| `SERIALIZATION.NON_CANONICAL_REQUEST` | requested modeが意図的にcanonical Core orderと異なる |
+
+serialization failureは正常にparsedされたsource documentをretroactivelyにCore-invalidにしない。processorはそのclaimを満たせない場合、canonicalまたはlossless outputをclaimしてはならない。
+
+invocation diagnosticは明示的なApplicationまたはHuman requestの後にのみ発生する。有用なsubcategoryには次が含まれる。
+
+| Recommended code | Failure domain |
+|---|---|
+| `INVOCATION.INPUT_VALIDATION` | caller Inputがknown semantic ruleに違反 |
+| `INVOCATION.ROUTE_NOT_READY` | selected routeがcurrent evaluationの下で`READY`でない |
+| `INVOCATION.POLICY_BLOCKED` | execution policyがrequestをrefuse |
+| `INVOCATION.TRANSPORT` | network、TLS、timeout、CORS、またはprotocol failure |
+| `INVOCATION.AUTHENTICATION` | targetがauthenticationをreject、または確立できない |
+| `INVOCATION.AUTHORIZATION` | targetがrequested operationをdeny |
+| `INVOCATION.HTTP_STATUS` | HTTP Interfaceがnon-`2xx` baseline outcomeを返す |
+| `INVOCATION.REPRESENTATION` | content type、body shape、またはdecodingがincompatible |
+| `INVOCATION.RESULT_VALIDATION` | decoded Outputがdeclared typeまたはunderstood constraintに違反 |
+| `INVOCATION.SEMANTIC_ERROR` | versioned Capability semanticsがdomain errorを識別 |
+
+transportおよびHTTP failureはCore validation failureではない。applicable versioned semantic mappingなしにHTTP statusだけをCapability semantic errorとしてrelabelしてはならない。
+
+## C.11 Aggregation、Repair、およびReporting
+
+processorは複数のdiagnosticを返してもよい（MAY）。1つのcauseをunrelated errorとしてduplicateするのではなく、causal structureをpreserveすることが望ましい（SHOULD）。例えば1つのunresolved Contractが`ProjectionValidation = UNVALIDATED`を生じさせ、route `Availability = UNKNOWN`へ寄与し得る。reportはresolution diagnosticをunderlying causeとして保持することが望ましい。
+
+diagnostic aggregationはknown informationを消去してはならない。
+
+```text
+known conflict + unknown comparison
+→ report both
+→ ProjectionValidation remains CONFLICT
+
+known route blocker + unrelated uncertainty
+→ report both
+→ Availability remains UNAVAILABLE
+```
+
+processorはoriginalがvalidatedしたとclaimしながらinvalid documentをsilentにrepairしてはならない（MUST NOT）。suggested edit、migration、またはeditor recoveryは別のworkflowである。repaired contentはnew documentであり、applicable validation pipeline全体をpassしなければならない。
+
+conformance reportはspecification version、claimed conformance class、Extension version、policy context、およびdiagnosticがparse-time、Core、Extension、semantic、evaluation、serialization、またはinvocation resultのいずれかを明示することが望ましい（SHOULD）。natural-language messageはlocalizeしてもよいが、machine categoryおよびstate identityはstableなままであることが望ましい。
+
+AIまたはLLM assistanceはdiagnosticを説明し、repairを提案してもよいが（MAY）、deterministic classification、normative state selection、およびconformance decisionはprobabilistic interpretationに依存してはならない（MUST NOT）。
+
+---
