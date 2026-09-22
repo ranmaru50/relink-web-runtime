@@ -5669,3 +5669,259 @@ syntax changeにもかかわらず、Draft 5はDraft 4のcentral decisionをい�
 したがってDraft 5は、Draft 4ですでにsoundであったsemantic separationをdiscardせず、syntaxおよびprocessing modelをrebuildする。
 
 ---
+
+---
+
+<a id="appendix-e-non-goals"></a>
+# Appendix E. 非目標
+
+このappendixは、Draft 5がCoreで意図的に標準化しない関心事を示す。非目標は、必ずしも重要でないことや、恒久的に禁止されることを意味しない。Coreが、その関心事のdomain model、execution semantics、protocol、policy engine、またはconformance ruleを定義しないことを意味する。
+
+外部標準、Capability Contract、Profile、Extension、Runtime、またはApplicationは、Coreを弱化したり矛盾したりしない限り、非目標を扱ってもよい。このような統合によって、外部semanticsがAR-XML Coreの一部になるわけではない。
+
+## E.1 概要
+
+Draft 5 Coreは次のものではない。
+
+- robot manipulation標準
+- general connector ontology
+- relationまたはhierarchy inference system
+- AI planner
+- skill、workflow、choreography、またはorchestration language
+- Credential manager
+- authorization enforcement system
+- 新しいtransport protocol
+- W3C WoTの再実装
+- GS1 identifier標準の再実装
+- OPC UAまたはAsset Administration Shellの再実装
+- generic mapping DSL
+- AR-XMLのJSON serialization
+- load中のautomatic execution mechanism
+- mandatory centralized registry system
+
+以降のsectionでは、このlistの背景にある境界を定義する。
+
+## E.2 Robot ManipulationおよびPhysical Control
+
+Coreは、Contractがrobot、vehicle、actuator、tool、またはphysical processに関連するfunctionを記述するCapabilityを宣言できる。Extensionを通じてAttachmentまたはRealizationを記述することもできる。ただし、次のものは定義しない。
+
+- coordinate frame、kinematics、dynamics、trajectory、grasping、またはpath planning
+- robot description、joint model、end effector、またはcollision geometry
+- motion safety、emergency stop、force limit、またはfunctional-safety assurance
+- task allocation、fleet control、またはautonomous control loop
+- industrial、medical、automotive、aviation、その他のsafety-critical system向けdomain-specific command semantics
+
+robotics specificationは、AR-XMLを使用するversioned Capability ContractおよびExtensionを定義してもよい。physical semantics、deterministic constraint、safety analysis、authorization、およびconformanceに対する責任は、引き続きそれらのspecificationが負う。
+
+`READY`はphysical-safety approvalではない。routeに既知のlocal interoperability blockerがないという理由だけで、Runtimeがphysical actionをsafeであると推論してはならない。
+
+## E.3 Connector、Spatial、およびAttachment Ontology
+
+Attachmentは、physical、spatial、contact-oriented、またはその他のdirect access boundaryのためのExtension Slotである。Coreは、次に関するuniversal ontologyを定義しない。
+
+- connector family、shape、pinout、gender、orientation、mating、またはelectrical limit
+- spatial anchor、coordinate system、pose、tolerance、reachability、またはocclusion
+- mechanical、optical、acoustic、wireless、またはmaterial compatibility
+- installation、assembly、maintenance、またはhandling instruction
+
+Attachment Extensionは、独自のnamespaceおよびversionの下でこれらのいずれを定義してもよい。そのExtension自身のdeterministic semanticsが結果を明示的に確立しない限り、Capability、Invocation、compatibility decision、またはsafe connectionを意味してはならない。
+
+Coreがgeneral connector ontologyを持たないからこそ、単純なHDMI connector description、passive tag、printed marker、または将来のdomain-specific Attachmentは、すべてのphysical objectを1つのtaxonomyに押し込むことなく共存できる。
+
+## E.4 Relation、Hierarchy、およびInference
+
+Draft 5にはCore Relations collectionがない。ownership、containment、composition、adjacency、equivalence、dependency、membership、provenance graph、digital-twin graph、または任意のEntity間linkを定義しない。
+
+Subjectは、軽量なdocument-local target descriptorである。次のものではない。
+
+- nested Entity
+- component tree
+- relation node
+- ownership assertion
+- 2つのidentifierが同一のreal-world thingを指すことのevidence
+
+`subjectRef`は、IdentifierおよびCapabilityに対して定義されたexplicit scopingだけを提供する。processorは、shared value、document position、URL path、interface reuse、similar name、physical proximity、またはAI interpretationから、明記されていないrelationを推論してはならない。
+
+将来のRelations specificationは、companion modelまたは適切な将来のExtension/Core versionを使用してもよい。asserted relationとinferred relationを分離し、identity、provenance、trust、およびconflict behaviorを明示的に定義しなければならない。
+
+## E.5 AI PlanningおよびAutonomous Behavior
+
+CoreはAI plannerではなく、goal、reward、policy、tool-selection strategy、prompt format、memory、reasoning trace、autonomy level、またはmulti-agent coordinationを定義しない。
+
+Capability descriptionをAI-assisted Applicationへexposeしてもよいが、AR-XMLはそのApplicationによるinvocationをauthorizeしない。explicit initiating intent、Input validation、Requirement evaluation、route selection、authorization、safety policy、およびexecution controlに対する責任は、引き続きApplicationが負う。
+
+natural-language similarityおよびprobabilistic model outputは、deterministic semantic resolutionではない。AIまたはLLM processingはauthoring、discovery、explanation、またはuser interactionを支援してもよいが、次のものには要求されない。
+
+- Core parsingまたはvalidation
+- ContractまたはProfileのidentity comparison
+- projection compatibility
+- Profile conformance
+- securityまたはauthorization decision
+- specification conformance testing
+
+AIが生成したInput、mapping、migration decision、またはinferred targetは、explicit deterministic policyによってacceptされるまでuntrustedである。
+
+## E.6 Skill、Workflow、およびOrchestration Language
+
+Capabilityは、1つのsemantic functionまたはfunctional affordanceを記述する。workflow step definition、executable skill package、script、behavior tree、state machine、transaction、saga、choreography、またはcomposition graphではない。
+
+Coreは次のものを定義しない。
+
+- sequencing、branching、loop、parallelism、compensation、またはrollback
+- Capability invocation間のdependency graphまたはdata flow
+- trigger、timer、event、またはsubscription orchestration
+- distributed transaction semantics
+- workflow persistence、scheduling、ownership、またはrecovery
+- Capability chainのautomatic selectionおよびexecution
+
+Applicationまたは独立したworkflow specificationは、明示的に要求されたCapability invocationをorchestrateしてもよい。InterfaceUseのdocument orderをsequence、反復するCapabilityをstep、Requirementをtrigger、またはProfile constraintをexecution planとして扱うことにより、workflow semanticsをencodeしてはならない。
+
+Draft 5では、Observation、Subscription、Event、Notification、およびStream patternもrequest-oriented Invocationへ一般化されない。emptyまたはlong-running Invocationにoverloadするのではなく、独立したsemanticsを必要とする。
+
+## E.7 Credential ManagementおよびAuthorization Enforcement
+
+AR-XMLは、authenticationまたはauthorizationのprerequisiteをtyped Requirementとして宣言してもよい。ただし、次のことは行わない。
+
+- Credentialのissue、store、discover、refresh、rotate、revoke、またはexchange
+- password、token、private key、session cookie、API secret、または同等のsecretのembed
+- login、consent、delegation、token exchange、またはaccount recovery flowの定義
+- principalがauthorizedであるというdecision
+- remote resource policyのenforcement
+- target systemのauthorization checkの代替
+
+Credential handlingは、それぞれのsecurity policyの下でRuntime、Host Application、operating environment、user agent、identity provider、およびtarget serviceが担う。
+
+```text
+Requirement declaration
+≠ Credential
+≠ Authentication result
+≠ Authorization grant
+≠ Enforcement
+```
+
+`RequirementEvaluation = SATISFIED`はremote authorizationを保証しない。`READY`は、供給されたCredentialがacceptされることを保証しない。明示的なinvocation attemptの後でも、authenticationおよびauthorization failureは起こり得る。
+
+## E.8 TransportおよびProtocolの標準化
+
+Coreは、新しいnetwork、transport、discovery、messaging、またはsession protocolを定義しない。Semantic identityはHTTP dereferencingを必須とせず、Entity resolutionは特定のdiscovery transportを必須としない。
+
+Standard HTTP ExtensionはHTTPを再利用する。限定されたAR-XML realizationおよびmapping baselineを定義するが、HTTP method、status code、URI processing、TLS、authentication scheme、caching、redirect、Content-Type、CORS、またはbrowser securityを再定義しない。
+
+その他のtransportまたはmechanismは、Extensionによって定義してもよい。そのExtensionは、自身のnamespace、versioning、syntax、mapping、security、support detection、およびRuntime behaviorに責任を持つ。protocol名をdocumentに置くだけでは、conforming bindingは作成されない。
+
+Coreはnetwork access自体を要求しない。Passive、attachment-only、offline、Human-mediated、locally resolved、およびgateway-mediated Entityは、引き続きvalidである。
+
+## E.9 外部Domain Standardの再実装
+
+Draft 5は、確立された外部標準のcopyまたは再定義を意図的に避ける。
+
+| 外部領域 | Coreの境界 |
+|---|---|
+| W3C Web of Things | CoreはThing Description、affordance、security-scheme、form、またはprotocol-binding modelを再作成しない |
+| GS1およびproduct identifier | CoreはGTINまたは関連するallocation、check-digit、packaging、もしくはidentification semanticsを定義しない |
+| vehicleおよびdevice identifier | CoreはVIN、MAC、IPv6、IMEI、serial-number、またはその他のscheme semanticsを再定義しない |
+| OPC UA | Coreはそのinformation model、service、node、reference、security、またはtransport profileを再作成しない |
+| Asset Administration Shell | CoreはAAS submodel、semantic ID、package、shell、またはregistryを再作成しない |
+
+Identifierの`type`、Propertyの`type`、Capability Contract、Profile、Requirement、またはExtensionは、その標準のauthorityの下で外部標準を参照してもよい。bridgeは、provenance、loss、versioning、およびconflict behaviorを定義する場合、AR-XMLと外部modelの間をmapしてもよい。
+
+このようなreferenceまたはbridgeによって、2つのmodelが同一になるわけではない。processorは、matching label、shared URI authority、またはcommon industry usageからequivalenceを推論してはならない。
+
+## E.10 Generic Mapping DSL
+
+Draft 5は、任意のprotocolまたはpayloadのためのgeneral transformation languageを定義しない。次のものを標準化しない。
+
+- JSONPath、XPath、CSS selector、template、script、またはexpression
+- 任意のheader、cookie、body、multipart、binary、またはform mapping
+- schema間transformation
+- conditional mapping、computed field、またはdata join
+- 任意のresponseからのsemantic-error extraction
+- protocol-independent requestおよびresponse program
+
+Mappingはexplicit InterfaceUse Extension Slotである。特定のInterface Extensionは、HTTP baselineの`method`および`path` ruleのようなbounded deterministic mappingを定義してもよい。これによってgeneric DSLが作成されるわけではなく、Extensionが宣言するsemanticsを越えてextrapolateしてはならない。
+
+use caseがよりrichなmappingを必要とする場合、明示的なsecurity、determinism、およびconformance ruleを持つ、独立してversioningされたExtensionまたはexternal adapterを使用することが望ましい。mapping dataとしてembedされたexecutable codeは、Coreのloadまたはvalidationによってexecuteされない。
+
+## E.11 AR-XMLのJSON Serialization
+
+Draft 5はXML serializationだけを定義する。AR Entity modelのJSON、YAML、CBOR、RDF、binary、またはJavaScript-object serializationを定義しない。
+
+HTTP requestまたはResult Representationとして使用されるJSONは、invocationのpayload dataである。AR-XML自体のJSON serializationではない。
+
+implementationはlanguage-native AR-DOM objectまたはprivate storage formをexposeしてもよい。それらのformはimplementation detailであり、独立してversioningされたserialization specificationがなければ、「AR-XML JSON」として交換したり、Core conformance claimに使用したりしてはならない。
+
+将来のserializationは、namespace identity、Extension carriage、lexical preservation、local reference、ordering、canonicalization、unknown content、signature、media type、およびround-trip behaviorを定義しなければならない。XMLのkeyを単純にrenameするだけでは不十分である。
+
+## E.12 Load中のAutomatic Execution
+
+Loadは観察的である。
+
+```text
+ARRuntime.load()
+= Resolve / Fetch / Parse / Validate / Expose
+```
+
+LoadはCapability invocationを含まない。次のactivityも、Capabilityを自動的にexecuteしてはならない。
+
+- AR-DOM constructionまたはtraversal
+- Profile Claim discovery
+- ContractまたはProfile resolution
+- Extension recognitionまたはvalidation
+- projectionまたはProfile conformance evaluation
+- SupportまたはAvailability evaluation
+- route enumerationまたはrepresentation selection
+- document preview、indexing、caching、またはmigration
+- registryまたはExtension processorのinstallation
+
+side effectを伴うexecutionは、ApplicationまたはHumanからの明示的なrequestの後にのみ開始される。Runtimeは、health checkまたはAvailability probeとしてCapabilityをinvokeしてはならない。AR-XML documentまたはsemantic definitionのfetchは、引き続きdescription dataのretrievalであり、記述されたfunctionのexecutionではない。
+
+## E.13 Mandatory Centralized Registry
+
+Draft 5はSemantic Registry behaviorを定義するが、1つのglobal service、1つのauthority、1つのnetwork endpoint、または1つのgovernance organizationを要求しない。
+
+definitionは次のsourceからresolveしてもよい。
+
+- built-in resource
+- local registry
+- cache
+- Application-provided registry
+- installed Extensionまたはplugin
+- network service
+- これらのsourceのpolicy-controlled combination
+
+offline operationはvalidである。URI-shaped identityはnetwork dereferencingを要求しない。federation order、source popularity、cache timing、またはfirst responseをimplicit semantic decision ruleにしてはならない。
+
+Registry operationは、publisher trust、Entity authentication、authorization、verified conformance、またはCertificationも確立しない。これらの関心事には、独立したevidenceおよびpolicyが必要である。
+
+## E.14 Certification、Truth、およびFreshness
+
+Coreはstructureをvalidateし、definitionが利用可能な場合にdeterministic semantic evaluationをsupportする。certification authority、product approval system、source-of-truth service、またはfreshness protocolではない。
+
+issuerが宣言したIdentifier、Property、Profile Claim、Capability、Interface、およびRequirementは、不正確、stale、unauthorized、またはdeceptiveな場合がある。Core validityは、それらがtrueであることを証明しない。Profile conformanceはcertificationを証明しない。resolved definitionは、publisherまたはdocumentがtrustworthyであることを証明しない。
+
+signature、attestation、audit trail、observation timestamp、confidence、revocation、certification mark、またはregulated approvalを必要とするApplicationは、適切なexternal mechanismまたはversioned Extensionを使用し、Core validityとの区別を維持しなければならない。
+
+## E.15 Future Workの境界
+
+非目標は、将来のExtension、companion specification、またはCore revisionの主題になる場合がある。将来の作業は、Draft 5 semanticsを遡及的に変更したり、Draft 5 versionの下で新しいCore contentをencodeしたりしてはならない。
+
+将来のfeatureは、少なくとも次の境界を維持することが望ましい。
+
+```text
+Entity ≠ Location
+Capability ≠ Interface
+Capability ≠ Invocation
+Description ≠ Execution
+Resolution ≠ Authentication
+Authentication ≠ Authorization
+Availability ≠ Authorization ≠ Execution
+Spec Capability ≠ Runtime Implementation Capability
+Profile Claim ≠ Verified Conformance ≠ Certification
+Capability Contract ≠ Entity-side Capability Projection
+Interface ≠ InterfaceUse
+Identifier ≠ Locator ≠ Canonical Entity Identity
+```
+
+また、interoperabilityまたはconformanceにAIを必要とせずdeterministicなままであり、physicalおよびpassive Entityをvalidに保ち、side effectに対するexplicit initiating intentを維持し、unknownまたはunsupported semanticsをguessせずに定義することが望ましい。
+
+これらの非目標の目的はscope disciplineである。Draft 5は、小さなsemantic Core、明示的なextension boundary、および分離されたRuntime stateを提供し、specialized standardがAR-XML Core内で部分的かつ一貫性なく再実装されることなく統合できるようにする。
