@@ -3436,3 +3436,237 @@ shared HTTP authentication prerequisiteはInterface Requirementとして宣言�
 HTTP ExtensionはRuntime policy外でcredentialをissue、store、refresh、またはforwardしない。`READY`はserverがrequestをauthenticateまたはauthorizeすることを保証しない。
 
 ---
+
+<a id="part-x--conformance-classes"></a>
+# Part X — Conformance Classes
+
+<a id="76-conformance-overview"></a>
+# 76. Conformance Overview
+
+conformanceはnamed classおよびspecification versionに対してclaimされる。productまたはdocumentが単に「AR-XML compliant」であるというstatementは、適用可能なclassがcontextから明確でない限りincompleteである。
+
+Draft 5は次のprincipal classを定義する。
+
+| Conformance class | Conforming subject | Primary responsibility |
+|---|---|---|
+| AR-XML Producer | authoring toolまたはserializer | structurally validなAR-XMLをproduceし、declared semanticsをpreserveする |
+| AR-XML Consumer | parser、validator、またはAR-DOM consumer | Coreをdeterministicallyにprocessし、model boundaryをpreserveする |
+| Runtime | evaluationおよびinteraction implementation | separated stateをexposeし、explicit requestによってのみexecuteする |
+| Extension | 識別されたExtensionのspecificationおよびimplementation | Core slot内のnamed semanticsをdefineおよびprocessする |
+| Profile Evaluator | Profile conformance implementation | required subsetをdeterministicallyにevaluateし、uncertaintyをreportする |
+
+conforming implementationは複数classをclaimしてもよい（MAY）。あるclassへのconformanceは別のclassへのconformanceを意味しない。これらが5つのbaseline classである。Core Document validityはdocument propertyであり、第6のimplementation classではない。以下のCore Processor、Extension Processor、Runtime Evaluator、HTTP Extension Processor、およびInvoking Runtimeという用語は、これらのclass内のoperationまたはfeature subsetを記述するものであり、baseline classを置換または追加しない。
+
+例:
+
+```text
+Core-valid Document
+≠ document whose Extensions are all supported
+
+Core Processor
+≠ HTTP Extension Processor
+
+HTTP Extension Processor
+≠ support for every HTTP method
+
+Runtime Evaluator
+≠ Invoking Runtime
+```
+
+conformance claimはDraft 5またはexact specification versionを識別しなければならず（MUST）、claimed classおよびfeatureを超えるsupportを暗示してはならない（MUST NOT）。
+
+test result、verified conformance、およびcertificationはself-declared conformance claimとは別である。本仕様はcertification authorityを作成しない。
+
+<a id="77-ar-xml-producer-and-document-conformance"></a>
+# 77. AR-XML ProducerおよびDocument Conformance
+
+conforming **AR-XML Producer**は、すべてのapplicable Core structural requirementをsatisfyするdocumentをemitしなければならず（MUST）、AR-DOMのserialization時にdeclared semanticsをpreserveしなければならない（MUST）。そのoutputは、次のrequirementをsatisfyするとCore-valid documentである。
+
+- well-formed XML
+- document elementとしてのCore `ar-entity`
+- Core 0.1 namespaceおよび`version="0.1"`
+- permitted Core element、attribute、containment、およびcardinality
+- singleton container rule
+- required lexical valueおよびCore data type
+- explicit Extension Slot envelope rule
+- Interface Attachment-or-Realization requirement
+- typed local ID uniqueness
+- InputおよびOutput scoped-name uniqueness
+- すべてのlocal-reference integrity rule
+
+Core Documentはvalid Extension Slot内にunknown foreign Extension rootを含んでもよい（MAY）。current processorがそれらのExtensionをvalidateまたはexecuteできなくてもCore-conformingのままである。
+
+Core DocumentはCategory、Identifier、Property、Subject、Profile Claim、Interface、またはCapabilityを含む必要がない。empty passive Entityもconformできる。
+
+Core Document conformanceは次を要求しない。
+
+- Capability ContractまたはProfile resolution
+- `VALIDATED` projection
+- Profile conformance
+- RuntimeまたはExtension support
+- network accessibility
+- authenticationまたはauthorization
+- executable Capability
+
+unknown Core element、unknown Coreまたはunqualified attribute、slot外のforeign element、duplicate typed ID、dangling local reference、duplicate scoped InputまたはOutput name、またはempty Interfaceはdocumentをnon-conformingにする。
+
+non-canonical Core child orderは、それ以外はvalidなdocumentをnon-conformingにしない。
+
+<a id="78-ar-xml-consumer-conformance"></a>
+# 78. AR-XML Consumer Conformance
+
+conforming **AR-XML Consumer**は、次のCore parsingおよびvalidation requirementを実装し（MUST）、advertised exposure operationについてinformation modelをpreserveしなければならない。「Core Processor」はこれらのoperationを表すdescriptive roleである。Section 78.3のSerializer requirementはAR-XML Producer classに適用される。
+
+## 78.1 ParserおよびValidator
+
+conforming Core parserおよびvalidatorは次を行わなければならない（MUST）。
+
+- untrusted inputに適したconfigurationを使用し、XMLをnamespace-awareにparseする。
+- 明示的にselectされたDraft 5 processing contextの下でCore namespaceおよび`version="0.1"`をrecognizeする。
+- unknown Core contentをsilentにdiscardせずrejectする。
+- cardinalityおよびcontainmentをenforceしながらorder-insensitiveにvalidateする。
+- typed uniqueness、scoped-name uniqueness、およびlocal referenceをenforceする。
+- Extension knowledgeを要求せずExtension Slot envelopeをvalidateする。
+- XML parse errorとCore validation errorを区別する。
+- valid slot内のunknown foreign rootをacceptする。
+- Core validityのprerequisiteとしてSemantic Identifierのnetwork dereferencingを行わない。
+- Core-valid documentに対してのみAR-DOMをconstructまたはexposeする。
+- parsing、validation、またはexposure中にCapabilityをexecuteしない。
+
+Core parsingおよびvalidationはdeterministicでなければならず（MUST）、AIまたはhuman interpretationに依存してはならない（MUST NOT）。
+
+## 78.2 AR-DOM Exposure
+
+AR-DOMをexposeするCore ProcessorはCore information modelをpreserveし、issuer-authored descriptionをresolved definitionおよびderived Runtime stateから分離したままにしなければならない（MUST）。
+
+unknown foreign subtreeをopaque dataとしてpreserveすることが望ましい（SHOULD）。round-trip preservationをadvertiseする場合、保持できないlexical informationをdiscloseしなければならず（MUST）、Extension contentをsilentにdropしてはならない（MUST NOT）。
+
+## 78.3 Serializer
+
+conforming Draft 5 serializerは、Core namespaceおよび`version="0.1"`を使用してwell-formed XMLをemitしなければならない（MUST）。Core modelにvalidなstructureだけをemitしなければならず（MUST）、Section 21で定義されたrecommended canonical Core child orderを使用することが望ましい（SHOULD）。
+
+canonical child orderは、preferenceを暗示するためのcollection member reorderingをauthorizeしない。serializerはsemantic collection membership、local reference、およびExtension subtree meaningをpreserveしなければならない（MUST）。
+
+implementationはparser、validator、AR-DOM、またはserializer functionalityを別々にclaimしてもよいが、general Core Processor claimがambiguousとなる場合、supported operationを明示しなければならない（MUST）。
+
+<a id="79-extension-conformance"></a>
+# 79. Extension Conformance
+
+**Extension** conformance claimは、Extension specification、namespace version、semantic root、およびsupported slot contextを識別しなければならない（MUST）。Extension specificationは、explicit slot grammar、deterministic semantics、およびCore meaningのpreservationを含むPart IIIをsatisfyしなければならない（MUST）。Extension classをclaimするimplementationは、以下のExtension Processor operationを実行する。claimはspecification、そのimplementation、または両方のいずれに関するものかを明示しなければならない（MUST）。
+
+conforming Extension Processorは次を行わなければならない（MUST）。
+
+- prefixではなくnamespace URIおよびlocal nameによってExtension elementをidentifyする。
+- permitted Core slot内でのみExtension rootをvalidateする。
+- Extensionのdeclared grammarおよびsemanticsをapplyする。
+- そのExtension conformance classについてinvalidなknown Extension contentをrejectする。
+- Core validationをseparate resultとしてpreserveする。
+- Core cardinality、reference、またはsemantic ruleを変更しない。
+- behaviorを発明せず、unsupported Extension featureを`Support`を通じてreportする。
+- Extension contentをuntrusted inputとして扱う。
+- validation中にexecution、credential access、またはunrequested network activityを行わない。
+
+unknown subtreeをstore、display、またはreserializeするだけのimplementationは、そのExtensionへのsemantic conformanceをclaimしてはならない（MUST NOT）。
+
+Extension Processorはinteroperabilityに関係するfeature limitationを識別しなければならない（MUST）。例えば、required constraint evaluatorを省略しながらExtension namespaceをrecognizeしても、そのconstraintのfull supportにはならない。
+
+Extension validityはCore validityではない。foreign subtreeはCore-valid slot内にありながらrecognized Extension grammarにfailする場合がある。逆に、unknown ExtensionはExtension-specific conformance resultなしでCore-validのままであり得る。
+
+Extension specificationは追加のnamed processor classを定義してもよいが（MAY）、これらのCore separation requirementをweakenしてはならない（MUST NOT）。
+
+<a id="80-runtime-and-profile-evaluator-conformance"></a>
+# 80. RuntimeおよびProfile Evaluator Conformance
+
+## 80.1 Runtime Evaluator
+
+evaluationを実装するconforming **Runtime**（Runtime Evaluator role）は次を行わなければならない（MUST）。
+
+- description dataをevaluation stateから分離して保持する。
+- Part VIIIで定義されたstate domainおよびvalueをbooleanへcollapseせずexposeする。
+- unresolved、unknown、unsupported、unsatisfied、およびconflicting conditionを区別する。
+- Attachment satisfactionを別途evaluateし、`ATTACHMENT_UNSATISFIED`を含むInterfaceUse route evaluationにknown-blocker precedenceを適用する。
+- Invocationを持つCapabilityにだけCore Availabilityを生成し、そのrouteを`any READY`、それ以外は`any UNKNOWN`、それ以外は`UNAVAILABLE`としてaggregateする。
+- Profile conformanceをAvailabilityから独立させる。
+- document orderをimplicit route preferenceとして使用しない。
+- known blockerとuncertaintyを区別するのに十分なdiagnosticを提供する。
+- availability testのためにCapabilityをexecuteしない。
+
+Runtime EvaluatorはInterface Extensionのsubsetだけを実装してもよい（MAY）。unsupported implementation capabilityは`Support`を通じて表現される。specification capabilityの変更ではない。
+
+## 80.2 Invoking Runtime
+
+executionを実装するconforming **Runtime**（Invoking Runtime role）は、さらに次を行わなければならない（MUST）。
+
+- Capability execution前に明示的なApplicationまたはHuman requestを要求する。
+- route selectionおよびasynchronous workを通じてinitiating intentをpreserveする。
+- serialization前に、実装されたすべてのsemantic ruleの下でInputをvalidateする。
+- Runtimeおよびhost security policyをapplyする。
+- credential handlingをAR-DOM外に保つ。
+- transport、Interface、Representation、Contract、およびsemantic outcomeを区別する。
+- execution stateまたはresultによってdescriptionを書き換えない。
+
+Invoking Runtimeは、記述されたすべてのInterfaceまたはCapabilityをsupportする必要はない。claimするfeatureのsupportおよびavailabilityを正確にreportしなければならない（MUST）。
+
+## 80.3 HTTP Extension Processor
+
+conforming **HTTP Extension Processor**は次を行わなければならない（MUST）。
+
+- Part IXのHTTP Extension namespaceをrecognizeする。
+- `http:api`をRealization内だけ、`http:operation`をMapping内だけでvalidateする。
+- required `method`と`path`、およびpresentな場合のoptional `base` attributeをvalidateする。
+- `base`がomittedの場合はfinal AR-XML retrieval URIを使用し、relativeまたはempty `base`をHost Application URLではなくそのURIに対してresolveする。
+- schemeまたはauthorityを含むoperation `path` valueをrejectし、shared Interfaceのschemeおよびauthorityを用いたstrict RFC 3986 reference resolutionでoperation URLをconstructする。
+- method supportをmethod syntax validityとは別に扱う。
+- HTTP authenticationおよびauthorizationをRequirementおよびRuntime policy内に保つ。
+- HTTP-level outcomeをsemantic Capability outcomeから区別する。
+
+## 80.4 HTTP Baseline Mapping Feature
+
+対応するbaseline mapping featureをclaimするHTTP Runtimeは、それを正確に実装しなければならない（MUST）。
+
+| Feature claim | Required behavior |
+|---|---|
+| HTTP GET scalar request mapping | Section 74.2のwire-equivalenceおよびno-collision boundary内で、`string`、`number`、`integer`、および`boolean` Inputをquery parameterへmap |
+| HTTP JSON object request mapping | `POST`、`PUT`、および`PATCH` Inputを1つのJSON objectへmap |
+| HTTP JSON Result mapping | single Outputの場合を含め、Output nameをkeyとするtop-level JSON object |
+| HTTP status classification | すべての`2xx`はHTTP-level success。non-`2xx`はInterface-level non-success |
+| HTTP 204 handling | HTTP-level success。Result mappingはResultがabsentの場合だけsuccess |
+| HTTP response media-type matching | Section 75.2に基づくexact baseline type/subtype comparisonおよびparameter handling。sniffing fallbackなし |
+| HTTP no-Result response | valid `2xx`ではsemantic interpretationのためのbodyをignore。invented Outputなし |
+
+implementationがincompatible scalar shortcutを使用する場合、query mapping中にsemantic Input nameまたはtypeを変更する場合、generic header DSLをbaselineであるかのように使用する場合、またはHTTP statusからsemantic errorをinferする場合、mapping featureをclaimしてはならない（MUST NOT）。HTTP baseline conformanceが許可するのはSection 74.2に基づくwire-equivalent query serializationであり、arbitrary receiver-dependent encodingではない。baseline-only Runtimeはrequired receiver-specific lexical conventionまたはquery-name collision handlingを`UNSUPPORTED`として、unknown compatibilityを`UNKNOWN`として報告しなければならない（MUST）。追加のversioned Mapping Extension semanticsはMapping subtreeから明示的に識別可能でなければならない。implicit deployment agreementはbaseline conformanceを確立しない。
+
+HTTP Extension Processorはすべてのvalid HTTP methodを実装する必要はない。syntactically validだがunimplementedなmethodまたはmapping featureについて、AR-XML Core documentをinvalidと宣言するのではなく`UNSUPPORTED`を報告しなければならない（MUST）。
+
+## 80.5 Conformance Reporting
+
+implementation conformance statementは次を識別することが望ましい（SHOULD）。
+
+- specification version
+- claimed class
+- supported Extension namespaceおよびversion
+- supported HTTP methodおよびmapping feature
+- implemented semantic resolverおよびconstraint evaluator
+- relevant Runtime policy limitation
+- conformance test suiteを使用する場合、そのtest-suite version
+
+Entity document内のProfile ClaimはRuntimeのimplementation conformance statementではない。
+
+## 80.6 Profile Evaluator
+
+conforming **Profile Evaluator**は次を行わなければならない（MUST）。
+
+- Core document validityをsemantic conformanceとは別に確立する。
+- exact Contract/Profile identityおよびSections 38と43のusable-definition ruleを使用する。
+- ProfileResolutionをProfileConformanceとは別にexposeする。
+- Sections 44–45のfixed existential matchingおよびcandidate aggregation ruleによりrequired Capability、Property、およびIdentifier itemをevaluateし、custom cardinalityまたはquantifier overrideを使用しない。
+- optional-item diagnosticをbaseline required-subset aggregationから除外し、optional itemにpresence-conditional constraintを合成しない。
+- open-world defaultおよびplacement-scoped Requirement policyをapplyする。
+- known invalid Profile definitionをEntityの責任にせず、conformance `UNDETERMINED`を伴う`UNRESOLVED`としてrejectする。
+- unknown required semanticsを`UNDETERMINED`としてpreserveし、compatible narrowingをassumeしない。
+- Profile Claim、verified evaluation、certification、Runtime Support、およびAvailabilityを分離して保持する。
+- required AI inferenceまたはautomatic Capability executionなしでevaluateする。
+
+Profile Evaluator conformanceはinvocation supportまたはnetwork resolutionを要求しない。unsupported semantic featureはdiscloseされ、定義済みuncertainty stateによって扱われなければならない（MUST）。
+
+---
