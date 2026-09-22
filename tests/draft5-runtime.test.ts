@@ -2,6 +2,7 @@
 /** Draft 5 の Core 構造、Extension preservation、評価分離、HTTP route を検証します。 */
 
 import { describe, expect, it, vi } from "vitest";
+import { FetchHTTPInvoker } from "../src/adapters/web/BrowserFetchAdapters";
 import { BrowserXMLParser } from "../src/adapters/web/BrowserXMLParser";
 import { buildARDocument } from "../src/application/validation";
 import { resolveHTTPTarget } from "../src/application/invocation";
@@ -55,6 +56,12 @@ describe("AR-XML Core 0.1 Draft 5", () => {
       expect(document.getCapability("c")?.evaluation.routes[0]).toMatchObject({ attachment: "UNKNOWN", availability: "UNAVAILABLE" });
     });
   });
+
+  it("Capability Requirement は証拠なしで READY に丸めない", async () => {
+    const xml = `${base}<interfaces><interface id="web"><realization><http:api/></realization></interface></interfaces><capabilities><capability id="secured" type="https://example.test/contracts/secured/1"><requirements><requirement type="urn:credential"><vendor:credential xmlns:vendor="urn:vendor"/></requirement></requirements><invocation/><interface-uses><interface-use ref="web"><mapping><http:operation method="GET" path="secured"/></mapping></interface-use></interface-uses></capability></capabilities></ar-entity>`;
+    const document = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(xml) }, semanticRegistry: new InMemorySemanticRegistry([{ identifier: "https://example.test/contracts/secured/1", invocation: {} }]) }).load("https://example.test/entity.arxml");
+    expect(document.getCapability("secured")?.evaluation).toMatchObject({ availability: "UNKNOWN", routes: [{ requirement: "UNKNOWN", capabilityRequirement: "UNKNOWN" }] });
+  });
 });
 
 describe("Draft 5 HTTP Extension", () => {
@@ -88,6 +95,19 @@ describe("Draft 5 HTTP Extension", () => {
     const collisionXml = xml.replace("mode=read", "q=existing");
     const collision = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(collisionXml) }, httpInvoker: { invoke }, semanticRegistry: new InMemorySemanticRegistry([contract]) }).load("https://example.test/entities/entity.arxml");
     await expect(collision.getCapability("read")?.invoke({ q: "new" })).rejects.toBeInstanceOf(InterfaceError);
+  });
+
+  it("同一 Interface ref の複数 route は一意選択を要求し、失敗後に別 route を実行しない", async () => {
+    const xml = `${base}<interfaces><interface id="web"><realization><http:api/></realization></interface></interfaces><capabilities><capability id="write" type="https://example.test/contracts/write/1"><invocation><inputs><input name="level" type="integer"/></inputs><result><outputs><output name="ok" type="boolean"/></outputs><representations><representation media-type="application/json"/></representations></result></invocation><interface-uses><interface-use ref="web"><mapping><http:operation method="POST" path="first"/></mapping></interface-use><interface-use ref="web"><mapping><http:operation method="POST" path="second"/></mapping></interface-use></interface-uses></capability></capabilities></ar-entity>`;
+    const contract = { identifier: "https://example.test/contracts/write/1", invocation: { inputs: [{ name: "level", type: "integer", required: true }], result: { outputs: [{ name: "ok", type: "boolean" }], representations: [{ mediaType: "application/json" }] } } } as const;
+    const invoke = vi.fn().mockResolvedValue({ status: 200, headers: new Headers({ "content-type": "application/json" }), text: async () => "{", blob: async () => new Blob() });
+    const document = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(xml) }, httpInvoker: { invoke }, semanticRegistry: new InMemorySemanticRegistry([contract]) }).load("https://example.test/entity.arxml");
+    const capability = document.getCapability("write")!;
+    expect(capability.evaluation.routes).toHaveLength(2);
+    expect(capability.evaluation.routes[0]?.routeId).not.toBe(capability.evaluation.routes[1]?.routeId);
+    await expect(capability.invoke({ level: 2 })).rejects.toBeInstanceOf(ValidationError);
+    await expect(capability.invoke({ level: 2 }, { routeId: capability.evaluation.routes[0]!.routeId })).rejects.toBeInstanceOf(RepresentationError);
+    expect(invoke).toHaveBeenCalledTimes(1);
   });
 
   it("POST/PUT/PATCH JSON mapping と 204 no-Result を処理する", async () => {
@@ -140,6 +160,13 @@ describe("Draft 5 HTTP Extension", () => {
     const uncertainXml = fixedXml;
     const uncertain = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(uncertainXml) }, semanticRegistry: new InMemorySemanticRegistry([{ identifier: "https://example.test/contracts/x/1", invocation: { inputs: [{ name: "required", type: "boolean", required: true }] } }]) }).load("https://example.test/entity.arxml");
     expect(uncertain.getCapability("x")?.evaluation).toMatchObject({ projectionValidation: "UNVALIDATED", availability: "UNKNOWN" });
+    const contractRequirement = { identifier: "https://example.test/contracts/x/1", requirements: [{ type: "urn:credential", extensions: [] }], invocation: { inputs: [{ name: "required", type: "boolean", required: true }] } } as const;
+    const requirementDocument = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(uncertainXml) }, semanticRegistry: new InMemorySemanticRegistry([contractRequirement]) }).load("https://example.test/entity.arxml");
+    expect(requirementDocument.getCapability("x")?.evaluation).toMatchObject({ projectionValidation: "UNVALIDATED", availability: "UNKNOWN", routes: [{ contractRequirement: "UNKNOWN" }] });
+    const representationXml = fixedXml.replace("</inputs></invocation>", "</inputs><result><outputs><output name=\"value\" type=\"boolean\"/></outputs><representations><representation media-type=\"text/plain\"/></representations></result></invocation>");
+    const representationContract = { identifier: "https://example.test/contracts/x/1", invocation: { inputs: [{ name: "required", type: "boolean", required: true }], result: { outputs: [{ name: "value", type: "boolean" }], representations: [{ mediaType: "application/json" }] } } } as const;
+    const representationDocument = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(representationXml) }, semanticRegistry: new InMemorySemanticRegistry([representationContract]) }).load("https://example.test/entity.arxml");
+    expect(representationDocument.getCapability("x")?.evaluation).toMatchObject({ projectionValidation: "CONFLICT", availability: "UNAVAILABLE" });
     expect(document.evaluateProfile("https://example.test/profiles/missing/1")).toEqual({ resolution: "UNRESOLVED", conformance: "UNDETERMINED" });
     const structural = buildARDocument(parser.parse(fixedXml), "https://example.test/entity.arxml");
     expect(evaluateProfileDocument(structural, "https://example.test/profiles/lab/1", new InMemorySemanticRegistry([], [{ identifier: "https://example.test/profiles/lab/1", requiredCapabilities: ["https://example.test/contracts/x/1"] }]))).toEqual({ resolution: "RESOLVED", conformance: "CONFORMANT" });
@@ -150,5 +177,16 @@ describe("Draft 5 HTTP Extension", () => {
     const conflictRegistry = new InMemorySemanticRegistry([contract, contract]);
     const conflicted = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(fixedXml) }, semanticRegistry: conflictRegistry }).load("https://example.test/entity.arxml");
     expect(conflicted.getCapability("x")?.evaluation).toMatchObject({ contractResolution: "UNRESOLVED", projectionValidation: "UNVALIDATED", availability: "UNKNOWN" });
+    const profileDocument = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(fixedXml) }, semanticRegistry: characteristicProfile }).load("https://example.test/entity.arxml");
+    expect(profileDocument.evaluateProfile("https://example.test/profiles/characteristics/1")).toEqual({ resolution: "RESOLVED", conformance: "CONFORMANT" });
+    const unknownProfile = new InMemorySemanticRegistry([], [{ identifier: "https://example.test/profiles/invocation/1", capabilityRequirements: [{ contractIdentifier: "https://example.test/contracts/x/1", requiredInputNames: ["required"] }] }]);
+    const unknownProfileDocument = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(`${base}<capabilities><capability id="x" type="https://example.test/contracts/x/1"/></capabilities></ar-entity>`) }, semanticRegistry: unknownProfile }).load("https://example.test/entity.arxml");
+    expect(unknownProfileDocument.evaluateProfile("https://example.test/profiles/invocation/1")).toEqual({ resolution: "RESOLVED", conformance: "UNDETERMINED" });
+  });
+
+  it("既定の HTTP Invoker は redirect を fail-closed にする", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    await new FetchHTTPInvoker(fetcher as unknown as typeof fetch).invoke(new URL("https://example.test/api"), { method: "POST", body: "{}" });
+    expect(fetcher).toHaveBeenCalledWith(new URL("https://example.test/api"), expect.objectContaining({ method: "POST", redirect: "error" }));
   });
 });

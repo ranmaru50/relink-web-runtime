@@ -16,10 +16,13 @@
   "files": [
     "dist/relink-web-runtime.js",
     "dist/types/index.d.ts",
+    "dist/types/application/evaluation.d.ts",
     "dist/types/application/invocation.d.ts",
     "dist/types/application/parsing.d.ts",
     "dist/types/domain",
+    "dist/types/ports/extension.d.ts",
     "dist/types/ports/runtime.d.ts",
+    "dist/types/ports/semantic.d.ts",
     "dist/types/runtime",
     "LICENSE",
     "README.md",

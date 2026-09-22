@@ -54,7 +54,7 @@ const light = document.getCapability("light");
 const result = await light?.invoke({ on: true }, { accept: "application/json" });
 ```
 
-`load()` never invokes a Capability. `invoke()` is the explicit request boundary and requires a route whose Runtime evaluation is `READY`.
+`load()` never invokes a Capability. `invoke()` is the explicit request boundary and requires one uniquely selected route whose Runtime evaluation is `READY`. When multiple READY routes exist, pass `RouteEvaluation.routeId`; an ambiguous `interfaceRef` is rejected and a failed route is never retried automatically.
 
 ## Runtime model
 
@@ -74,7 +74,7 @@ Availability:          READY | UNAVAILABLE | UNKNOWN
 
 ## HTTP baseline
 
-HTTP is a Standard Interface Extension. `http:api` belongs in an Interface Realization and `http:operation` belongs in an InterfaceUse Mapping. The baseline supports scalar GET query mapping and JSON-object POST/PUT/PATCH mapping. A JSON Result is a top-level object keyed by declared Output names. HTTP `2xx` is Interface success; non-`2xx` is Interface failure and is not inferred to be a Capability semantic error.
+HTTP is a Standard Interface Extension. `http:api` belongs in an Interface Realization and `http:operation` belongs in an InterfaceUse Mapping. The baseline supports scalar GET query mapping and JSON-object POST/PUT/PATCH mapping. A JSON Result is a top-level object keyed by declared Output names. HTTP `2xx` is Interface success; non-`2xx` is Interface failure and is not inferred to be a Capability semantic error. The default HTTP adapter rejects redirects so an invocation cannot silently cross an unapproved origin.
 
 ## Development
 

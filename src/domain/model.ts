@@ -137,8 +137,14 @@ export interface CapabilityEvaluation {
 }
 /** InterfaceUse 一件の独立した Runtime 評価です。 */
 export interface RouteEvaluation {
+  /** 同一 Interface ref を共有する route も区別する、安定した実行選択キーです。 */
+  readonly routeId: string;
   readonly interfaceRef: string;
+  /** Capability、Contract、Interface の Requirement を合成した状態です。 */
   readonly requirement: RequirementEvaluationState;
+  readonly capabilityRequirement: RequirementEvaluationState;
+  readonly contractRequirement: RequirementEvaluationState;
+  readonly interfaceRequirement: RequirementEvaluationState;
   readonly attachment: RequirementEvaluationState;
   readonly support: SupportState;
   readonly availability: AvailabilityState;

@@ -54,7 +54,7 @@ const light = document.getCapability("light");
 const result = await light?.invoke({ on: true }, { accept: "application/json" });
 ```
 
-`load()` は Capability を実行しません。`invoke()` が明示的な要求の境界で、Runtime 評価が `READY` の Route が必要です。
+`load()` は Capability を実行しません。`invoke()` が明示的な要求の境界で、Runtime 評価が `READY` の route を一意に選択する必要があります。READY route が複数ある場合は `RouteEvaluation.routeId` を渡し、曖昧な `interfaceRef` は拒否します。失敗した route の自動 retry は行いません。
 
 ## Runtime Model
 
@@ -74,7 +74,7 @@ Availability:          READY | UNAVAILABLE | UNKNOWN
 
 ## HTTP Baseline
 
-HTTP は Standard Interface Extension です。`http:api` は Interface の Realization に、`http:operation` は InterfaceUse の Mapping に置きます。Baseline は scalar GET Query Mapping と JSON Object の POST/PUT/PATCH Mapping をサポートします。JSON Result は宣言された Output 名をキーとする top-level object です。HTTP `2xx` は Interface success、non-`2xx` は Interface failure であり、Capability の Semantic Error へ推測変換しません。
+HTTP は Standard Interface Extension です。`http:api` は Interface の Realization に、`http:operation` は InterfaceUse の Mapping に置きます。Baseline は scalar GET Query Mapping と JSON Object の POST/PUT/PATCH Mapping をサポートします。JSON Result は宣言された Output 名をキーとする top-level object です。HTTP `2xx` は Interface success、non-`2xx` は Interface failure であり、Capability の Semantic Error へ推測変換しません。既定の HTTP adapter は redirect を拒否し、Invocation が未承認の origin へ暗黙に移動しないようにします。
 
 ## Development
 

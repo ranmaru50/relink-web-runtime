@@ -25,7 +25,7 @@ const capability = document.getCapability("light");
 const result = await capability?.invoke({ on: true }, { accept: "application/json" });
 ```
 
-`RuntimeCapability.invoke()` is the explicit Application/Human request boundary. It validates Inputs, selects an applicable ready route (or the requested `interfaceRef`), performs the supported Extension mapping, and returns semantic Outputs.
+`RuntimeCapability.invoke()` is the explicit Application/Human request boundary. It validates Inputs, requires a unique READY route (or an explicit `routeId`/unambiguous `interfaceRef`), performs the supported Extension mapping once, and returns semantic Outputs. It never retries another route after transport, Interface, Representation, or Capability errors.
 
 ## RuntimeDocument
 
@@ -45,6 +45,8 @@ evaluateProfile(identifier: string): ProfileEvaluation
 ```
 
 `url` is the final AR-XML retrieval URL and is the base for relative HTTP `http:api` and `http:operation` URI resolution.
+
+When multiple READY `InterfaceUse` routes exist, the caller must pass `routeId`. A route handle is exposed as `RouteEvaluation.routeId`; routes sharing an `interfaceRef` are not implicitly selected by document order.
 
 ## Draft 5 description model
 
@@ -79,6 +81,8 @@ new ARRuntime({
 
 `EmptySemanticRegistry` is the default and produces `UNRESOLVED` Contract/Profile states. Registry resolution does not authenticate definitions or grant authorization.
 
+`RuntimeDocument.evaluateProfile()` evaluates the complete loaded document, including Capability, Property, Identifier, and Interface requirements. Missing evidence for a required invocation/output constraint produces `UNDETERMINED` rather than false conformance.
+
 ## HTTP Standard Interface Extension
 
 Draft 5 HTTP behavior is not Core Interface syntax. It recognizes:
@@ -96,7 +100,7 @@ Draft 5 HTTP behavior is not Core Interface syntax. It recognizes:
 </interface-use>
 ```
 
-The baseline supports GET scalar query mapping and POST/PUT/PATCH JSON-object mapping. A declared JSON Result requires `application/json`; the response must be a top-level JSON object containing every declared Output. Any `2xx` status is HTTP success, while non-`2xx` is an Interface failure. HTTP status is never inferred as a Capability semantic error.
+The baseline supports GET scalar query mapping and POST/PUT/PATCH JSON-object mapping. A declared JSON Result requires `application/json`; the response must be a top-level JSON object containing every declared Output. Any `2xx` status is HTTP success, while non-`2xx` is an Interface failure. HTTP status is never inferred as a Capability semantic error. The default browser HTTP adapter uses `redirect: "error"` so an invocation cannot silently cross an unapproved redirect origin.
 
 ## Ports and errors
 

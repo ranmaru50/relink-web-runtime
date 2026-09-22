@@ -25,7 +25,7 @@ const capability = document.getCapability("light");
 const result = await capability?.invoke({ on: true }, { accept: "application/json" });
 ```
 
-`RuntimeCapability.invoke()` が Application/Human による明示的な要求の境界です。Input を検証し、適用可能で READY な Route（必要なら `interfaceRef` で指定）を選択し、対応する Extension Mapping を実行して semantic Output を返します。
+`RuntimeCapability.invoke()` が Application/Human による明示的な要求の境界です。Input を検証し、一意な READY Route（複数ある場合は `routeId`、または一意な `interfaceRef` を明示）を選択し、対応する Extension Mapping を1回だけ実行して semantic Output を返します。Transport、Interface、Representation、Capability error の後に別 Route を自動 retry しません。
 
 ## RuntimeDocument
 
@@ -45,6 +45,8 @@ evaluateProfile(identifier: string): ProfileEvaluation
 ```
 
 `url` は最終的な AR-XML 取得 URL です。相対 HTTP `http:api` / `http:operation` URI の解決基準になります。
+
+READY な `InterfaceUse` route が複数ある場合、呼び出し側は `routeId` を指定する必要があります。Route handle は `RouteEvaluation.routeId` で公開され、同じ `interfaceRef` を共有する route を document order で暗黙選択しません。
 
 ## Draft 5 Description Model
 
@@ -79,6 +81,8 @@ new ARRuntime({
 
 既定の `EmptySemanticRegistry` は Contract/Profile を `UNRESOLVED` とします。Registry の解決は定義の認証や Authorization を意味しません。
 
+`RuntimeDocument.evaluateProfile()` は、Capability、Property、Identifier、Interface 要件を含むロード済み文書全体を評価します。必須の Invocation/Output 制約について証拠が不足する場合は、誤って適合とせず `UNDETERMINED` を返します。
+
 ## HTTP Standard Interface Extension
 
 Draft 5 の HTTP 動作は Core Interface の構文ではありません。次の2つを認識します。
@@ -96,7 +100,7 @@ Draft 5 の HTTP 動作は Core Interface の構文ではありません。次�
 </interface-use>
 ```
 
-Baseline は GET の scalar query mapping と、POST/PUT/PATCH の JSON object mapping をサポートします。JSON Result を宣言した場合は `application/json` が必須で、Response は全 Output を含む top-level JSON object でなければなりません。`2xx` は HTTP success、non-`2xx` は Interface failure です。HTTP status を Capability の semantic error へ推測変換しません。
+Baseline は GET の scalar query mapping と、POST/PUT/PATCH の JSON object mapping をサポートします。JSON Result を宣言した場合は `application/json` が必須で、Response は全 Output を含む top-level JSON object でなければなりません。`2xx` は HTTP success、non-`2xx` は Interface failure です。HTTP status を Capability の semantic error へ推測変換しません。既定の Browser HTTP adapter は `redirect: "error"` を使用し、未承認の redirect origin へ Invocation が暗黙に移動しないようにします。
 
 ## Ports と Errors
 

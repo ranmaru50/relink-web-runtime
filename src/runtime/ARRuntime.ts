@@ -3,14 +3,14 @@
 
 import { BrowserResourceFetcher, FetchHTTPInvoker } from "../adapters/web/BrowserFetchAdapters";
 import { BrowserXMLParser } from "../adapters/web/BrowserXMLParser";
-import { evaluateCapability, evaluateProfile as evaluateProfileDefinition } from "../application/evaluation";
+import { evaluateCapability } from "../application/evaluation";
 import type { ProfileEvaluation } from "../application/evaluation";
 import { invokeCapability, SameOriginNetworkPolicy, type InputValues, type InvocationResult, type InvokeOptions, type NetworkPolicy } from "../application/invocation";
 import { parseManifest } from "../application/manifest";
 import { buildARDocument } from "../application/validation";
 import { HTTPSDowngradeError, HTTPResponseError, ManifestFetchError, NetworkPolicyError, TransportError, ValidationError } from "../domain/errors";
 import type { ARDocument, AvailabilityState, Capability, CapabilityEvaluation } from "../domain/model";
-import { EmptySemanticRegistry, type SemanticRegistry } from "../ports/semantic";
+import { EmptySemanticRegistry, evaluateProfileDocument, type SemanticRegistry } from "../ports/semantic";
 import type { HTTPInvoker, ResourceFetcher, ResourceFetchOptions, ResourceFetchResult, XMLParser } from "../ports/runtime";
 
 /** ドキュメント取得先に適用する、ブラウザ非依存なネットワークポリシーです。 */
@@ -78,7 +78,7 @@ export class RuntimeDocument {
   public get capabilities() { return this.document.capabilities; }
   public getCapability(localId: string): RuntimeCapability | undefined { const capability = this.document.capabilities.find((item) => item.localId === localId); return capability ? new RuntimeCapability(capability, this.document, this.httpInvoker, this.networkPolicy, this.semanticRegistry) : undefined; }
   public evaluateCapability(localId: string): CapabilityEvaluation | undefined { return this.getCapability(localId)?.evaluation; }
-  public evaluateProfile(identifier: string): ProfileEvaluation { return evaluateProfileDefinition(this.document.capabilities.map((item) => item.semanticType), identifier, this.semanticRegistry); }
+  public evaluateProfile(identifier: string): ProfileEvaluation { return evaluateProfileDocument(this.document, identifier, this.semanticRegistry); }
 }
 
 /** Explicit Application/Human request を受けた Capability の公開 Facade です。 */
@@ -88,5 +88,25 @@ export class RuntimeCapability {
   public get definition(): Capability { return this.capability; }
   public get evaluation(): CapabilityEvaluation { return this.snapshot; }
   public get availability(): AvailabilityState | undefined { return this.snapshot.availability; }
-  public async invoke(inputs: InputValues, options: InvokeOptions = {}): Promise<InvocationResult> { const readyRoutes = this.snapshot.routes.filter((route) => route.availability === "READY").map((route) => route.interfaceRef).sort(); if (this.capability.legacyDraft4) { if (this.snapshot.availability !== "READY") throw new ValidationError(`Capability route が READY ではありません: ${this.snapshot.availability ?? "UNAVAILABLE"}`); return invokeCapability(this.capability, this.document.interfaces, this.document.url, inputs, options, this.httpInvoker, this.networkPolicy); } const selected = options.interfaceRef ?? readyRoutes[0]; if (!selected || !readyRoutes.includes(selected)) throw new ValidationError(`READY な InterfaceUse route がありません: ${options.interfaceRef ?? this.snapshot.availability ?? "UNAVAILABLE"}`); return invokeCapability(this.capability, this.document.interfaces, this.document.url, inputs, { ...options, interfaceRef: selected }, this.httpInvoker, this.networkPolicy); }
+  public async invoke(inputs: InputValues, options: InvokeOptions = {}): Promise<InvocationResult> {
+    if (this.capability.legacyDraft4) {
+      if (this.snapshot.availability !== "READY") throw new ValidationError(`Capability route が READY ではありません: ${this.snapshot.availability ?? "UNAVAILABLE"}`);
+      return invokeCapability(this.capability, this.document.interfaces, this.document.url, inputs, options, this.httpInvoker, this.networkPolicy);
+    }
+    const readyRoutes = this.snapshot.routes.filter((route) => route.availability === "READY");
+    const selected = options.routeId !== undefined
+      ? readyRoutes.find((route) => route.routeId === options.routeId)
+      : options.interfaceRef !== undefined
+        ? uniqueRouteForInterfaceRef(readyRoutes, options.interfaceRef)
+        : readyRoutes.length === 1 ? readyRoutes[0] : undefined;
+    if (!selected) throw new ValidationError(`READY な InterfaceUse route が一意に選択されていません: ${options.routeId ?? options.interfaceRef ?? this.snapshot.availability ?? "UNAVAILABLE"}`);
+    if (options.interfaceRef !== undefined && selected.interfaceRef !== options.interfaceRef) throw new ValidationError("routeId と interfaceRef が一致しません");
+    return invokeCapability(this.capability, this.document.interfaces, this.document.url, inputs, { ...options, routeId: selected.routeId, interfaceRef: selected.interfaceRef }, this.httpInvoker, this.networkPolicy);
+  }
+}
+
+/** 同一 Interface ref を複数 route が共有する場合は暗黙選択を行いません。 */
+function uniqueRouteForInterfaceRef(routes: readonly import("../domain/model").RouteEvaluation[], interfaceRef: string): import("../domain/model").RouteEvaluation | undefined {
+  const matches = routes.filter((route) => route.interfaceRef === interfaceRef);
+  return matches.length === 1 ? matches[0] : undefined;
 }

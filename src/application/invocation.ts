@@ -3,13 +3,14 @@
 
 import { InterfaceError, RepresentationError, ValidationError } from "../domain/errors";
 import { resolveEndpoint } from "./endpoint";
+import { routeHandleFor } from "./routes";
 import type { Capability, CoreDataType, HTTPApiRealization, HTTPOperationMapping, InputDefinition, InterfaceDefinition, InterfaceUse, InvocationDefinition, OpaqueExtensionElement, OutputDefinition, RepresentationDefinition, ResultDefinition } from "../domain/model";
 import type { HTTPInvoker } from "../ports/runtime";
 
 /** Invocation に渡す semantic Input 値です。 */
 export type InputValues = Readonly<Record<string, unknown>>;
 /** HTTP 応答表現の選択と中断を指定します。 */
-export interface InvokeOptions { readonly accept?: string; readonly signal?: AbortSignal; readonly interfaceRef?: string; }
+export interface InvokeOptions { readonly accept?: string; readonly signal?: AbortSignal; readonly interfaceRef?: string; readonly routeId?: string; }
 /** semantic Output と選択された Representation です。 */
 export interface InvocationResult { readonly values: Readonly<Record<string, unknown>>; readonly representation?: string; }
 /** Interface endpoint の Runtime network policy です。 */
@@ -24,16 +25,12 @@ export async function invokeCapability(capability: Capability, interfaces: reado
   if (capability.legacyDraft4) return invokeLegacyCapability(capability, documentUrl, inputs, options, invoker, policy);
   const invocation = capability.invocation;
   if (!invocation) throw new InterfaceError("Capability に Invocation がありません");
-  const routes = capability.interfaceUses.filter((use) => options.interfaceRef === undefined || use.ref === options.interfaceRef).map((use) => ({ use, definition: interfaces.find((item) => item.id === use.ref) })).filter((item): item is { use: InterfaceUse; definition: InterfaceDefinition } => item.definition !== undefined).sort((left, right) => left.use.ref.localeCompare(right.use.ref));
-  const applicable = routes.filter(({ definition }) => isHTTPApi(definition.realization?.extension));
-  if (applicable.length === 0) throw new InterfaceError("HTTP Extension に対応する InterfaceUse がありません");
-
-  let lastError: unknown;
-  for (const route of applicable) {
-    try { return await invokeHTTPRoute(invocation, route.definition, route.use, documentUrl, inputs, options, invoker, policy); } catch (error) { lastError = error; }
-  }
-  if (lastError instanceof Error) throw lastError;
-  throw new InterfaceError("利用可能な InterfaceUse route がありません");
+  const routes = capability.interfaceUses.map((use) => ({ routeId: routeHandleFor(capability.localId, use, capability.interfaceUses), use, definition: interfaces.find((item) => item.id === use.ref) })).filter((item): item is { routeId: string; use: InterfaceUse; definition: InterfaceDefinition } => item.definition !== undefined);
+  const selected = routes.filter(({ routeId, use, definition }) => (options.routeId === undefined || routeId === options.routeId) && (options.interfaceRef === undefined || use.ref === options.interfaceRef) && isHTTPApi(definition.realization?.extension));
+  if (selected.length === 0) throw new InterfaceError("指定された HTTP Extension route がありません");
+  if (selected.length > 1) throw new InterfaceError("InterfaceUse route が一意に選択されていません");
+  const route = selected[0]!;
+  return invokeHTTPRoute(invocation, route.definition, route.use, documentUrl, inputs, options, invoker, policy);
 }
 
 /** 旧 Draft 4 の隣接 Interface を、互換用途に限って実行します。Draft 5 route には混入させません。 */

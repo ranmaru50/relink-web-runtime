@@ -6,6 +6,7 @@ import type { ARDocument, CoreDataType, InputDefinition, OutputDefinition, Requi
 /** Draft 5 の自動比較に必要な最小 Capability Contract です。 */
 export interface CapabilityContract {
   readonly identifier: string;
+  readonly requirements?: readonly RequirementDefinition[];
   readonly invocation?: { readonly inputs?: readonly InputDefinition[]; readonly result?: ResultDefinition; readonly requirements?: readonly RequirementDefinition[] };
 }
 /** Profile の exact identity と、最小限の Capability 要件です。 */
@@ -55,6 +56,8 @@ export function evaluateProfileDocument(document: ARDocument, profileIdentifier:
   for (const required of profile.capabilityRequirements ?? []) {
     const capability = document.capabilities.find((item) => item.semanticType === required.contractIdentifier);
     if (!capability) { if (required.required !== false) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" }; continue; }
+    if ((required.requiredInputNames?.length ?? 0) > 0 && !capability.invocation) return { resolution: "RESOLVED", conformance: "UNDETERMINED" };
+    if ((required.requiredOutputNames?.length ?? 0) > 0 && !capability.invocation?.result) return { resolution: "RESOLVED", conformance: "UNDETERMINED" };
     const inputNames = new Set(capability.invocation?.inputs.map((item) => item.name)); for (const name of required.requiredInputNames ?? []) if (!inputNames.has(name)) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" };
     const outputNames = new Set(capability.invocation?.result?.outputs.map((item) => item.name)); for (const name of required.requiredOutputNames ?? []) if (!outputNames.has(name)) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" };
   }
