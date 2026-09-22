@@ -2254,7 +2254,7 @@ resolve(semanticIdentifier, expectedDefinitionKind)
   | UNRESOLVED(reason, candidates)
 ```
 
-`expectedDefinitionKind`は、例えばCapability Contract、Profile、vocabulary definitionを区別する。返されるdefinitionは、要求されたidentifierによってself-identifyし、かつexpected kindでなければならない（MUST）。
+`expectedDefinitionKind`は、例えばCapability Contract、Profile、vocabulary definitionを区別する。返されるdefinitionは、要求されたidentifierによってself-identifyしなければならず（MUST）、expected kindでなければならない（MUST）。
 
 registry implementationは、次を報告するのに十分なprovenanceを保持することが望ましい（SHOULD）。
 
@@ -2665,5 +2665,407 @@ processorがclaimするserialization modeに対してunknown Extension subtree�
 AR-DOM、Capability、Interface、InterfaceUse、resolved definition、またはavailability stateのexposureはobservationalである。Capability executionを開始してはならない（MUST NOT）。
 
 side effectを伴うexecutionは、Runtime invocation operationを介した明示的なApplicationまたはHuman requestの後にのみ開始する。
+
+---
+
+<a id="part-viii--runtime-evaluation"></a>
+# Part VIII — Runtime Evaluation
+
+<a id="61-description-and-runtime-state"></a>
+# 61. DescriptionおよびRuntime State
+
+AR-XMLはdescription dataを含む。Runtime evaluationは、そのdescription、resolved semantic definition、Runtime implementation support、policy、およびcurrent contextからderived stateを生成する。
+
+次のstate domainはdistinctである。
+
+```text
+ContractResolution:
+  RESOLVED | UNRESOLVED
+
+ProjectionValidation:
+  VALIDATED | UNVALIDATED | CONFLICT
+
+RequirementEvaluation:
+  SATISFIED | UNSATISFIED | UNKNOWN
+
+AttachmentEvaluation:
+  SATISFIED | UNSATISFIED | UNKNOWN
+
+Support:
+  SUPPORTED | UNSUPPORTED | UNKNOWN
+
+ProfileResolution:
+  RESOLVED | UNRESOLVED
+
+ProfileConformance:
+  CONFORMANT | NON_CONFORMANT | UNDETERMINED
+
+Availability:
+  READY | UNAVAILABLE | UNKNOWN
+```
+
+processorは、これらのdomainを`valid`、`supported`、`available`などの1つのbooleanにcollapseしてはならない（MUST NOT）。
+
+evaluation stateはissuer-authored AR-XML documentへserializeされない。diagnostic、provenance、policy context、およびevaluation timeとともに、関連するRuntime APIを通じてexposeしてもよい（MAY）。
+
+evaluation resultはsnapshotである。registry、installed Extension、permission、credential、connectivity、device state、Runtime policy、またはその他のcontextが変化すると変更される場合がある。evaluation resultの変更はdescriptionをmutateしない。
+
+Core structural validityはconforming Runtime evaluationのprerequisiteである。RuntimeはpartialまたはinvalidなAR-DOMを介してinvokeしてはならない（MUST NOT）。
+
+deterministic evaluationはAIまたはLLMを要求してはならない（MUST NOT）。applicationはassisted recommendationを別途提示してもよいが（MAY）、それはCore evaluation stateではない。
+
+<a id="62-contract-resolution"></a>
+# 62. Contract Resolution
+
+各Capabilityについて、Runtimeは`capability/@type`内のexact Capability Contract identifierをevaluateする。
+
+```text
+RESOLVED
+= exactly one usable Contract definition selected
+
+UNRESOLVED
+= no usable definition selected
+```
+
+`UNRESOLVED`には、unavailable definitionと、同じidentifierをclaimするnon-equivalent definition間のunresolved conflictが含まれる。
+
+Contract resolutionはCore document validityから独立している。Contractがunresolvedでも、Core-valid Capabilityはexposeされたままである。
+
+Runtimeは、requested identifierとfailure reasonを含むresolution provenanceおよびdiagnosticをexposeすることが望ましい（SHOULD）。異なるContract versionをsilentにsubstituteしたり、policyに反してidentifierをdereferenceしたり、first-wins conflict handlingを使用したりしてはならない（MUST NOT）。
+
+Contract resolutionはtrust、Runtime support、authorization、availability、またはexecution successを証明しない。
+
+unresolved Contractは通常、ProjectionValidationを`UNVALIDATED`にし、Contract-dependent semantic validationが必要な場合にrouteが`READY`となることを妨げる。
+
+<a id="63-projection-validation"></a>
+# 63. Projection Validation
+
+ProjectionValidationはPart IVに従ってevaluateされる。
+
+```text
+VALIDATED
+= all applicable comparisons are deterministically compatible
+
+UNVALIDATED
+= compatibility cannot be fully determined
+
+CONFLICT
+= a known semantic contradiction exists
+```
+
+Runtimeは、他のcomparisonがunknownであってもknown conflictをpreserveしなければならない（MUST）。evaluatorの欠落によって、検出済みtype mismatch、required Inputの欠落、prohibited widening、またはその他のknown conflictが消えることはない。
+
+`CONFLICT`はknown semantic blockerであり、そのCapabilityのすべてのinvocation routeを`UNAVAILABLE`にする。
+
+`UNVALIDATED`はuncertaintyを表す。invocationをauthorizeせず、incompatibilityも証明しない。baseline route algorithmでは、別のknown blockerがrouteを`UNAVAILABLE`にしない限り`UNKNOWN`に寄与する。
+
+`VALIDATED`が確立するのはContract projection compatibilityだけである。Interface support、satisfied Requirement、Profile conformance、authorization、availability、またはexecution successを確立しない。
+
+<a id="64-requirement-evaluation"></a>
+# 64. Requirement Evaluation
+
+## 64.1 State
+
+各applicable Requirementは、current Runtime contextにおいて次のようにevaluateされる。
+
+```text
+SATISFIED
+= available evidence deterministically satisfies the Requirement
+
+UNSATISFIED
+= available evidence deterministically violates or lacks a mandatory prerequisite
+
+UNKNOWN
+= the Runtime cannot determine satisfaction
+```
+
+unknown Requirement type、unknown Requirement Extension data、unavailable evidence、unsupported evaluator、またはambiguous policyは、assumed `SATISFIED`または`UNSATISFIED`ではなく`UNKNOWN`を生成する。
+
+## 64.2 Scope
+
+effective Capability prerequisite setは、Section 40.5に基づくresolved Contract RequirementとEntity Capability Requirementのconjunctionである。両方とも、そのCapabilityのすべてのInterfaceUse routeに適用される。Interface Requirementは、そのInterfaceを使用するrouteだけにprerequisiteを追加する。Contract、Entity Capability、およびInterface declarationのprovenanceは別々に保持する。evaluationはresolved Contract RequirementをAR-DOMへinjectしてはならない（MUST NOT）。
+
+Contractがunresolvedの場合、known EntityおよびInterface Requirementを引き続きevaluateしてもよいが、そのresultはすべてのuniversal prerequisiteがknownまたはsatisfiedであることを確立しない。ContractResolutionはSection 66に基づく独立したroute-evaluation inputのままである。
+
+routeについて、applicable Requirement resultは次のようにaggregateされる。
+
+```text
+if any applicable Requirement is UNSATISFIED
+→ aggregate UNSATISFIED
+
+else if any applicable Requirement is UNKNOWN
+→ aggregate UNKNOWN
+
+else
+→ aggregate SATISFIED
+```
+
+このcalculationでは、empty applicable Requirement setは`SATISFIED`へaggregateされる。declared Requirementが存在しない範囲を超えて、authorizationまたはsafetyをassertするものではない。
+
+## 64.3 AuthenticationおよびAuthorization
+
+authentication Requirementは、required authentication contextまたはcredential capabilityがlocalで利用可能かをevaluateする場合がある。このevaluationはremote responseをauthenticateせず、credentialがacceptされることを保証しない。
+
+authorization Requirement declarationはauthorizationをgrantしない。local Runtimeはauthorizationがabsentであることを把握できる場合があるが、routeが`READY`であった後でもremote authorizationは失敗し得る。
+
+Requirement evaluationはsecretをdiscloseしたり、credentialをAR-DOMへserializeしたりしてはならない（MUST NOT）。documentがloadされたという理由だけでcredentialをsendしたり、permissionをpromptしたり、side effectを伴うCapabilityをperformしたりしてはならない（MUST NOT）。active acquisition stepには、明示的application operationまたはRuntime policyが必要である。
+
+<a id="65-runtime-support"></a>
+# 65. Runtime Support
+
+Supportは、現在のRuntime implementationがapplicable semanticまたはmechanismをprocessできるかを表す。
+
+```text
+SUPPORTED
+= the Runtime implements the required behavior
+
+UNSUPPORTED
+= the Runtime knows it does not implement the required behavior
+
+UNKNOWN
+= support cannot be determined
+```
+
+Supportは、Realization root、Mapping root、constraint evaluator、media representation、およびInterface Extension behaviorを含む、routeに必要なconcrete interaction featureについてevaluateされる。Attachment access-condition satisfactionは、Section 66.5に基づく`AttachmentEvaluation`として別途evaluateされる。knowledgeの欠落またはAttachment condition evaluatorが利用できないことは、そのdomainにおける`UNKNOWN`を生成し、physical access conditionがunsatisfiedである証拠にはならない。Attachment Extensionはaccess-boundary semanticsとそのcondition evaluationを定義する。Attachment slotを通じてInvocation execution mechanismを提供してはならない（MUST NOT）。concrete interaction mechanismはRealizationとして宣言されなければならない（MUST）。Attachment satisfactionとRealization supportは別々のcheckのままである。
+
+Extension specificationが存在しても、Runtimeにsupportされることにはならない。逆に、unknown subtreeをpreserveしてもsemantic supportにはならない。
+
+Supportはfeature-specificである場合がある。HTTP `GET`をsupportしてもrequired request encodingまたはresult mappingをsupportしないRuntimeは、HTTP namespaceをrecognizeするという理由だけでroute全体をsupportedとして報告してはならない（MUST NOT）。
+
+routeのSupport aggregationは次に従う。
+
+```text
+if any required feature is UNSUPPORTED
+→ aggregate UNSUPPORTED
+
+else if any required feature is UNKNOWN
+→ aggregate UNKNOWN
+
+else
+→ aggregate SUPPORTED
+```
+
+optional MappingがabsentならMapping supportは必要ない。plain InterfaceUseは、参照されるInterface Extensionのruleを使用してevaluateされる。
+
+<a id="66-interfaceuse-route-evaluation"></a>
+# 66. InterfaceUse Route Evaluation
+
+## 66.1 Route Input
+
+各InterfaceUseはdistinct routeとしてevaluateされる。evaluationでは次を考慮する。
+
+- invocation availabilityがrequestされた場合のrequest-oriented Invocationのpresence
+- ContractResolution
+- ProjectionValidation
+- applicable Capability Requirement
+- applicableな参照先Interface Requirement
+- Attachmentが存在する場合、参照先InterfaceのAttachmentEvaluation
+- Realizationのpresenceと、そのrequired interaction mechanismのsupport
+- Mappingが存在する場合のMapping support
+- applicable constraintおよびRepresentation support
+- RuntimeおよびApplication policy
+
+同じ`ref`を持つ複数のInterfaceUseはdistinct routeのままである。InterfaceUseおよびInterfaceのdocument orderをpreferenceまたはfallback priorityとして使用してはならない（MUST NOT）。
+
+## 66.2 Baseline Decision Algorithm
+
+Core-valid documentおよびrequest-oriented Capabilityについて、route Availabilityは次のprecedence orderで決定される。
+
+```text
+1. ProjectionValidation = CONFLICT
+   → UNAVAILABLE
+
+2. Any known mandatory Requirement = UNSATISFIED
+   or applicable AttachmentEvaluation = UNSATISFIED
+   → UNAVAILABLE
+
+3. Referenced Interface has no Realization
+   or any required interaction mechanism, Realization, Mapping,
+   constraint, or Representation feature = UNSUPPORTED
+   → UNAVAILABLE
+
+4. Runtime or Application policy deterministically blocks the route
+   → UNAVAILABLE
+
+5. ContractResolution = UNRESOLVED
+   or ProjectionValidation = UNVALIDATED
+   → UNKNOWN
+
+6. Any applicable RequirementEvaluation = UNKNOWN
+   or applicable AttachmentEvaluation = UNKNOWN
+   → UNKNOWN
+
+7. Any required Support = UNKNOWN
+   → UNKNOWN
+
+8. Otherwise
+   → READY
+```
+
+known blockerはunrelated uncertaintyより優先する。例えば、known unsupported Mappingは、別のRequirement evaluatorがunknownでもrouteを`UNAVAILABLE`にする。
+
+Core three-state invocation Availability evaluationは、Invocationを持つCapabilityにのみ適用される。Invocationを持たないCapabilityについて、RuntimeはCore Availability valueを生成してはならない（MUST NOT）。このinteraction modelがnot applicableであることをdiagnosticとして報告してもよいが（MAY）、第4のAvailability stateとしてはならない。Invocationが存在するがInterfaceUseが存在しない場合、Section 67がempty route-set resultを定義する。
+
+AttachmentとRealizationの両方を持つInterfaceは、他のroute prerequisiteとともにAttachment conditionがsatisfiedであることを要求する。known unsatisfied AttachmentはそのInterfaceUseをblockする。別のknown blockerがすでに`UNAVAILABLE`を生成する場合を除き、unknown Attachment conditionは`READY`を妨げる。Attachment-only Interfaceはaccess boundaryのstructurally validなdescriptionのままである。request-oriented Invocationについて、Realizationを持たないInterfaceへのrouteは、interaction mechanismを宣言していないため、Attachment evaluationが`SATISFIED`である場合や別のevaluationがunknownである場合でも`UNAVAILABLE`である。Mappingはsubstitute Realizationを提供してはならない（MUST NOT）。このknown absenceはpassive Interfaceをinvalidateせず、unsatisfied Attachmentも意味しない。
+
+## 66.3 READYの意味
+
+`READY`は次を意味する。
+
+> Runtimeは、evaluateされたdescription、definition、support、Requirement、context、およびpolicyの下で、このroute上の明示的invocation attemptを妨げるknown local reasonを持たない。
+
+`READY`は、Runtimeがすでにtargetへcontactしたことを意味しない。Runtimeはrouteが`READY`であるかを判断するためだけにCapabilityをinvokeしてはならない（MUST NOT）。
+
+## 66.4 Diagnostic
+
+Runtimeは、Capability内のInterfaceUse identity、参照先Interface ID、relevant Extension root、contributing state value、evaluated policy context、およびaggregate resultのreasonを含むroute diagnosticをexposeすることが望ましい（SHOULD）。
+
+diagnosticはknown blockerとunknown informationを区別しなければならず（MUST）、credentialまたはsecretをexposeしてはならない（MUST NOT）。known unsatisfied Attachmentはreason `ATTACHMENT_UNSATISFIED`によって識別されなければならない（MUST）。unknown Attachment evaluationは`ATTACHMENT_UNKNOWN`によって区別可能であることが望ましい（SHOULD）。
+
+## 66.5 Attachment Evaluation
+
+evaluateされる各request-oriented InterfaceUse routeについて、Runtimeはpresent Attachmentを、そのAttachment Extensionのdeterministic semanticsを使用してcurrent evidenceに対してevaluateしなければならない（MUST）。
+
+- `SATISFIED`: available evidenceによってdeclared access conditionが確立される。
+- `UNSATISFIED`: available evidenceによってdeclared access conditionが満たされていないと確立される。
+- `UNKNOWN`: Extension、evaluator、required evidence、またはcomparison semanticsが利用できないか、決定には不十分である。
+
+Attachmentの欠落はaccess conditionに寄与しない。aggregationではneutralな`SATISFIED` inputとして扱ってもよく（MAY）、diagnosticにはAttachmentが宣言されていないことを記録する。unknown metadataまたはmissing evidenceをsatisfactionまたはfailureへ推測してはならない（MUST NOT）。Extensionがaccess conditionを明示的に定義しないknown descriptive Attachmentは、そのsemanticsに基づいて`SATISFIED`とevaluateできる。Runtimeはunknown Extensionに対してその解釈をassumeしてはならない（MUST NOT）。
+
+AttachmentEvaluationはderived Runtime contextであり、RequirementEvaluation、Support、およびissuer-authored Attachmentとは別である。descriptionへserializeしてはならない（MUST NOT）。evidenceを取得するためだけにcontact、pairing、connection、movement、authentication、またはCapability executionを開始してはならない（MUST NOT）。明示的なApplicationまたはHuman actionが、reevaluation用のnew contextを別途確立する場合がある。
+
+それ以外はreadyとなるrouteについて、`SATISFIED`は`READY`を許可し、`UNSATISFIED`は`UNAVAILABLE`を生成し、`UNKNOWN`は`UNKNOWN`を生成する。複数のInterfaceUseがある場合、これらのresultはSection 67に基づいてaggregateされる。あるInterfaceのunsatisfied Attachmentは、独立してreadyな別routeをblockしない。Invocationを持たないCapabilityにはCore Availabilityが生成されず、参照されないpassive Interfaceをroute-evaluateする必要はない。
+
+<a id="67-capability-availability-aggregation"></a>
+# 67. Capability Availability Aggregation
+
+Invocationを持つCapabilityについて、Capability Availabilityはorder-based preferenceを割り当てずに、applicableなすべてのInterfaceUse route resultをaggregateする。
+
+```text
+if any route is READY
+→ Capability READY
+
+else if any route is UNKNOWN
+→ Capability UNKNOWN
+
+else
+→ Capability UNAVAILABLE
+```
+
+したがって、別のrouteがunavailableまたはunknownであっても、1つのready routeでCapability `READY`には十分である。ready routeがないが、unknown informationのresolution後に少なくとも1つがusableとなる可能性がある場合、resultは`UNKNOWN`である。
+
+Invocationを持ちInterfaceUseが0のCapabilityは、このdocument内のinvocation routeを明示的にevaluateする場合にのみ`UNAVAILABLE`へaggregateされる。そのrequestに対するrouteが記述されていないためである。semantic functionがimpossibleである、またはdescriptionがinvalidであるというstatementではない。Invocationを持たないsemantic-only Capabilityには、InterfaceUse countに関係なくCore Availability valueは存在しない。
+
+Invocationを持たないCapabilityは、InterfaceUseを持っていてもCore request-oriented Availability evaluationの対象外である。そのCore Availability valueはabsentである。別のinteraction patternを定義するfuture Extensionが、別個のavailability modelをexposeする場合がある。
+
+Capability AvailabilityはRuntime-specificかつcontext-specificである。同じdescriptionについても、installed supportまたはpolicyが異なるため、異なるconforming Runtimeが異なるstateを報告する場合があるが、それぞれのinputには同じdeterministic ruleを使用する。
+
+actual invocationのroute selectionは別個のRuntime operationである。`READY` routeはeligible setを形成する。document orderによってその中からselectしてはならない（MUST NOT）。ApplicationまたはInterface Extensionは明示的なdeterministic selection policyを適用してもよい（MAY）。
+
+<a id="68-profile-resolution-and-conformance"></a>
+# 68. Profile ResolutionおよびConformance
+
+Profile resolutionおよびProfile conformanceはPart Vで定義されたstateを使用する。
+
+```text
+ProfileResolution:
+  RESOLVED | UNRESOLVED
+
+ProfileConformance:
+  CONFORMANT | NON_CONFORMANT | UNDETERMINED
+```
+
+unresolved claimed Profileはconformance `UNDETERMINED`を生成する。known Profile violationは`NON_CONFORMANT`を生成する。unknown required semanticsは、既知violationによってresultがすでに決定しない場合に`UNDETERMINED`を生成する。
+
+Profile evaluationはProfile Claimをmutateしない。claimはevaluated resultに関係なくissuer dataのままである。
+
+Profile conformanceとAvailabilityは独立したdimensionである。Runtimeは一方から他方をderiveしてはならない（MUST NOT）。
+
+```text
+CONFORMANT does not imply READY
+NON_CONFORMANT does not imply UNAVAILABLE
+READY does not imply CONFORMANT
+```
+
+passive Entityはinvocable Capabilityを持たずにdescriptive Profileへconformする場合がある。selected interoperability ProfileへconformしないEntityにavailable routeが存在する場合がある。
+
+<a id="69-availability-authorization-and-execution"></a>
+# 69. Availability、Authorization、およびExecution
+
+Availability、authorization、およびexecutionは異なる問いに答える。
+
+```text
+Availability
+= may this Runtime attempt the described interaction route?
+
+Authorization
+= will the controlling authority permit this operation?
+
+Execution
+= did the requested operation actually occur and produce a result?
+```
+
+`READY`は次を保証しない。
+
+- successful authentication
+- remote serviceまたはphysical controllerによるauthorization
+- network reachabilityまたはtarget presence
+- current remote device state
+- business-rule acceptance
+- physical safety
+- semantic success
+- 特定のResult
+
+次のsequenceはvalidである。
+
+```text
+Capability READY
+→ explicit invocation attempt
+→ remote authorization denial
+```
+
+`UNAVAILABLE`は、current policyの下でknown local blockerがattemptを妨げることを意味する。EntityまたはContractに関するpermanent statementではない。
+
+`UNKNOWN`は、Runtimeがlocal attempt readinessを判断できないことを意味する。`READY`として提示してはならない（MUST NOT）が、applicationはuncertaintyの下でuserがinvocationをattemptできるか、またどのようにattemptできるかを決定する明示的policyを適用してもよい（MAY）。
+
+Availability evaluationはside effectを伴うCapabilityをprobeとしてexecuteしてはならない（MUST NOT）。特に`door.unlock`、`light.setState`、payment、またはactuator movementなどのoperationを、availability testのためだけにinvokeしてはならない（MUST NOT）。
+
+<a id="70-load-and-explicit-invocation"></a>
+# 70. LoadおよびExplicit Invocation
+
+## 70.1 Non-executing Load
+
+`ARRuntime.load()`および同等のparse、validation、resolution、inspection、Profile evaluation、またはAvailability APIは、記述されたCapabilityを自動的にinvokeしてはならない（MUST NOT）。
+
+load-time Entity retrievalおよびpolicy-permitted semantic-definition retrievalはCapability executionではない。diagnosticおよびsecurity policyにおいて区別可能なままでなければならない（MUST）。
+
+## 70.2 Initiating Intent
+
+side effectを伴うCapability executionは、ApplicationまたはHumanに帰属する明示的requestからのみ開始しなければならない（MUST）。Entityを単にviewすること、Capabilityをenumerateすること、Contractをresolveすること、Requirementをevaluateすること、または`READY`をobserveすることはinvocation requestではない。
+
+Runtime APIは、retry、redirect、credential acquisition、およびroute selectionによってpassive loadがexecutionへ変わらないように、asynchronous processingを通じてinitiating intentをpreserveすることが望ましい（SHOULD）。
+
+## 70.3 Conceptual Invocation Pipeline
+
+明示的requestの後、Runtimeは概念的に次を実行し得る。
+
+```text
+1. identify the requested Capability
+2. validate invocation Inputs against resolved semantics
+3. evaluate current routes and policy
+4. select an eligible route without document-order preference
+5. acquire permitted credentials or consent through Runtime policy
+6. serialize the request through the selected Interface Extension
+7. perform the interaction
+8. classify transport and Interface outcomes
+9. decode and validate the Result Representation
+10. Expose semantic Outputs or errors
+```
+
+各stepは独立してfailする場合があり、本仕様が定義するerror-layer distinctionをpreserveしなければならない（MUST）。
+
+credential acquisition、authorization prompt、device access、network request、およびphysical actionは、Runtimeおよびhost-environment policyの管理下にある。AR-XMLはbrowser、operating-system、network、またはdevice security controlをbypassしない。
+
+invocation resultはdescriptionを書き換えない。ApplicationはRuntime Contextまたはobservationを別途維持してもよい（MAY）。
 
 ---
