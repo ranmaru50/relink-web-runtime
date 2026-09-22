@@ -3670,3 +3670,494 @@ conforming **Profile Evaluator**は次を行わなければならない（MUST�
 Profile Evaluator conformanceはinvocation supportまたはnetwork resolutionを要求しない。unsupported semantic featureはdiscloseされ、定義済みuncertainty stateによって扱われなければならない（MUST）。
 
 ---
+
+<a id="part-xi--examples"></a>
+# Part XI — Examples
+
+<a id="81-empty-passive-entity"></a>
+# 81. Empty Passive Entity
+
+最小のDraft 5 documentは、他のdeclarationを持たないvalid passive Entityを記述する。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1" />
+```
+
+このdocumentはCore-validである。CPU、network connection、API、Interface、Capability、Canonical Entity Identity、またはcurrent availabilityを意味しない。
+
+<a id="82-properties-only-entity"></a>
+# 82. Properties-only Entity
+
+Entityはinvocableでなくてもdeclared characteristicを含み得る。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1">
+
+  <category>laboratory.instrument</category>
+
+  <properties>
+    <property
+      type="https://example.org/properties/manufacturer/1"
+      value="Example Instruments" />
+
+    <property
+      type="https://example.org/properties/rated-voltage/1"
+      value="5"
+      unit="V" />
+
+    <property
+      type="https://example.org/properties/rated-voltage/1"
+      value="9"
+      unit="V" />
+  </properties>
+</ar-entity>
+```
+
+repeated Property `type`はvalidである。Coreはどのvoltageがpreferred、current、または特定configurationでapplicableかをinferしない。
+
+<a id="83-identifier-and-subject"></a>
+# 83. IdentifierおよびSubject
+
+Identifierはdescribed Entityまたはlightweight Subjectのいずれにも適用できる。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1">
+
+  <identifiers>
+    <identifier
+      type="https://example.org/identifier-schemes/asset-id/1"
+      value="LAB-DEVICE-0042" />
+
+    <identifier
+      type="https://example.org/identifier-schemes/serial/1"
+      value="TEMP-8831"
+      subject-ref="temperature-module" />
+  </identifiers>
+
+  <subjects>
+    <subject
+      id="temperature-module"
+      type="https://example.org/subject-types/sensor-module/1" />
+  </subjects>
+</ar-entity>
+```
+
+`temperature-module`はnested Entityではない。どちらのIdentifierも自動的にLocator、credential、またはCanonical Entity Identityにはならない。
+
+<a id="84-attachment-only-interface"></a>
+# 84. Attachment-only Interface
+
+passive physical connectorはCapabilityまたはnetwork Realizationなしで記述できる。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:phys="https://example.org/ns/arxml/physical/1"
+  version="0.1">
+
+  <interfaces>
+    <interface id="display-connector">
+      <attachment>
+        <phys:connector
+          family="hdmi"
+          form="type-a" />
+      </attachment>
+    </interface>
+  </interfaces>
+</ar-entity>
+```
+
+AttachmentがpresentなのでInterfaceはvalidである。Core validationは`phys:connector` semanticsを理解する必要がない。
+
+<a id="85-capability-without-invocation"></a>
+# 85. Invocationを持たないCapability
+
+Capabilityはrequest-oriented Invocationを定義せずにsemantic affordanceを記述できる。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1">
+
+  <capabilities>
+    <capability
+      id="status-observable"
+      type="https://example.org/capabilities/status/observable/1" />
+  </capabilities>
+</ar-entity>
+```
+
+documentはvalidである。このCapabilityのCore request-oriented Availabilityは`UNAVAILABLE`である。このdeclarationはsemantic descriptionとして、またはfuture observation Extensionにとって引き続き有用な場合がある。
+
+<a id="86-capability-without-interfaceuse"></a>
+# 86. InterfaceUseを持たないCapability
+
+Capabilityはrouteを宣言せずにrequestおよびResult contract projectionを定義できる。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1">
+
+  <capabilities>
+    <capability
+      id="label-read"
+      type="https://example.org/capabilities/label/read/1">
+
+      <invocation>
+        <result>
+          <outputs>
+            <output
+              name="label"
+              type="string" />
+          </outputs>
+
+          <representations>
+            <representation media-type="application/json" />
+          </representations>
+        </result>
+      </invocation>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+CapabilityはCore-validだが、InterfaceUse routeは0である。RuntimeはContract identifierからendpointを発明しない。
+
+<a id="87-shared-http-interface"></a>
+# 87. Shared HTTP Interface
+
+1つのEntity-level HTTP Interfaceを複数のCapabilityで共有できる。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  version="0.1">
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="status-read"
+      type="https://example.org/capabilities/status/read/1">
+
+      <invocation>
+        <result>
+          <outputs>
+            <output name="status" type="string" />
+          </outputs>
+          <representations>
+            <representation media-type="application/json" />
+          </representations>
+        </result>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation method="GET" path="status" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+
+    <capability
+      id="reset"
+      type="https://example.org/capabilities/device/reset/1">
+
+      <invocation />
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation method="POST" path="reset" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+`http:api`はshared HTTP configurationを保持する。各`http:operation`はCapability-specific methodおよびpathだけを保持する。
+
+<a id="88-multiple-interfaceuses"></a>
+# 88. Multiple InterfaceUses
+
+1つのsemantic Capabilityは、Capabilityをduplicateせずに異なるInterface Extension経由のrouteを持つことができる。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  xmlns:ble="https://example.org/ns/arxml/ble/1"
+  version="0.1">
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+
+    <interface id="ble-service">
+      <realization>
+        <ble:service uuid="12345678-1234-1234-1234-123456789000" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="power-set"
+      type="https://example.org/capabilities/power/set/1">
+
+      <invocation>
+        <inputs>
+          <input
+            name="on"
+            type="boolean"
+            required="true" />
+        </inputs>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation method="POST" path="power/state" />
+          </mapping>
+        </interface-use>
+
+        <interface-use ref="ble-service">
+          <mapping>
+            <ble:write characteristic="12345678-1234-1234-1234-123456789001" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+これは独立してevaluateされる2つのrouteを持つ1つのCapabilityである。そのorderはpreferenceではない。RuntimeはHTTP、BLE、両方、またはいずれもsupportしない場合がある。
+
+<a id="89-unknown-foreign-extension"></a>
+# 89. Unknown Foreign Extension
+
+unknown foreign contentは、permitted Extension Slotに現れる場合Core-validのままである。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:vendor="https://vendor.example/ns/arxml/device/7"
+  version="0.1">
+
+  <properties>
+    <property
+      type="https://example.org/properties/model/1"
+      value="X100" />
+
+    <vendor:declared-characteristic
+      name="service-class"
+      value="precision" />
+  </properties>
+
+  <interfaces>
+    <interface id="vendor-link">
+      <realization>
+        <vendor:link mode="local" />
+      </realization>
+    </interface>
+  </interfaces>
+</ar-entity>
+```
+
+vendor namespaceをrecognizeしないCore processorもCore structureをacceptし、両方のforeign subtreeをpreserveすることが望ましい。そのvendor Extensionがvalidまたはsupportedであるとはclaimしない。
+
+<a id="90-reference-lab-light-control"></a>
+# 90. Reference Lab Light Control
+
+Reference Lab light controlのsemantic intentは次のとおりである。
+
+```text
+light.setState(on:boolean)
+```
+
+1つのsemantic Capability、1つのEntity-level shared HTTP Interface、および1つのHTTP InterfaceUse Mappingによって表現される。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  version="0.1">
+
+  <category>reference-lab.device</category>
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="light-set-state"
+      type="https://relink.dev/capabilities/light/set-state/1">
+
+      <invocation>
+        <inputs>
+          <input
+            name="on"
+            type="boolean"
+            required="true" />
+        </inputs>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation
+              method="POST"
+              path="light/state" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+baseline request body:
+
+```json
+{
+  "on": true
+}
+```
+
+このInvocationはOutputを宣言しないため、HTTP `204 No Content` responseはcompatibleである。このdocumentのloadingによってrequestを送信してはならない（MUST NOT）。
+
+<a id="91-reference-lab-temperature-reading"></a>
+# 91. Reference Lab Temperature Reading
+
+Reference Lab temperatureのsemantic intentは次のとおりである。
+
+```text
+temperature.read()
+→ temperature:number
+```
+
+次のcomplete documentは同じEntity-level HTTP Interfaceを共有しながら、これをlight control Capabilityと組み合わせる。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  version="0.1">
+
+  <category>reference-lab.device</category>
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="light-set-state"
+      type="https://relink.dev/capabilities/light/set-state/1">
+
+      <invocation>
+        <inputs>
+          <input
+            name="on"
+            type="boolean"
+            required="true" />
+        </inputs>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation
+              method="POST"
+              path="light/state" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+
+    <capability
+      id="temperature-read"
+      type="https://relink.dev/capabilities/temperature/read/1">
+
+      <invocation>
+        <result>
+          <outputs>
+            <output
+              name="temperature"
+              type="number" />
+          </outputs>
+
+          <representations>
+            <representation media-type="application/json" />
+          </representations>
+        </result>
+      </invocation>
+
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation
+              method="GET"
+              path="temperature" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+baseline temperature response:
+
+```json
+{
+  "temperature": 21.4
+}
+```
+
+single OutputでもJSON objectを使用する。scalar `21.4` responseはbaseline mappingではない。
+
+Entity ResolverはReference Lab Entity identityまたはapplication referenceをこのAR-XML resource locationへmapしてもよい。2つのCapability Contractをresolveしたり、HTTP routeをchooseしたり、いずれかのCapabilityをexecuteしたりはしない。それらの責務はSemantic Registryおよびexplicit Runtime operationに残る。
+
+---
