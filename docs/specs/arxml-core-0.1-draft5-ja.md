@@ -2393,3 +2393,277 @@ Resolution ≠ Execution
 ```
 
 ---
+
+<a id="part-vii--validation-and-processing"></a>
+# Part VII — Validation and Processing
+
+<a id="56-processing-model"></a>
+# 56. Processing Model
+
+## 56.1 Load Pipeline
+
+AR-XML Runtimeのload operationは、次のconceptual pipelineに従う。
+
+```text
+1. Resolve Entity reference when required
+2. Fetch AR-XML resource bytes
+3. Parse XML safely and namespace-aware
+4. Validate Core namespace and Draft version
+5. Validate Core structure and Extension Slot envelopes
+6. Validate typed uniqueness and local references
+7. Construct AR-DOM and preserve Extension data
+8. Expose the description and diagnostics
+```
+
+このpipelineは次の基本ruleをrefineするが、変更しない。
+
+```text
+ARRuntime.load()
+= Resolve / Fetch / Parse / Validate / Expose
+```
+
+loadのどのstepもCapabilityをauthorizeまたはinvokeしない。AR-XML resourceのfetchはdocument retrievalであり、記述されたCapabilityのexecutionではない。
+
+semantic ContractまたはProfile resolutionは、load中、AR-DOM exposure後、または明示的application request時に実行してもよい（MAY）。Core structural validityには要求されず、Capability executionを引き起こしてはならない（MUST NOT）。
+
+## 56.2 Distinct Processing Outcome
+
+processorは、次のoutcome categoryを区別して保持しなければならない（MUST）。
+
+```text
+Entity resolution failure
+resource fetch failure
+XML parse failure
+Core validation failure
+Extension validation result
+semantic resolution result
+projection validation result
+Profile conformance result
+Runtime availability result
+invocation result or error
+```
+
+あるcategoryを別のcategoryとしてsilentに報告してはならない（MUST NOT）。例えば、unresolved Capability ContractはCore validation failureではなく、HTTP authorization failureはAR-XML documentがinvalidである証拠ではない。
+
+## 56.3 DeterminismおよびNo Repair
+
+Core parsingおよびvalidationはdeterministicでなければならず（MUST）、AI、LLM、Semantic Identifierのnetwork dereferencing、またはhuman interpretationを要求してはならない（MUST NOT）。
+
+processorは複数のdiagnosticを収集してもよいが（MAY）、originalをvalidateしたとclaimしながらinvalid documentをrepairしてはならない（MUST NOT）。prohibited silent repairの例には次が含まれる。
+
+- unknown Core elementまたはattributeをdeleteする。
+- duplicate local IDの1つをchooseする。
+- dangling referenceのarbitrary targetをselectする。
+- foreign contentをExtension Slotへmoveする。
+- 欠落したEntity projection fieldをContractからfillする。
+- malformed XMLをvalid AR-DOMとして扱う。
+
+applicationは別個のrepair workflowを提供してもよいが（MAY）、repaired contentはnew documentであり、revalidateされなければならない（MUST）。
+
+## 56.4 Safe XML Parsing
+
+processorはuntrusted inputに適したXML parser configurationを使用しなければならない（MUST）。Core parsing中にimplicit side effectとしてexternal entityまたはexternal DTD resourceをfetchしてはならない（MUST NOT）。resource limitはdeployment environmentに従ってdocument size、nesting depth、attribute count、およびexpanded textをboundすることが望ましい（SHOULD）。
+
+parser security policyはExtension mechanismではない。documentはRuntimeのXML security configurationをweakenできない。
+
+<a id="57-core-structural-validation"></a>
+# 57. Core Structural Validation
+
+Core structural validationは、semantic-definition resolutionおよびExtension固有meaningとは独立して、parsed documentがCore grammarにconformするかを判断する。
+
+Core validatorは少なくとも次をverifyしなければならない（MUST）。
+
+1. resourceがwell-formed XMLである。
+2. document elementがCore `ar-entity`である。
+3. Core namespaceおよび`version="0.1"`が正しい。
+4. 定義済みCore elementおよびattributeのみが現れる。
+5. foreign elementがexplicit Extension Slot内にのみ現れる。
+6. singleton elementおよびcontainerがrepeatしない。
+7. required attributeおよびnon-empty lexical valueが存在する。
+8. Core child containmentおよびcardinalityがsatisfiedである。
+9. Core data typeおよびboolean lexical valueがpermittedである。
+10. InputおよびOutput constraint wrapperがそのslot envelopeをsatisfyする。
+11. Attachment、Realization、Mapping、およびRequirement body envelopeがvalidである。
+12. すべてのInterfaceがAttachmentまたはRealizationを含む。
+13. Section 58のuniquenessおよびreference ruleが成立する。
+
+Core child orderはvalidityに影響してはならない（MUST NOT）。non-canonicalだがそれ以外はpermittedなchild orderを使用するdocumentはvalidである。
+
+## 57.1 Unknown Content
+
+validationは次のmatrixを適用する。
+
+| Content | Location | Core result |
+|---|---|---|
+| known Core elementまたはattribute | permitted Core location | validationを継続 |
+| unknown Core-namespace element | anywhere | invalid |
+| Core element上のunknown unqualifiedまたはCore attribute | anywhere | invalid |
+| foreign element | permitted Extension Slot | slot envelopeがvalidならCore-valid |
+| foreign element | Extension Slot外 | invalid |
+| Core element上のforeign namespaced attribute | Section 32.3に基づくmetadata | Core-valid。metadata semanticsは別途validate |
+
+foreign Extension elementをrecognizeしても、Core定義slot外で許可されるわけではない。valid slot内のforeign Extension elementをrecognizeできなくても、documentはCore-invalidにならない。Core element上のforeign metadata attributeには、element-slot envelope ruleではなくSection 32.3を使用する。
+
+## 57.2 Structural ValidityおよびSemantic Evaluation
+
+Core validityは次を要求しない。
+
+- Entity Identifier、Interface、またはCapability
+- CPU、network connection、API、またはRuntime implementation
+- Capability Contract、Profile、またはvocabulary termのresolution
+- Extension processor support
+- Profile conformance
+- Runtime availability
+- successful authentication、authorization、またはexecution
+
+empty passive EntityはCore-validである。逆に、semantically familiarまたはexecutableなdocumentであっても、Core grammarに違反すればCore-invalidである。
+
+<a id="58-reference-and-uniqueness-validation"></a>
+# 58. ReferenceおよびUniqueness Validation
+
+## 58.1 Typed Local ID Collection
+
+local IDは各typed collection内でuniqueでなければならない（MUST）。
+
+```text
+Subject.id
+Interface.id
+Capability.id
+```
+
+collectionは別々である。同じlexical IDが、異なる各typed collectionに1回ずつ現れてもcollisionしない（MAY）。
+
+ID comparisonは、XML attribute-value processing後のexact code-point equalityを使用する。future Core revisionがそのようなnormalizationを明示的に定義しない限り、validatorはcase-fold、trim、URI-normalize、Unicode-normalize、またはその他の方法でequivalenceを推測してはならない（MUST NOT）。
+
+## 58.2 Scoped Name
+
+Input nameは、それを含むInvocation内でuniqueでなければならない（MUST）。Output nameは、それを含むResult内でuniqueでなければならない（MUST）。
+
+InputおよびOutputのname collectionは別々である。同じnameをInputとして1回、Outputとして1回使用してもよい（MAY）。異なるCapability内のnameはcollisionしない。
+
+## 58.3 Local Reference
+
+次のreferenceは同じAR-XML document内でresolveしなければならない（MUST）。
+
+```text
+Capability.subject-ref → Subject.id
+Identifier.subject-ref → Subject.id
+InterfaceUse.ref       → Interface.id
+```
+
+reference matchingはIDと同じexact equality ruleを使用する。referenceはnetwork access、Semantic Registry、Entity Resolver、label matching、またはcross-document inferenceによってresolveしてはならない（MUST NOT）。
+
+forward referenceはvalidである。したがってprocessorは、referenceをdanglingとして報告する前にcollection constructionを完了しなければならない（MUST）。
+
+dangling local referenceはCore structural validation errorである。processorはplaceholder targetを作成したり、referencing itemをsilentにdropしたりしてはならない（MUST NOT）。
+
+## 58.4 Permitted Repetition
+
+次のrepetitionは明示的にpermittedである。
+
+- 同じ`type`を持つ複数のIdentifier
+- 同じ`type`を持つ複数のProperty
+- 1つのCapability内で同じ`ref`を持つ複数のInterfaceUse
+- 同じInterfaceを参照する異なるCapability
+- 同じSubjectを参照する異なるIdentifierまたはCapability
+
+permitted repetitionはorder、preference、aliasing、aggregation、equivalence、またはconflict resolutionを意味しない。
+
+<a id="59-extension-validation"></a>
+# 59. Extension Validation
+
+## 59.1 Separate Validation Layer
+
+Extension-specific validationはCore slot-envelope validationの後または並行して行われるが、別個のresultを生成する。
+
+各foreign semantic rootについて、processorは概念的に次を判断する。
+
+```text
+Extension recognized?
+Extension processor supported?
+Extension subtree valid under that Extension?
+```
+
+Extension processorはCore validation resultを変更したり、Core cardinalityをrelaxしたり、Core attributeをreinterpretしたりしてはならない（MUST NOT）。そのslotまたはmetadata-attribute definitionに割り当てられたforeign semanticsだけをvalidateする。
+
+## 59.2 Recognized Extension
+
+recognizedかつsupportedなExtensionについて、processorはrootのnamespace URI、local name、およびslot contextに関連付けられたExtension specificationを適用しなければならない（MUST）。
+
+Extension validation failureは、foreign root、slot、Extension specificationまたはversion、およびviolated ruleを識別することが望ましい（SHOULD）。Core structureを遡及的にinvalidにするのではなく、適用可能なExtension conformance classに対してExtension instanceをinvalidにする。
+
+processorは、ExtensionのXMLをpreserveまたはdisplayできるという理由だけで、そのExtensionへのconformanceをclaimしてはならない（MUST NOT）。
+
+## 59.3 UnknownまたはUnsupported Extension
+
+valid Extension Slot内のunknownまたはunsupported foreign rootについては、次のとおりである。
+
+- Core validationはvalidのままである。
+- Extension-specific validityは確立されない。
+- subtreeはopaque dataとしてpreserveすることが望ましい（SHOULD）。
+- semantic meaningを推測してはならない。
+- 適用可能なRuntimeまたはconformance evaluationは規定されたunknown stateを使用する。
+
+特に、unknown Requirement bodyは、evaluationが必要な場合に`RequirementEvaluation = UNKNOWN`を生成する。unknown Attachment semanticsは、routeがevaluationを必要とする場合に`AttachmentEvaluation = UNKNOWN`を生成する。Realization、Mapping、およびconstraint semanticsはPart VIIIで別々に扱う。
+
+## 59.4 Extension Processor Isolation
+
+Extension processorはforeign subtree contentをuntrusted inputとして扱わなければならない（MUST）。Extension syntaxをvalidateするためだけに、scriptをexecuteしたり、arbitrary resourceをfetchしたり、credentialへaccessしたり、Capabilityをinvokeしたりしてはならない（MUST NOT）。
+
+Extensionは明示的resolution behaviorを定義してもよいが、resolutionはRuntime policyに従い、validationおよびexecutionから区別可能なままでなければならない（MUST）。
+
+<a id="60-preservation-and-exposure"></a>
+# 60. PreservationおよびExposure
+
+## 60.1 AR-DOM Construction
+
+Core validation成功後、processorはCore Information Modelを表すimplementation-independentなAR-DOMをconstructまたはexposeする。
+
+AR-DOMは次をpreserveしなければならない（MUST）。
+
+- modelが要求するすべてのCore information itemとそのlexical value
+- collection membership
+- preferenceを割り当てることなく、faithful reserializationに必要なdocument order
+- local IDおよびreference
+- 利用可能な場合、別個のRuntime contextとしてのAR-XML retrieval locationまたはdocument base
+- Section 36のpreservation ruleに従うforeign Extension subtree
+
+AR-DOMはbrowser DOMではなく、untrusted XMLをHTMLへ挿入してexposeしてはならない（MUST NOT）。
+
+## 60.2 DescriptionおよびDerived State
+
+exposeされたEntity descriptionは、次を含むderived dataから分離したままでなければならない（MUST）。
+
+- resolved ContractおよびProfile definition
+- resolution provenance
+- projection validation state
+- Profile conformance state
+- Requirement evaluation
+- Runtime supportおよびavailability
+- selected route
+- credentialおよびauthorization state
+- invocationまたはexecutionのresult
+
+processorは、関連するevaluation objectまたはAPIを通じてこれらをexposeしてもよいが（MAY）、derived stateがdeclaredであるかのように見せるためissuer-authored AR-DOMをmutateしてはならない（MUST NOT）。
+
+resolved Contract fieldを、欠落したCapability fieldへinjectしてはならない（MUST NOT）。applicationが明示的にnew documentを作成してrevalidateしない限り、Profile constraintをEntity declarationとしてserializeし戻してはならない（MUST NOT）。
+
+## 60.3 Invalid Document
+
+processorはinvalid documentをconforming AR-DOMとしてexposeしてはならない（MUST NOT）。representationがvalid AR-DOMと明確に区別されるなら、parseまたはvalidation diagnosticとnon-conforming inspection representationをexposeしてもよい（MAY）。
+
+partial parsing、editor recovery、またはbest-effort inspectionをconformance、projection validation、Profile conformance、availability、またはinvocationに使用してはならない（MUST NOT）。
+
+## 60.4 Reserialization
+
+serializerは、collection membershipおよびExtension semanticsをpreserveしながら、Section 21のcanonical Core child orderでemitすることが望ましい（SHOULD）。collection itemのreorderingをpreference伝達に使用してはならない（MUST NOT）。
+
+processorがclaimするserialization modeに対してunknown Extension subtreeを十分にpreserveできない場合、そのlossをdiscloseしなければならず（MUST）、lossless round-trip behaviorをclaimしてはならない（MUST NOT）。
+
+## 60.5 Exposure Is Not Execution
+
+AR-DOM、Capability、Interface、InterfaceUse、resolved definition、またはavailability stateのexposureはobservationalである。Capability executionを開始してはならない（MUST NOT）。
+
+side effectを伴うexecutionは、Runtime invocation operationを介した明示的なApplicationまたはHuman requestの後にのみ開始する。
+
+---
