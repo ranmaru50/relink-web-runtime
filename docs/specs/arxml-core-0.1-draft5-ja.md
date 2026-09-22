@@ -1511,3 +1511,327 @@ Extension identification
 ```
 
 ---
+
+<a id="part-iv--capability-contracts"></a>
+# Part IV — Capability Contract
+
+<a id="37-capability-contract-model"></a>
+# 37. Capability Contractモデル
+
+Capability Contractは、1種類のCapabilityに対するversionedで規範的なsemantic sourceである。Entity、Interface、transport、endpoint、Runtime、または現在のavailability stateから独立して、そのCapabilityが何を意味するかを定義する。
+
+概念modelは次のとおりである。
+
+```text
+CapabilityContract
+├─ identifier                 1
+├─ invocation?                0..1
+│  ├─ inputs*                 0..*
+│  └─ result?                 0..1
+│     └─ outputs*             0..*
+├─ requirements*              0..*
+├─ constraints*               0..*
+└─ extension semantics*       0..*
+```
+
+Contractの`identifier`は、そのexact-versioned Semantic Identifierである。ContractのInvocation、Input、Result、Output、Requirement、およびconstraint conceptはEntity側の対応概念と対応するsemantic roleを持つが、Contract definition modelとEntity serialization modelは異なるcardinalityを持つ。Contractは規範的であり、Entity declarationはprojectionである。
+
+存在するContract Resultが列挙するOutputは0個でもよい（MAY）。そのようなresult shapeに追加の意味を与える場合、Contractの`extension semantics*` information item内で明示的に識別されたExtension semanticsを通じて提供しなければならない（MUST）。Draft 5は、Resultに対する別のexternal-definition reference fieldまたは暗黙のresolution channelを定義しない。prose citationだけで規範的resolutionを指示したり、不足しているmachine-readable result definitionを提供したりしてはならない（MUST NOT）。列挙Outputが0個であるという理由だけでContractをunusableにしてはならない（MUST NOT）。これは、存在する`result`が少なくとも1つの`output`を含まなければならないEntity側XMLとは異なる。
+
+Outputを列挙しないContract Resultは、Result不在、no-value Invocation、または任意のEntity Outputに対するpermissionと自動的にequivalentにはならない。その規範的result meaningおよびprojection ruleは、Contractと明示的に識別されたExtension semanticsに従う。processorはOutput declarationを捏造したり、空のEntity Resultを挿入したり、proseまたはAIからshapeを推測したりしてはならない（MUST NOT）。そのresult semanticsが必要な場合のcomparisonはSection 40.4に従う。
+
+ContractはInvocationを省略してもよい（MAY）。Invocationを含む場合、そのInvocationがInputもResultも含まなくてもよい（MAY）。Invocation不在をEvent、Observation、Subscription、またはStream semanticsへ一般化してはならない（MUST NOT）。
+
+Contract Input definitionは、次を規範的に定義できる。
+
+- name
+- Core data type
+- requiredness
+- format
+- unit
+- constraint
+- Extension semantics
+
+Contract Output definitionは、次を規範的に定義できる。
+
+- name
+- Core data type
+- format
+- unit
+- constraint
+- Extension semantics
+
+Contract Requirementは、Capabilityに対する普遍的で規範的なprerequisiteである。Entity Capability RequirementはSection 40.5に従ってEntity固有prerequisiteを追加できる。effective Capability prerequisiteはContract RequirementとEntity Requirementの論理積である。このsemantic evaluationはContract dataをEntity documentへstructural mergeしない。Contract constraintおよびExtension semanticsを適合するautomated projection validationへ参加させる場合、それらは決定的なcomparison behaviorを定義しなければならない（MUST）。
+
+human-readable explanationをContractに添えてもよい（MAY）が、prose、label、example、またはAI interpretationを、決定的interoperabilityに必要なmachine-readable normative fieldの代わりにしてはならない（MUST NOT）。
+
+## 37.1 除外されるImplementation Information
+
+Capability Contractは、次を含むEntity implementation routing informationを含んではならない（MUST NOT）。
+
+- InterfaceまたはInterfaceUse
+- Attachment、Realization、またはMapping
+- HTTP method、path、endpoint、またはheader
+- BLE serviceまたはcharacteristic
+- connector instance
+- Entity-local IDまたはSubject reference
+- credential
+- 現在のRuntime state
+
+これらの情報は、適用可能なEntity側projection、Interface Extension、Runtime Context、またはcredential systemに属する。
+
+この仕様は、規範的Contract information modelとAR-XML processingにおけるその使用方法を定義する。具体的なContract document serializationまたはregistry protocolは別に定義してもよい（MAY）が、これらのsemanticsを保持しなければならない（MUST）。
+
+<a id="38-contract-identity-and-resolution"></a>
+# 38. ContractのIdentityとResolution
+
+## 38.1 Exact Versioned Identity
+
+すべてのCapability Contractは、exact-versioned absolute Semantic Identifierを持たなければならない（MUST）。Entity側の`capability/@type`は、そのexact Contractを識別しなければならない（MUST）。
+
+```xml
+<capability
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  id="temperature-read"
+  type="https://example.org/capabilities/temperature/read/1">
+  <invocation />
+</capability>
+```
+
+`https://example.org/capabilities/temperature/read/latest`のようなidentifierを規範的Contract identityとして使用してはならない（MUST NOT）。discovery serviceはlatest-version queryを提供してもよい（MAY）が、決定的なresolutionまたはvalidationの前にexact identifierを返さなければならない。
+
+registryがcompatibilityを報告する場合でも、異なるexact-versioned identifierは別のContract identityを表す。Core validation外の明示的なruleとApplication policyがない限り、processorはあるversionを別versionに置き換えてはならない（MUST NOT）。
+
+## 38.2 IdentityはLocationではない
+
+Contract identifierはsemantic contentを識別し、必ずしもnetwork locationではない。URI syntaxはHTTP dereferenceを要求しない。
+
+Semantic Registryは、built-in definition、local registry、cache、Application提供registry、installed Extensionまたはplugin、network sourceからContractをresolveしてもよい（MAY）。resolution sourceはContract identityを変更しない。
+
+```text
+Contract identifier
+≠ network location
+≠ retrieval requirement
+≠ trust assertion
+```
+
+## 38.3 Resolution Result
+
+Contract resolutionは2つのCore evaluation stateを持つ。
+
+```text
+RESOLVED
+UNRESOLVED
+```
+
+`RESOLVED`は、active registry policyの下で、exact identifierに対してusableなsemantic definitionが正確に1つ選択されたことを意味する。`UNRESOLVED`は、usable definitionが選択されなかったことを意味する。definitionがない場合、definitionが既知のinvalidである場合、または競合するdefinitionによって決定的selectionができない場合を含む。
+
+usableなContractは、要求されたexact-versioned absolute identifierで自己識別し、宣言されたdefinition formatとSection 37のContract modelを満たさなければならない（MUST）。既知のstructural error、禁止されたtransport content、不足しているnormative data、または既知の内部矛盾constraintがある場合はunusableである。resolverはEntity projection conflictではなくdefinition defectを報告しなければならない（MUST）。明示的に識別されているがunsupportedなconstraint semanticsだけではdefinitionをinvalidにしない。ContractResolutionは`RESOLVED`のまま、必要なprojection comparisonがPart IVに従って`UNVALIDATED`となり得る。
+
+同じexact identifierをclaimするnon-equivalent definitionが複数ある場合、resolverは最初のresultを暗黙に選択してはならない（MUST NOT）。external trust policyがsemantic resolutionの前に1つ以外のすべてのcandidateを決定的にrejectしない限り、conflictを報告して`UNRESOLVED`を生成しなければならない（MUST）。
+
+Contractがunresolvedでも、structurally validなAR-XML文書はinvalidにならない。Capabilityはdescription dataとしてexposeされたままだが、そのprojectionを完全にはvalidateできない。
+
+Resolutionは、Contract publisherまたはEntity issuerのauthenticate、trustの確立、authorizationの付与、またはRuntime supportの証明を行わない。
+
+<a id="39-entity-side-capability-projection"></a>
+# 39. Entity側Capability Projection
+
+Entity側Capabilityは、`capability/@type`で識別されるCapability Contractの明示的なlocal implementation projectionである。
+
+```text
+Capability Contract
+= normative semantic source
+
+Entity-side Capability
+= explicit local implementation projection
+```
+
+Projection contentは、AR-XML Capabilityに明示的に存在する情報だけで構成される。processorは、省略されたContract fieldをEntity documentに現れたかのようにAR-DOMへcopy、inject、またはstructural mergeしてはならない（MUST NOT）。
+
+resolveされたContract dataは別にexposeし、validationまたはcaller assistanceに使用してもよい（MAY）。processorは次の区別を保持しなければならない（MUST）。
+
+- issuerがauthorしたEntity projection data
+- resolveされたContract definition data
+- derived validation result
+
+Entity-localな`id`、`subject-ref`、InterfaceUse、Mapping、およびInterface Requirementはimplementation descriptionであり、Capability Contractのmemberではない。Contract fieldとしてcompareされない。
+
+Capability Requirement、Invocation、Input、Result、Output、Contractが制約するRepresentation、およびconstraint Extension dataはprojection materialである。Contract semanticsをredefineまたはweakenしてはならない（MUST NOT）。
+
+structurally validなCapabilityはInvocationまたはInterfaceUseを省略できる。structural validityはprojection compatibilityから独立している。たとえば、Invocationの省略はCore-validだが、resolveされたContractがInvocation projectionを要求する場合はprojection conflictになる。
+
+不足しているEntity projection dataからContract dataへの暗黙fallbackはない。必須projection informationがない場合、validationは該当stateを報告する。invocation codeは、不足情報がAR-XMLにserializeされていたかのように扱ってはならない（MUST NOT）。
+
+<a id="40-projection-compatibility"></a>
+# 40. Projection互換性
+
+## 40.1 一般規則
+
+Projection validationはEntity側Capabilityを、その`type`が識別するexact resolved Contractと比較する。
+
+Entity projectionはContract meaningを保持しなければならない（MUST）。Contract定義valueまたはconstraintの変更によるnarrowingは、Contractがその種類のnarrowingを明示的に許可し、processorが適用可能なcomparison ruleを理解する場合だけ行ってもよい（MAY）。Entity固有の追加RequirementはSection 40.5に従う。その追加はdefaultでcompatibleであり、Contractによる事前permissionを必要としない。
+
+```text
+redefinition
+→ CONFLICT
+
+semantic weakening or widening
+→ CONFLICT
+
+known Contract-permitted narrowing
+→ compatible
+
+Entity-specific additional Requirement without removal, weakening, or contradiction
+→ compatible by default under Section 40.5
+
+unknown comparison semantics
+→ UNVALIDATED
+```
+
+nameのsimilarity、natural-language description、common usage、またはAI生成equivalenceだけではcompatibilityの根拠にならない。
+
+## 40.2 Invocation Shape
+
+ContractがInvocationを要求し、Entity projectionがInvocationを省略する場合、projectionは`CONFLICT`である。ContractにInvocationがない場合、Contractが明示的に許可しない限り、Entity projectionはrequest-oriented Invocationを追加してはならない（MUST NOT）。
+
+Entityが空のInvocationをprojectできるのは、そのshapeがContractとcompatibleな場合だけである。空のInvocationは、named InputまたはResult contentを要求するContractを満たさない。
+
+## 40.3 Input
+
+Inputはexact nameでmatchする。Contractがextensibility ruleを明示的に宣言しない限り、次を適用する。
+
+- 必須Contract Inputの欠落は`CONFLICT`である。
+- Contractに定義されていない追加Entity Inputは`CONFLICT`である。
+- 異なるCore data typeは`CONFLICT`である。
+- requirednessのweakeningは`CONFLICT`である。
+- requirednessのstrengtheningは、Contractがそのnarrowingを明示的に許可する場合だけcompatibleである。
+- incompatibleなformatまたはunitは`CONFLICT`である。
+- unknownなformat、unit、またはconstraint comparisonは、別の既知conflictがない限り`UNVALIDATED`である。
+
+processorはprojection validation時に暗黙のtype coercionを適用してはならない（MUST NOT）。特に、次を適用する。
+
+```text
+boolean → string
+→ CONFLICT
+
+integer → number
+→ not assumed compatible
+```
+
+Contractは許可されるsubtypeまたはcoercion relationshipを明示的に定義できるが、processorがそれを使用できるのは、その決定的ruleを実装する場合だけである。
+
+## 40.4 ResultとOutput
+
+列挙されたContract Outputはexact nameでmatchする。Contract modelはOutputを列挙しないResultを許可するが、これは存在するResultに少なくとも1つのOutputを要求するEntity XML規則を緩和しない。明示的Contract ruleが別に定めない限り、次を適用する。
+
+- Contract Outputの欠落は`CONFLICT`である。
+- 追加Entity Outputは`CONFLICT`である。
+- 異なるCore data typeは`CONFLICT`である。
+- incompatibleなformatまたはunitは`CONFLICT`である。
+- unknown constraint comparisonは、別の既知conflictがない限り`UNVALIDATED`である。
+
+Outputを列挙しないContract Resultについて、processorはContractの規範的result/projection rule、およびEntity projectionの判定に必要なContract model内の明示的に識別されたExtension semanticsを使用しなければならない（MUST）。model化されていないexternal referenceまたはprose citationから追加normative definitionをdiscoverまたはresolveしてはならない（MUST NOT）。zero enumerationだけではopen-output wildcardにも、EntityがResultを省略すべき証拠にもならない。必要なcomparison semanticsがunresolvedまたはunsupportedの場合、別の既知conflictが優先しない限りProjectionValidationは`UNVALIDATED`である。processorはzero countだけから`VALIDATED`または`CONFLICT`を推論してはならない（MUST NOT）。semanticsが既知の場合、その決定的ruleと上記の適用可能なnamed-Output comparisonを適用する。空のEntity側XML `result`は、Contract cardinalityにかかわらずCore-invalidのままである。
+
+ResultとRepresentationは別である。ContractまたはそのExtension semanticsが許可Representationを制約する場合、Entityがsubsetを選択できるのは、そのselectionが許可されたnarrowingである場合だけである。Representation document orderはprojection compatibilityの一部にはならない。
+
+## 40.5 Requirement
+
+Entity projectionはContract Requirementを省略、weaken、またはcontradictしてはならない（MUST NOT）。既知の省略、weakening、またはcontradictionは`CONFLICT`である。必須のauthenticationまたはauthorization prerequisiteを含むEntity固有の追加Capability Requirementはdefaultでcompatibleである。Contractがその追加を明示的に許可する必要はない。追加prerequisiteが存在するだけでprojection conflictと分類したり、Contract opt-in ruleの対象にしたりしてはならない（MUST NOT）。
+
+effective Capability RequirementはContract RequirementとEntity Capability Requirementを加えたものであり、論理積として適用される。Entity RequirementはContract Requirementを置換または取消さず、`type` identifierが一致するだけではequivalenceを確立せず、どちらのdeclarationも破棄できない。processorは各declarationのsourceとscopeを保持しなければならない（MUST）。これはevaluationのためのsemantic compositionであり、structural inheritanceではない。Contract dataをAR-DOMへ挿入してはならず（MUST NOT）、effective setによって明示的projectionで省略されたContract Requirementを修復することもない。
+
+追加がdefaultでcompatibleであっても、Contract semanticsとの既知contradictionは許可されない。contradictionまたはweakeningの判定に必要なcomparisonを実行できない場合、既知conflictが優先しない限りProjectionValidationは`UNVALIDATED`である。standaloneな追加prerequisiteが現在satisfiedか評価できない場合は、別に`RequirementEvaluation = UNKNOWN`となる。それ自体はprojection conflictを確立せず、すべての追加RequirementにContract comparisonを要求するものでもない。
+
+追加Entity Requirementに対するinteroperability restrictionは、Section 47.1のProfile additional Requirement policyで評価される。Profileは本来compatibleな追加Requirementを禁止して`NON_CONFORMANT`を生成してもよいが（MAY）、ProjectionValidationを`CONFLICT`へ変更しない。Profileが何も指定しなければ追加を許可する。
+
+Interface RequirementはContract projection fieldではない。Capability Contract meaningを変更せずにroute固有prerequisiteを追加でき、各InterfaceUse routeについて別々にevaluateされる。
+
+authenticationおよびauthorization Requirementのcomparisonは、callerをauthenticateせず、authorizationを付与せず、credentialをvalidateしない。
+
+## 40.6 Constraint
+
+理解される各constraintについて、processorはContractまたはExtension仕様が定義するcomparison relationを使用しなければならない（MUST）。
+
+例:
+
+```text
+Contract range: 0..100
+Entity range: 0..80
+Contract explicitly permits range narrowing
+→ compatible
+
+Contract range: 0..100
+Entity range: -10..100
+→ CONFLICT
+
+Contract constraint: understood
+Entity constraint: comparison semantics unknown
+→ UNVALIDATED
+```
+
+processorはlexical similarityをsemantic subset comparisonとして扱ってはならない（MUST NOT）。unknown constraint semanticsはconflictの証拠ではなく、compatibilityを仮定するpermissionでもない。
+
+<a id="41-projection-validation-states"></a>
+# 41. Projection Validation状態
+
+Projection validationは、各Entity側Capabilityとその識別先Contractとの関係について、正確に1つのstateを生成する。
+
+```text
+VALIDATED
+UNVALIDATED
+CONFLICT
+```
+
+**VALIDATED**は、exact Contractがresolveされ、適用可能なすべてのprojection comparisonが決定的にcompatible、すなわちequal、Contractが許可するnarrowing、またはSection 40.5が許可するEntity固有の追加Requirementであったことを意味する。現在のprerequisite satisfactionおよびProfileのadditional Requirement policyは別のevaluationである。
+
+**UNVALIDATED**は、compatibilityを完全に判定できなかったことを意味する。unresolved Contract、unsupported constraint evaluator、unknown Extension semantics、またはprocessorが決定的ruleを持たない別のcomparisonが原因に含まれる。
+
+**CONFLICT**は、少なくとも1つの既知semantic contradiction、redefinition、weakening、widening、または禁止されたprojection differenceが検出されたことを意味する。
+
+state aggregationは次のprecedenceに従う。
+
+```text
+if any known comparison is conflicting
+→ CONFLICT
+
+else if Contract is unresolved
+     or any required comparison is unknown
+→ UNVALIDATED
+
+else
+→ VALIDATED
+```
+
+既知conflictは別のunknown comparisonによって隠されない。逆に、evaluatorがないことだけではconflictを証明しない。
+
+例:
+
+```text
+required Input missing
+→ CONFLICT
+
+boolean projected as string
+→ CONFLICT
+
+known allowed narrowing
+→ VALIDATED
+
+unknown constraint comparison semantics
+→ UNVALIDATED
+
+Entity-specific additional authentication Requirement,
+no Contract semantics removed, weakened, or contradicted,
+all other required comparisons compatible
+→ VALIDATED, without Contract opt-in
+
+the same projection under a Profile prohibiting that additional Requirement
+→ ProjectionValidation remains VALIDATED;
+  ProfileConformance is NON_CONFORMANT for a required policy violation
+```
+
+Projection stateはderived Runtime evaluation dataであり、AR-XML description dataではない。processorはCapability declarationを変更せず、比較したContract、影響を受けるfieldまたはconstraint、およびreasonを識別するdiagnosticとともにstateをexposeすることが望ましい（SHOULD）。
+
+`VALIDATED`はProfile conformance、Runtime support、availability、authorization、certification、またはexecution successを意味しない。`CONFLICT`はPart VIIIに従ってそのCapabilityのrouteをunavailableにする。`UNVALIDATED`は自動availabilityまたは自動rejectionではなくuncertaintyへ寄与する。
+
+---
