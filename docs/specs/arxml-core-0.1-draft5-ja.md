@@ -1835,3 +1835,341 @@ Projection stateはderived Runtime evaluation dataであり、AR-XML description
 `VALIDATED`はProfile conformance、Runtime support、availability、authorization、certification、またはexecution successを意味しない。`CONFLICT`はPart VIIIに従ってそのCapabilityのrouteをunavailableにする。`UNVALIDATED`は自動availabilityまたは自動rejectionではなくuncertaintyへ寄与する。
 
 ---
+
+<a id="part-v--profiles"></a>
+# Part V — Profile
+
+<a id="42-profile-model"></a>
+# 42. Profileモデル
+
+Profileは、versionedで決定的なinteroperability constraint setである。定義されたinteroperability contextに対して、どのsemantic contractおよびEntity characteristicがrequiredまたはpermittedであるかを表す。
+
+ProfileはCapability Contractではなく、Capabilityに新しい意味を定義してはならない（MUST NOT）。Capability Contractをexact-versioned identityで参照し、compatibleなconstraintだけを追加できる。
+
+概念modelは次のとおりである。
+
+```text
+ProfileDefinition
+├─ identifier                    1
+├─ capabilityRequirements*       0..*
+├─ propertyRequirements*         0..*
+├─ identifierRequirements*       0..*
+├─ interfaceRequirements*        0..*
+└─ extensionPolicy?              0..1
+```
+
+Profileの`identifier`は、そのexact-versioned absolute Semantic Identifierである。
+
+Profile definitionは次を制約してもよい（MAY）。
+
+- exact Capability Contract identifierで識別されるCapabilityの存在
+- Capability subject
+- Invocation InputおよびResult Output
+- 許可されるResult Representation
+- PropertyおよびIdentifier
+- Interface、InterfaceUse、Attachment、Realization、およびMapping characteristic
+- Requirement policy
+- requiredまたは明示的にprohibitedなExtension。指定されないExtensionは引き続き許可される
+
+automated conformance evaluationを目的とするすべてのnormative constraintは、決定的でmachine-readableなsemanticsを持たなければならない（MUST）。human-readable proseはProfileを説明してもよい（MAY）が、必須automated comparisonの唯一のsourceになってはならない（MUST NOT）。
+
+Profile evaluationはdefaultでopen-worldである。Profileが言及しないEntity declarationは、このmodelが定義する決定的restrictionをProfileがそのdeclaration classまたはscopeへ明示的に適用しない限り許可され、conformanceへ影響しない。このdefaultは追加Capability、Property、Identifier、Interface、Profile Claim、Requirement、およびExtension contentに適用される。Profile restrictionは、このmodelが定義するpolicyの範囲で、presenceをprohibitするのか、存在時にvalidationをrequireするのかを示さなければならない（MUST）。Extension contentにはSection 47.2の明示されたrequiredまたはprohibited ruleだけが適用され、declaration class全体を閉じるpolicyは存在しない。Capability、Property、およびIdentifier itemのcandidate aggregationはSections 44–45で固定され、baselineはcustom cardinalityまたはmatching-rule fieldを定義しない。
+
+この仕様はProfile information modelとevaluation semanticsを定義する。具体的なProfile document serializationまたはregistry protocolは別に定義してもよい（MAY）が、これらのsemanticsを保持しなければならない（MUST）。
+
+## 42.1 Profile Claimの分離
+
+AR-XMLの`conforms-to` itemは、document issuerによるProfile Claimである。Profile definitionは独立してresolveされるsemantic objectである。
+
+```text
+Profile Claim
+≠ Profile Definition
+≠ Profile Resolution
+≠ Profile Conformance Result
+≠ Certification
+```
+
+EntityがそのProfileをclaimしていない場合でも、processorはEntityをProfileに対してevaluateしてもよい（MAY）。逆に、claimが存在してもevaluation algorithmを変更したり、`CONFORMANT` resultを強制したりしてはならない（MUST NOT）。
+
+<a id="43-profile-identity-and-resolution"></a>
+# 43. ProfileのIdentityとResolution
+
+## 43.1 Exact Versioned Identity
+
+Profile identifierおよび規範的identityとして使用するすべての`conforms-to/@href`は、exact-versioned absolute Semantic Identifierでなければならない（MUST）。
+
+`latest`のようなmoving alias、unversioned family identifier、およびrelative referenceを規範的Profile identityとして扱ってはならない（MUST NOT）。discoveryをそのようなqueryから開始できるのは、conformance evaluationの前にexact identifierへresolveする場合だけである。
+
+異なるexact identifierは異なるProfile versionを表す。明示的なexternal selection policyがない限り、processorはnewer、older、またはcompatibleとされるProfile versionへ置き換えてはならない（MUST NOT）。
+
+## 43.2 Resolution
+
+Profile resolutionはPart VIで定義する共通Semantic Registry modelを使用する。Profileはbuilt-in source、local registry、cache、Application提供registry、installed Extensionまたはplugin、network sourceから取得してもよい。URI syntaxはnetwork dereferenceを要求しない。
+
+Profile resolutionは2つのstateを持つ。
+
+```text
+RESOLVED
+UNRESOLVED
+```
+
+`RESOLVED`は、exact identifierに対してusableなProfile definitionが正確に1つ選択されたことを意味する。`UNRESOLVED`には、definition不在、invalid definitionのreject、および決定的にdisambiguateできない競合non-equivalent definitionが含まれる。
+
+usableなProfile definitionは、要求されたexact-versioned absolute identifierで自己識別し、宣言されたdefinition formatとSection 42のmodelに適合し、Sections 44–45のbaseline matching ruleとunambiguous scopeを持つmachine-readable normative constraintを提供しなければならない（MUST）。既知のstructural error、Coreがdefaultを提供しない必須ruleの欠落、既知の禁止redefinitionまたはnarrowing、または既知の相互矛盾constraintを持つdefinitionはunusableとしてrejectしなければならない（MUST）。resolverはdefinition defectをEntity evaluationと別に報告しなければならない（MUST）。invalid ProfileはEntity non-conformanceの証拠ではない。
+
+未知だが明示的に識別されたconstraint languageは、constraint definitionの欠落とは異なる。参照Contractまたはconstraint semanticsがunresolvedまたはunsupportedでも、structurally usableなProfileは`RESOLVED`のままであってよい（MAY）。必須Profile constraintのlegalityまたはrequired subsetのsatisfaction確立に必要なそのようなuncertaintyは、assumed compatibilityではなく`UNDETERMINED`を生成しなければならない（MUST）。これにはunresolved narrowing comparisonも含まれる。後のresolutionでProfile自体がinvalidと判明した場合、ProfileResolutionは`UNRESOLVED`となり、そのconformance resultはdefinition-invalid diagnostic付きの`UNDETERMINED`となる。追加のCore state domainは導入しない。
+
+resolverは複数の競合definitionの最初を暗黙に使用してはならない（MUST NOT）。unresolved Profile Claimはissuer-declared description dataのままだが、そのProfileに対するverified conformanceは`UNDETERMINED`である。
+
+ResolutionはProfile publisherまたはEntity issuerをauthenticateせず、trustを確立せず、authorizationを付与せず、Entityをcertifyせず、Runtime supportを証明しない。
+
+<a id="44-capability-requirements"></a>
+# 44. Capability Requirement
+
+## 44.1 Presence
+
+各Profile Capability Requirementは1つのexact-versioned Capability Contractを識別し、1つのpresence valueを宣言する。
+
+```text
+required
+optional
+```
+
+Draft 5は`recommended`、weighted、preferred、prohibited、またはconditional presence valueを定義しない。
+
+matching candidateは、exact Contract identifierと適用可能subject constraintがProfile itemにmatchするEntity側Capabilityである。Draft 5 baselineのquantifierはexistentialであり、適用可能なすべてのProfile constraintを満たすcandidateが1つあれば十分である。Profileはbaseline内でこのcandidate aggregation ruleをoverrideしてはならない（MUST NOT）。document orderでcandidateを選択してはならない（MUST NOT）。
+
+`required`について、evaluatorはcandidateをexistentialにaggregateしなければならない（MUST）。いずれかのcandidateがsatisfyingならitemを満たす。それ以外で、必須matchingまたはcomparison semanticsがunknownのcandidateがあればitemは`UNDETERMINED`となる。それ以外で、candidateがないか、すべてのcandidateが既知のfailureならitemは`NON_CONFORMANT`となる。failing candidateは、別のsatisfyingまたはindeterminate candidateをoverrideしない。membershipを判定できないcandidateは、暗黙に除外せずindeterminateのままにしなければならない（MUST）。
+
+`optional`について、absenceとpresenceの両方がbaseline required subsetの範囲外である。optional Capabilityのprojection conflict、unresolved Contract、failedまたはunknown comparisonは、evaluateした場合に別途報告しなければならない（MUST）が、それ自体でbaseline Profile conformanceを変更してはならない（MUST NOT）。したがってrequired subsetを満たすEntityは、optional Capabilityが`ProjectionValidation = CONFLICT`であっても`CONFORMANT`となり得る。これはそのprojectionをvalidateせず、routeをavailableにもしない。Draft 5はoptional Capabilityのpresence-conditional constraintを定義せず、Profile evaluatorはprose、presence、または別itemからそれを推論してはならない（MUST NOT）。
+
+custom candidate cardinality、matching candidate全体へのuniversal quantification、および別のmatching algorithmは、明示的information modelを持つ将来のProfile Extensionへ延期する。Draft 5はoverride用fieldまたはExtension slotを定義しない。proseまたはcompanion serializationによってbaseline behaviorとして導入してはならない（MUST NOT）。これはCapability、Property、およびIdentifier candidate aggregationに適用される。required/optionalの区別は変更しない。presence-conditional constraintおよびその他のcondition modelも、明示的なmachine-readable Profile information modelが定義するまで延期される。itemにmatchしない追加Entity Capabilityは、Profileが追加declarationを明示的に制約しない限りopen-world defaultによって許可されたままである。
+
+## 44.2 Capability ContractとProjection
+
+Capability RequirementはCapability Contractを参照し、そのContractのsemantic meaningをcopyしてredefineしてはならない（MUST NOT）。
+
+Capabilityがrequired Profile itemを満たすため、または別に報告されるoptional-item comparisonを満たすためには、次の条件が必要である。
+
+1. `type`がrequired exact Contract identifierと等しくなければならない（MUST）。
+2. Contract依存constraintをevaluateする必要がある場合、Contractがresolveされなければならない（MUST）。
+3. Entity側projectionが`CONFLICT`であってはならない（MUST）。
+4. そのCapabilityに適用可能なすべてのProfile constraintがsatisfied、またはSection 49に従って決定的にevaluateされなければならない（MUST）。
+
+Profileは`VALIDATED` projectionを要求してもよい（MAY）。そのstateを明示的に要求しない場合でも、CapabilityがProfileを満たすかにunresolvedまたはunknown semanticsが影響し得るとき、`UNVALIDATED` projectionは`UNDETERMINED`を生成する。
+
+## 44.3 Subject Constraint
+
+Profileは、Capabilityが記述対象Entityに適用されるか、決定的criteriaを満たすSubjectに適用されるかを制約してもよい（MAY）。Subjectをnested Entityとして扱ったり、component hierarchyを推論したりしてはならない（MUST NOT）。
+
+Runtimeが選択するtargetはInvocation Inputであり、static `subjectRef` valueとしてmatchしてはならない（MUST NOT）。
+
+## 44.4 Invocation、Result、およびRepresentation Constraint
+
+Profileは、Contractが許可するInvocation、Input、Result、Output、およびRepresentationのchoiceをnarrowしてもよい（MAY）。次を行ってはならない（MUST NOT）。
+
+- Contractを変更するsemantic InputまたはOutputを追加する
+- 必須Contract InputまたはOutputを削除する
+- Core data type、unit、format、またはmeaningを変更する
+- requirednessまたはconstraintをweakenする
+- ResultをRepresentationまたはtransport dataへ変換する
+- Representation orderをpreferenceとして使用する
+
+Profile narrowingがvalidになるのは、Section 48に従う場合だけである。
+
+<a id="45-property-and-identifier-requirements"></a>
+# 45. PropertyおよびIdentifier Requirement
+
+## 45.1 Property Requirement
+
+Property Requirementはexact `type`によってProperty semanticsを識別し、Profileが必要とする決定的なpresence、value、unit、またはconstraint ruleを定義する。これらのcandidate testはcustom cardinalityまたはaggregation ruleを提供しない。
+
+exact required `type`を持つPropertyがmatching candidateである。required Property itemはexistential aggregationを使用しなければならない（MUST）。value、unit、およびconstraint testをすべて満たすcandidateがあればitemを満たす。それ以外でindeterminate candidateがあればitemは`UNDETERMINED`となる。それ以外でcandidateがないか、すべてが既知のfailureなら`NON_CONFORMANT`となる。evaluatorはこのruleをcustom multiplicityまたはquantifierで置き換えてはならない（MUST NOT）。最初のPropertyがpreferred、newest、authoritative、またはuniqueであると仮定してはならない（MUST NOT）。たとえばrequired rated-voltage valueが`5`の場合、valueが`5`と`9`のcandidateがあれば満たされる。failing candidateはsatisfying candidateを無効にしない。
+
+ProfileはPropertyの存在を要求し、または既知vocabulary定義valueを制約してもよい（MAY）。issuer-declared Propertyをverified truthまたは現在のRuntime stateへ変換してはならない（MUST NOT）。
+
+conformance判定に必要なunknown Property vocabularyまたはunsupported comparison semanticsは`UNDETERMINED`を生成する。既知のrequired Property欠落、またはcandidate aggregation後のrequired Property itemへの既知violationは`NON_CONFORMANT`を生成する。
+
+## 45.2 Identifier Requirement
+
+Identifier Requirementはexact `type`によってidentifier schemeを識別し、決定的なpresence、subject、またはvalue-shape ruleを定義する。これらのcandidate testはcustom cardinalityまたはaggregation ruleを提供しない。
+
+exact required `type`とmatching subject scopeを持つIdentifierがcandidateである。required Identifier itemはProperty itemと同じ固定existential aggregationを使用しなければならない（MUST）。satisfying candidateがあれば成功する。それ以外で、必須membershipまたはvalue comparisonがunknownのcandidateがあれば`UNDETERMINED`となる。それ以外でcandidateがないか、すべてが既知のfailureなら`NON_CONFORMANT`となる。unknown subject matchingによってcandidateを暗黙に除外してはならない（MUST NOT）。Identifier orderにpreference semanticsはない。
+
+別の適用可能な仕様が明示的かつ決定的なruleを定義しない限り、ProfileはIdentifierからCanonical Entity Identity、Locator、credential、authentication、authorization、ownership、またはtrustを推論してはならない（MUST NOT）。そのようなruleもIdentifierのCore meaningを変更しない。
+
+unknown required identifier schemeまたはunsupported validatorは`UNDETERMINED`を生成する。既知のrequired Identifier欠落、またはcandidate aggregation後のrequired itemへの既知violationは`NON_CONFORMANT`を生成する。
+
+<a id="46-interface-requirements"></a>
+# 46. Interface Requirement
+
+Profileはinteroperabilityに必要なEntity implementation characteristicを制約してもよい（MAY）。次を含む。
+
+- Interfaceの存在
+- required AttachmentまたはRealization Extension root
+- Interface Requirement
+- matching CapabilityからのInterfaceUseの存在
+- Mapping Extension root
+- 決定的に定義されたExtension固有characteristic
+
+Interface RequirementはEntity implementation projectionを制約する。参照先Capability Contractへ挿入したり、その一部として扱ったりしてはならない（MUST NOT）。
+
+ProfileはCapabilityが、指定characteristicを満たす1つ以上のInterfaceUse routeを持つことを要求してもよい。matchingは明示的なInterfaceUse referenceとExtension semanticsに基づき、collection orderには決して基づかない。
+
+ProfileはInterfaceの存在をRuntime supportまたはavailabilityと同一視してはならない（MUST NOT）。conformant Entityが、特定Runtimeでは使用できないInterfaceを記述する場合がある。
+
+required Interface constraintの判定に必要なunknownまたはunsupported Interface Extension semanticsは`UNDETERMINED`を生成する。既知のabsenceまたは既知のincompatible characteristicは`NON_CONFORMANT`を生成する。
+
+Profileはtransport固有vocabularyを再現せず、標準化されたInterface Extensionを制約することが望ましい（SHOULD）。generic mapping DSLを作成したり、Attachment、Realization、またはMappingのroleをredefineしたりしてはならない（MUST NOT）。
+
+<a id="47-requirement-and-extension-policies"></a>
+# 47. RequirementおよびExtension Policy
+
+## 47.1 Requirement Policy
+
+Profileは、識別されたRequirement typeのpresenceまたはabsenceを要求し、理解されるRequirement dataを制約し、または追加Requirementのpolicyを定めてもよい（MAY）。そのようなpolicyは、適用可能なCapabilityまたはInterface requirement item内のconstraintである。Draft 5は独立したtop-level Requirement-policy collectionを追加しない。companion Profile serializationが具体的encodingを定義する。
+
+Profileが明示的に別の規則を定めない限り、追加CapabilityまたはInterface Requirementは許可される。追加Requirementを制約するProfileは、`additional Requirements prohibited`または明示的なallowed type setなど、適用可能owner scopeと決定的ruleを識別しなければならない（MUST）。Profileの沈黙をprohibitionとして解釈してはならない（MUST NOT）。このpolicyが規定するのはProfile interoperabilityであり、Entity固有prerequisiteを宣言するpermissionをContractが与えるかではない。既知policy violationは、Capability projectionを`VALIDATED`のままにして`NON_CONFORMANT`を生成し得る。
+
+ProfileはCapability Contractが課すRequirementをremove、weaken、またはcontradictしてはならない（MUST NOT）。既存Contract Requirement contentのtighteningは、Contractが許可するnarrowing ruleに従い、決定的comparisonを必要とする。Entity固有の追加prerequisiteを要求する場合はSection 40.5とこのProfile policyに従い、追加にContractの事前permissionは必要ない。
+
+Capability RequirementとInterface Requirementは配置によるscopeを維持する。Profileはroute固有Interface Requirementをsemantic Capability Contractの変更として扱ってはならない（MUST NOT）。
+
+authenticationまたはauthorization RequirementのProfile evaluationはdeclarationに対するconformance checkである。callerをauthenticateせず、live credentialをvalidateせず、authorizationを付与せず、accessをenforceしない。
+
+required Requirement typeまたはbodyがevaluatorにとってunknownの場合、別の既知violationによって`NON_CONFORMANT`が既に確定しない限り、conformanceは`UNDETERMINED`である。
+
+## 47.2 Extension Policy
+
+Profileの任意Extension policyは、次を識別してもよい（MAY）。
+
+- requiredなExtension namespaceまたはsemantic root
+- 明示的にprohibitedなExtension namespaceまたはroot
+- 識別されたrequiredまたはprohibited ruleを適用するCore Extension Slot
+- 識別されたrequired Extensionに対するExtension固有validationまたはsupport requirement
+
+Draft 5のExtension policyはopen-worldである。Profileが言及しないExtensionは許可され、列挙されていないという理由だけでconformanceへ影響してはならない（MUST NOT）。required/prohibited ruleのabsenceは暗黙prohibitionではない。Draft 5は、unlisted Extensionを除外するclosed policy、exhaustive allowlist、または`permitted` whitelistを定義しない。そのようなpolicyは明示的machine-readable information modelを持つ将来のProfile Extensionへ延期され、proseまたはcompanion serializationによってbaseline behaviorとして導入してはならない（MUST NOT）。
+
+Extension policyはCore Extension Slot外のforeign child elementを許可したり、invalid slot envelopeをvalidにしたりしてはならない（MUST NOT）。foreign metadata attributeはSection 32.3に従う。識別ruleのslot restrictionは、そのslotを他のExtensionに対して閉じない。
+
+policyはdocument presence、Extension-specific validity、およびRuntime supportを区別しなければならない（MUST）。Extension declarationを要求しても、Runtimeが実装することは証明されない。
+
+Profileがunknown Extensionのsemanticsを要求する場合、conformanceは推測された`CONFORMANT`または`NON_CONFORMANT`ではなく`UNDETERMINED`である。Profileが識別済みExtensionを決定的にprohibitし、そのExtensionがruleの適用slotに存在する場合、evaluatorが内部semanticsを理解しなくてもresultは`NON_CONFORMANT`である。言及されないその他すべてのExtensionはopen-world defaultによって許可される。
+
+<a id="48-profile-narrowing-rules"></a>
+# 48. ProfileのNarrowing規則
+
+ProfileがCapability Contractまたはその他の参照semantic definitionのcontentをnarrowできるのは、次のすべてを満たす場合だけである。Entity固有の追加Requirementに対するpolicyはSections 40.5および47.1に従い、そのようなprerequisiteの追加は既存Contract Requirementをredefineしない。
+
+1. 参照先exact definitionがresolveされている。
+2. そのdefinitionが該当種類のnarrowingを許可する。
+3. Profile constraintが許可behaviorまたはvalueのsemantic subsetを表す。
+4. comparison relationが決定的で実装されている。
+5. narrowingがname、type、unit、format、Requirement、またはbehavioral meaningをredefineしない。
+
+例:
+
+```text
+Contract range: 0..100
+Contract permits range narrowing
+Profile range: 0..80
+→ permitted narrowing
+
+Contract representations: image/jpeg or image/png
+Contract permits representation subset
+Profile representation: image/jpeg
+→ permitted narrowing
+
+Contract unit: m/s
+Profile interprets the same value as km/h
+→ redefinition; prohibited
+
+Contract Input type: boolean
+Profile Input type: string
+→ redefinition; prohibited
+
+Constraint comparison semantics unknown
+→ narrowing not established
+```
+
+Profileはaccepted valueをwidenし、required InputまたはRequirementをweakenし、contradictory alternativeを追加し、またはContract termのmeaningをredefineしてはならない（MUST NOT）。
+
+narrowerに見えるlexical formだけでは不十分である。unit conversion、subtype relationship、range inclusion、format compatibility、およびExtension constraintには明示的なsemantic comparison ruleが必要である。
+
+required semanticsまたはcomparison supportがunknownでnarrowingを確立できない場合、evaluationは`UNDETERMINED`を使用する。constraintをcompatibleとして暗黙にacceptしてはならない（MUST NOT）。
+
+<a id="49-profile-conformance"></a>
+# 49. Profile適合性
+
+Profile conformanceは正確に3つのresultを持つ。
+
+```text
+CONFORMANT
+NON_CONFORMANT
+UNDETERMINED
+```
+
+**CONFORMANT**は、exact Profileがresolveされ、適用可能なすべてのrequired comparisonが決定的にsatisfiedであったことを意味する。
+
+**NON_CONFORMANT**は、少なくとも1つの既知Profile requirementがviolatedであったことを意味する。required Capabilityの欠落、required itemにsatisfyingまたはindeterminate candidateを残さないprojection conflict、required Propertyの欠落、prohibited Extensionなどが含まれる。
+
+**UNDETERMINED**は、既知violationによってnon-conformanceは確定しないが、conformance確立に必要な情報または決定的supportがevaluatorに不足することを意味する。unresolved ProfileまたはContract、unknown required Extension、unsupported constraint comparison semanticsなどが含まれる。
+
+aggregationは次のprecedenceに従う。
+
+```text
+if Profile is unresolved
+→ UNDETERMINED
+
+else if any known requirement is violated
+→ NON_CONFORMANT
+
+else if any required evaluation is unknown
+→ UNDETERMINED
+
+else
+→ CONFORMANT
+```
+
+Profileがresolveされた後、aggregationはSections 44–45のcandidate aggregation後のrequired item resultと、Sections 46–47で定義するrequired Interface、Requirement、およびExtension policyを使用する。optional-item diagnosticは除外され、optional itemにpresence-conditional constraintを合成しない。1つのrequired itemに対する既知violationは、無関係なunknown evaluationより優先する。existential item内の1つのcandidate failureは優先しない。processorはaggregate resultだけでなく、evaluateしたすべてのrequirementに対するdiagnosticをexposeすることが望ましい（SHOULD）。
+
+次の例はrequired-subset aggregationを示す。rowが別に示さない限り、他のすべてのrequired itemがsatisfiedで、Profileがresolveされるものとする。
+
+| Evaluation case | ProfileConformance |
+|---|---|
+| `CONFLICT` projectionを持つoptional Capabilityが存在 | `CONFORMANT`。conflictは別のprojection diagnosticとして残る |
+| required itemにsatisfying candidateとfailing candidateが1つずつ存在 | `CONFORMANT` |
+| required itemにfailing candidateとindeterminate candidateが1つずつ存在 | `UNDETERMINED` |
+| required itemのcandidateがすべて既知のfailure | `NON_CONFORMANT` |
+| Profile definition自体が既知のinvalid | ProfileResolutionが`UNRESOLVED`で、`UNDETERMINED` |
+
+Core-invalidなAR-XMLはProfile conformanceを確立できない。conformance processorは最初にCore validation failureを報告しなければならず（MUST）、その文書に`CONFORMANT`を返してはならない（MUST NOT）。
+
+## 49.1 Claim、Certification、およびAvailabilityからの独立
+
+conformance resultはissuerのProfile Claimを変更しない。claimの欠落はevaluationを妨げず、claimはそのresultを保証しない。
+
+```text
+Profile Claim
+≠ Verified Profile Conformance
+≠ Certification
+```
+
+Certificationは外部assurance processであり、AR-XMLまたはlocal conformance resultによって作成されない。
+
+Profile conformanceは現在のRuntime availabilityからも独立している。
+
+```text
+CONFORMANT + UNAVAILABLE
+→ possible
+
+NON_CONFORMANT + READY route
+→ possible under Runtime policy, but not Profile-conformant
+
+UNDETERMINED + UNKNOWN availability
+→ possible
+```
+
+`CONFORMANT`はRuntime support、connectivity、authentication、authorization、safety、remote acceptance、またはexecution successを保証しない。
+
+---
