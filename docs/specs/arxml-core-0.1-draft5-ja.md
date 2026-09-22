@@ -1246,3 +1246,268 @@ Profile Claimは、任意の`profiles` container内にserializeされる。
 Profile Claim orderはpreference、verification status、またはcertification levelを表さない。
 
 ---
+
+<a id="part-iii--extension-model"></a>
+# Part III — Extensionモデル
+
+<a id="31-extension-architecture"></a>
+# 31. Extensionアーキテクチャ
+
+AR-XML Coreはclosed vocabularyと有限個の明示的なExtension Slotを定義する。Extensionは、foreign XML namespace内でdomain、device、attachment、constraint、security、またはtransport固有のsemanticsを提供する。
+
+ExtensionはCore semanticsをredefine、weaken、またはcontradictしてはならない（MUST NOT）。特に、Extensionは次を行ってはならない（MUST NOT）。
+
+- Core information itemの意味またはcardinalityを変更する
+- invalidなCore structureをvalidにする
+- Coreの`id`、reference、data type、またはSemantic Identifierをreinterpretする
+- Coreが順序をinsignificantと定める箇所でdocument orderをpreferenceとして扱う
+- descriptionをexecutionとして扱う
+- availabilityをauthorizationまたはexecution successと同一視する
+- document loadingによってCapabilityをinvokeする
+
+Extensionがelement-based semanticsを追加できるのは、そのsemantic rootを許可するslotを介する場合だけである（MAY）。Core element上のforeign namespaced metadata attributeは、Section 32.3に従って別途許可される。同じforeign namespaceが複数slotのrootを定義してもよい（MAY）が、各rootの意味はexpanded XML nameとslot contextの両方によって決まる。
+
+Extension仕様は、次を定義することが望ましい（SHOULD）。
+
+- 安定したversioned namespace URI
+- 各slotで許可されるExtension root
+- childおよびattribute grammar
+- semantic meaningおよびconstraint
+- Extension固有validation error
+- processor support criteria
+- Capability ContractおよびProfileとのinteraction
+- 適用可能な場合のRuntime evaluation behavior
+
+namespace prefix textはsemantic identityではない。processorはprefixではなくnamespace URIとlocal nameによってExtension elementを識別しなければならない（MUST）。
+
+Extension contentの存在は、Runtimeがそれを実装していることを確立しない。仕様で定義されたExtension capabilityとRuntime implementation capabilityは別のままである。
+
+<a id="32-extension-slots"></a>
+# 32. Extension Slot
+
+## 32.1 定義済みSlot
+
+Draft 5 Coreは次のExtension Slotを定義する。
+
+| Slot | XML location | Foreign semantic root | 目的 |
+|---|---|---:|---|
+| Property slot | `properties`のdirect child | 0..* | Extension定義のEntity characteristicまたはdeclared state |
+| Requirement body | `requirement`のdirect child | 0..* | `requirement/@type`で識別されるRequirementのparameter element |
+| Attachment | `attachment`のdirect child | 正確に1 | physical、spatial、またはcontact-orientedなaccess boundary |
+| Realization | `realization`のdirect child | 正確に1 | 具体的なinteraction mechanism |
+| Mapping | `mapping`のdirect child | 正確に1 | Capability固有のInterface利用方法 |
+| Constraint area | `constraints`のdirect child | 0..* | InputまたはOutputに対するExtension定義constraint |
+
+`attachment`、`realization`、および`mapping`は明示的なCore wrapperである。wrapperが存在するのにforeign semantic rootを含まない場合はinvalidである。複数のforeign semantic rootを含む場合もinvalidである。
+
+`constraints`も明示的な任意のCore wrapperである。存在する場合、0個以上のforeign namespaced constraint elementを含んでもよい（MAY）。したがって、空の`<constraints/>` wrapperはCore-validであり、AR-DOMではwrapperがない場合と同じ空のconstraint collectionを表す。serializerはround-tripのためにwrapperの存在を保持してもよい（MAY）が、canonical serializerは空wrapperを省略することが望ましい（SHOULD）。複数のconstraint rootが許可されるのは、各rootが独立してevaluate可能なconstraintを記述し得るためである。この`0..*` content規則はConstraint area固有であり、Attachment、Realization、またはMappingのexactly-one規則を緩和しない。
+
+`properties` containerは、Core `property` elementのcollection containerであると同時にProperty Extension Slotでもある。Core `property` childとforeign namespaced property rootを任意の順序で含んでもよい（MAY）。各foreign childは1つのExtension定義property itemであり、Core `Property`にはならず、暗黙のCore `type`、`value`、または`unit` fieldも付与されない。
+
+例:
+
+```xml
+<properties
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:geo="https://example.org/ns/arxml/geo/1">
+
+  <property
+    type="https://example.org/properties/site-name/1"
+    value="Reference Lab" />
+
+  <geo:declared-location
+    latitude="35.6812"
+    longitude="139.7671" />
+</properties>
+```
+
+Coreはgenericな`extensions` containerを定義せず、rootまたは他のCore element内の任意のforeign child elementを許可しない。foreign metadata attributeはSection 32.3に従う。新しいExtension Slotには将来のCore revisionが必要である。
+
+## 32.2 Slot Envelope Validation
+
+Core validationはExtension Slotのenvelopeについて次を検査する。
+
+- slotが許可されたCore locationに出現すること
+- wrapper cardinalityが満たされること
+- 各semantic rootがnon-Core namespaceを使用すること
+- 禁止されたdirect character dataまたは余分なCore contentがないこと
+
+Core validationはforeign subtreeの内部grammarまたはdomain meaningをvalidateしない。それはExtension固有validationの役割である。
+
+Core namespace内のExtension rootは、processorがそのlocal nameを認識しない場合でもforeign contentにはならない。未知のCore elementであり、invalidである。
+
+## 32.3 Foreign Metadata Attribute
+
+任意のCore element上のforeign namespaced attributeはmetadataを追加してもよい（MAY）。Core semanticsをredefineしたり、必須Core attributeを置き換えたり、defaultまたはcardinalityを変更したり、Core referenceまたはHTTP base-resolution規則をoverrideしたりしてはならない（MUST NOT）。たとえば、`meta:required="false"`によってInputをoptionalにはできない。そのfieldを制御するのはCoreのunqualified `required` attributeだけである。
+
+未知のforeign metadata attributeによって、本来validなCore documentをinvalidにしてはならない（MUST NOT）。Core validationはXML namespace correctnessと変更されていないCore規則を検査し、認識されたmetadata Extensionは別にvalidateされる。semanticsがunknownな場合でも、processorは各foreign attributeについて、expanded name（namespace URIとlocal name）、XML処理後のstring value、およびowner Core elementを保持することが望ましい（SHOULD）。lossless serializerをclaimする実装は、このmetadataを保持するか、それができないことを開示しなければならない（MUST）。
+
+この許可は、未知のCore/unqualified attribute、slot外のforeign child element、または実行可能processing instructionを認めない。namespace declarationはmetadata attributeではなくXML syntaxのままである。metadataの読み取りによってnetwork retrievalまたはCapability executionを開始してはならない（MUST NOT）。
+
+Core-validなmetadataの例:
+
+```xml
+<ar-entity xmlns="https://relink.dev/ns/arxml/core/0.1"
+           xmlns:meta="https://example.org/ns/metadata/1"
+           version="0.1" meta:source="catalog" />
+```
+
+foreign Extension element上のattributeはforeign subtreeの一部であり、そのExtensionに従う。
+
+<a id="33-attachment"></a>
+# 33. Attachment
+
+Attachmentは、Interfaceに関連付けられたphysical、spatial、contact-oriented、またはその他のdirect access boundaryを記述する。`attachment` wrapperはforeign namespaced semantic rootを正確に1つ含まなければならない（MUST）。
+
+```xml
+<interface
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  id="display-connector">
+
+  <attachment>
+    <phys:connector
+      xmlns:phys="https://example.org/ns/arxml/physical/1"
+      family="hdmi"
+      form="type-a" />
+  </attachment>
+</interface>
+```
+
+Coreはconnector family、pinout、orientation、mating rule、spatial tolerance、safety limit、またはcompatibilityを定義しない。これらのsemanticsはAttachment Extensionに属する。
+
+Attachmentは、Interfaceがprogrammatic Invocationをsupportすることを意味しない。Attachmentのみを持つInterfaceもvalidであり、passive connector、contact point、marker、access region、またはその他のnon-network boundaryを記述できる。
+
+Attachment Extensionは、Capability、Capability Contract、Invocation、またはInterfaceUseを暗黙に作成してはならない（MUST NOT）。適用されるCore declarationは明示されたままでなければならない。
+
+Extension自体がforeign subtree内のorderingを定義しない限り、InterfaceまたはAttachment contentのdocument orderをpreferenceとして扱ってはならない（MUST NOT）。
+
+<a id="34-realization"></a>
+# 34. Realization
+
+Realizationは、Interfaceによって共有される具体的なinteraction mechanismを記述する。`realization` wrapperはforeign namespaced semantic rootを正確に1つ含まなければならない（MUST）。
+
+```xml
+<interface
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  id="web-api">
+
+  <realization>
+    <http:api
+      xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+      base="./api/" />
+  </realization>
+</interface>
+```
+
+Realization Extensionは、適用可能なすべてのInterfaceUseが共有するtransport、protocol、またはmechanism levelのconfigurationを定義してよい。Capability固有operation informationはRealizationではなくMappingに属する。
+
+Realizationは、Capability Contractのsemantic function、Input、Result、Output、Requirement、またはconstraintをredefineしてはならない（MUST NOT）。Entityがinteraction surfaceをどのようにexposeするかを記述するものであり、Capabilityが何を意味するかを記述するものではない。
+
+Realizationの存在は、Runtimeがそれをsupportすること、targetがreachableであること、authenticationが成功すること、またはいずれかのCapabilityがauthorizedまたはexecutableであることを証明しない。
+
+InterfaceはRealization wrapperを最大1つ持つ。Entityが異なるrealization contextをexposeする場合、別々のInterfaceを宣言し、適用可能なInterfaceUseから参照することが望ましい（SHOULD）。
+
+<a id="35-mapping"></a>
+# 35. Mapping
+
+Mappingは、1つのCapabilityが参照先Interfaceをどのように使用するかを記述する。`mapping` wrapperは`interface-use`内だけに出現し、foreign namespaced semantic rootを正確に1つ含まなければならない（MUST）。
+
+```xml
+<interface-use
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  ref="web-api">
+
+  <mapping>
+    <http:operation
+      xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+      method="POST"
+      path="light/state" />
+  </mapping>
+</interface-use>
+```
+
+MappingはCapability固有である。共有connectionまたはmechanism configurationは参照先InterfaceのRealizationに属する。
+
+Mapping Extensionは、semantic Invocation dataとInterfaceが表すmechanismとの間に決定的なcorrespondenceを定義してもよい（MAY）。次を行ってはならない（MUST NOT）。
+
+- Core model内のsemantic InputまたはOutputをrenameする
+- Core data typeを変更する
+- 必須Contract Inputを削除する
+- Contract constraintをweakenまたはredefineする
+- Capabilityのsubjectを変更する
+- credentialまたはsecretを埋め込む
+- generic executable workflowを作成する
+
+Coreはgeneric mapping DSLを定義しない。Mapping semanticsは、Part IXのHTTP Extensionなど、特定のInterface Extensionが所有する。
+
+Mappingはoptionalである。適用可能なInterface ExtensionがCapability固有dataを必要としない場合、plain `interface-use` referenceもvalidである。
+
+1つのCapability内の複数InterfaceUseを含め、複数のInterfaceUseが同じInterfaceを参照してもよい（MAY）。各InterfaceUseおよびMappingは別々のroute descriptionのままである。processorは、`ref` valueまたはExtension root nameが一致するという理由だけでそれらをmergeしてはならない（MUST NOT）。
+
+<a id="36-unknown-extension-processing"></a>
+# 36. 未知Extensionの処理
+
+## 36.1 Core Validity
+
+unknownまたはunsupportedなforeign namespaced Extension elementは、次のすべてを満たす場合、Core layerで文書をinvalidにしない。
+
+1. semantic rootが許可されたExtension Slotに出現する。
+2. Core slot envelopeおよびcardinalityがvalidである。
+3. elementがnon-Core namespaceにある。
+4. 周囲のCore structureがvalidである。
+
+逆に、許可されたExtension Slot外のforeign contentは、processorがforeign namespaceを認識していてもCore structural errorである。
+
+```text
+recognized Extension outside its slot
+→ Core invalid
+
+unknown Extension inside its slot
+→ Core valid
+```
+
+## 36.2 Layered Validation
+
+processorは、少なくとも次のoutcomeを区別しなければならない（MUST）。
+
+```text
+Core structural validation
+Extension recognition and support
+Extension-specific validation
+Runtime evaluation
+```
+
+Extension固有validation failureは、Core structural validationの結果を遡及的に変更しない。そのExtensionのconformance classをclaimするprocessorにとって、そのExtension instanceをinvalidにする。
+
+unknown Extensionについて、そのprocessorからExtension固有validity resultは得られない。processorは、local name、attribute name、human-readable text、namespace similarity、またはAI inferenceからそのsemanticsを推測してはならない（MUST NOT）。
+
+unknown Requirement bodyの場合、Core validityはvalidのままで、Requirement evaluationは`UNKNOWN`となる。unknown Realization、Mapping、constraint、およびその他のsemanticsがRuntimeへ与える影響はPart VIIIで定義する。
+
+## 36.3 Opaque Preservation
+
+Extension contentをexposeまたはreserializeするCore processorは、実用上可能な場合、unknown foreign subtreeをopaque extension dataとして保持することが望ましい（SHOULD）。preservationでは次を保持することが望ましい（SHOULD）。
+
+- すべてのelementおよびattributeのnamespace URIとlocal name
+- attribute value
+- character data
+- child element order
+- subtreeのreserializeに必要なnamespace binding
+
+元のnamespace prefix、attribute order、quote style、entity spelling、comment、processing instruction、およびbyte-for-byte lexical formはCore semantic dataではない。XML signatureまたは正確なlexical round tripを必要とするApplicationには、別のbyte-preservation mechanismが必要である。
+
+processorは、unknown Extension subtreeを既知のCore itemへ暗黙に変換したり、lossless round-trip supportをclaimしながら破棄したり、codeとしてexecuteしたりしてはならない（MUST NOT）。
+
+## 36.4 ResolutionとTrust
+
+Extension namespace URIはidentifierであり、networkからfetchする必要はない。Extension仕様のrecognizeまたはresolveは、document issuerのauthenticate、trustの確立、authorizationの付与、またはRuntime supportの証明を行わない。
+
+```text
+Extension identification
+≠ Extension support
+≠ Extension validity
+≠ Trust
+≠ Authorization
+≠ Execution
+```
+
+---
