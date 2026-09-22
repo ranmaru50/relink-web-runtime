@@ -5248,3 +5248,424 @@ conformance reportはspecification version、claimed conformance class、Extensi
 AIまたはLLM assistanceはdiagnosticを説明し、repairを提案してもよいが（MAY）、deterministic classification、normative state selection、およびconformance decisionはprobabilistic interpretationに依存してはならない（MUST NOT）。
 
 ---
+
+<a id="appendix-d-draft-4--draft-5-changes"></a>
+# Appendix D. Draft 4 → Draft 5の変更点
+
+このappendixはrepositoryの`main` branchにある`docs/specs/arxml-core-0.1-draft4.md`からDraft 5への変更を要約する。informativeであり、reviewer、implementer、およびmigration-tool authorを対象とする。
+
+Draft 5はDraft 4とsyntax-compatibleではない。root tokenは`version="0.1"`のままである。そのtokenがmatchするという理由だけでDraft 4 documentをDraft 5としてacceptしてはならない。migrationはexplicit transformationであり、その後にcomplete Draft 5 validationと、applicableな場合はContract projectionおよびProfile conformance evaluationを行う。
+
+## D.1 Change Classification
+
+| Classification | Meaning |
+|---|---|
+| Retained | central conceptは維持されるが、wordingまたはvalidationがよりpreciseな場合がある |
+| Clarified | Draft 5が既存separationまたはbehaviorをnormativeかつmachine-testableにする |
+| Restructured | conceptは維持されるが、Core information modelまたはXML locationが変更される |
+| Added | Draft 5がnew Core conceptまたはprocessing ruleを導入する |
+| Removed | Draft 4 Core contentがDraft 5 Coreに存在しない |
+| Deferred | topicはfuture workとしてvalidだが、意図的にDraft 5 Coreの範囲外 |
+
+これらのclassificationは2つのserializationが自動的にinterchangeableであることをassertしない。
+
+## D.2 High-level Summary
+
+| Area | Draft 4 | Draft 5 | Classification |
+|---|---|---|---|
+| Root | `ar-entity` | `ar-entity` | Retained |
+| Root version | `version="0.1"` | explicit Draft 5 processing contextを伴う`version="0.1"` | Retained |
+| Core namespace | `https://relink.dev/ns/arxml/core/0.1` | 同じprovisional Core 0.1 namespace | Retained。draft contextはseparate |
+| Entity model | Category、Profile Claims、Capabilities | Identifier、Property、Subject、Entity-level Interfaceを追加 | Addedおよびrestructured |
+| Capability interaction shape | Capability直下のInputおよびResult | optional request-oriented InvocationがInputおよびResultを含む | Restructured |
+| Interfaces | Capabilityごとのinline InterfaceとHTTP attribute | shared Entity InterfaceとCapability InterfaceUse | Restructured |
+| HTTP | Coreで記述されたbaseline binding | foreign namespaceのStandard Interface Extension | Restructured |
+| HTTP address | 1つの`endpoint` | Interface `base`とoperation `path` | Restructured |
+| Result | Outputs、Representations、Errors | OutputsおよびRepresentations。Core Errors collectionなし | Removed/deferred |
+| Extensions | separate namespace required、限定的なslot detail | closed Core、explicit Extension Slot、opaque preservation | Addedおよびclarified |
+| Contracts | versioned semantic sourceおよびprojection concept | exact-versioned identity、explicit projection、deterministic comparison state | Clarifiedおよびexpanded |
+| Profiles | versioned constraint setおよびissuer claim | resolution、requirement、Extension policy、three-state conformance | Expanded |
+| Resolution | 記述されたContract lookup source | Entity ResolverをSemantic Registryから分離。conflictを定義 | Addedおよびclarified |
+| Runtime states | Contract、projection、availabilityを強調 | Requirement、Attachment、Support、Profile resolutionおよびconformance domainを追加 | Expanded |
+| Validation | general parse/validation distinction | closed structural grammar、cardinality、uniqueness、reference、Extension layer | Expanded |
+| Conformance | informal PoC baseline | named conformance class | Added |
+| Privacy | 主にsecurity-oriented guidance | 独立したcomprehensive securityおよびprivacy section | Expanded |
+
+## D.3 Root、Entity、およびIdentity Model
+
+rootは`ar-entity`のままであり、Draft 5は`ar-document`またはmulti-Entity wrapperを追加しない。したがってDraft 4のconceptual `ARDocument` labelをserialized wrapperへmigrateしてはならない。
+
+Draft 4 root exampleは次を使用した。
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1" />
+```
+
+Draft 5は次を要求する。
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  version="0.1" />
+```
+
+namespaceおよびroot versionはunchangedである。migrationはexplicitly selected Draft 5 processing contextの下でdocument structureを変更する。version tokenの変更はrequiredでもsufficientでもない。
+
+Draft 5はDraft 4がmodelしなかった3つのEntity description areaを追加する。
+
+- optional Subject scopeを持つtyped Identifier
+- optional unitを持つtyped Property
+- IdentifierまたはCapability declarationから参照されるlightweight Subject
+
+migrationはDraft 4 Category、Capability ID、document URL、HTTP endpoint、またはretrieval locationからこれらのitemをsynthesizeしてはならない。特にDraft 5は次の分離を明示する。
+
+```text
+Identifier
+≠ Locator
+≠ Canonical Entity Identity
+≠ Credential
+```
+
+Draft 5はまた、CPU、network、API、Interface、またはCapabilityを持たないpassiveおよびphysical Entityを明示的にvalidとする。Draft 4もinformation modelでnon-physicalおよびphysical Entityを記述できたが、empty passive Entityおよびconnector-only caseをDraft 5ほどstructurally preciseには定義しなかった。
+
+Relationおよびcomponent hierarchyは引き続きCoreの範囲外である。new Subjectはrelation graphのreplacementではなく、Draft 4 structureからcontainmentをinferしてpopulateしてはならない。
+
+## D.4 Capability、Invocation、およびSubject Scoping
+
+Draft 4は`inputs`および`result`を`capability`直下へ配置した。Draft 5はoptional `invocation` wrapperを導入する。
+
+```text
+Draft 4
+Capability
+├─ Inputs
+└─ Result
+
+Draft 5
+Capability
+└─ Invocation?
+   ├─ Inputs
+   └─ Result?
+```
+
+request-oriented interactionを明確に記述するDraft 4 Capabilityについて、migrationはそのInputおよびResultを`invocation`でwrapしてよい。toolは引き続きexact Capability Contractに対してprojectionをvalidateしなければならない。semantic interaction patternがambiguousな場合、inline Interfaceが存在したという理由だけでInvocationを追加してはならない。
+
+Draft 5は次を明示的にpermitする。
+
+- Invocationを持たないCapability
+- empty Invocation
+- Resultを持たないInvocation
+- 1つ以上のOutputを含むResult
+- InterfaceUseを持たないCapability
+
+これらのstateは自動的にequivalentではない。migrationはDraft 4がInputまたはResultを宣言したかをpreserveし、preserveできないmeaningを報告しなければならない。
+
+Draft 5はoptional `Capability.subjectRef`を追加する。absentの場合、described Entity自体がsubjectである。Runtime-selected targetは引き続きinvocation Input dataであり、explicit source semanticsなしにSubjectまたは`subjectRef`へmigrateしてはならない。
+
+Core structural data typeは次のままである。
+
+```text
+string | number | integer | boolean | binary | object | array
+```
+
+Draft 5 Input `required`のdefaultは`true`である。migrationはsource requirednessがこのdefaultと異なる場合、明示的にpreserveしなければならない。Input nameはInvocationへscopeされ、Output nameはResultへscopeされる。Draft 5はscoped uniqueness checkをnormativeかつdeterministicにする。
+
+## D.5 Result、Representation、およびError
+
+semantic Outputとwire Representationに関するDraft 4の分離は維持、強化される。
+
+```text
+Result ≠ Representation
+```
+
+Representationは引き続きResult全体を記述し、複数Outputを持ち得る。registration lookupを要求せずsyntactically validなmedia typeを使用し、preferenceによってorderされない。Draft 5はmaterially differentなsummary、translation、またはsimplified contentが同じResultのalternative Representationに自動的にはならないという原則を維持する。
+
+Draft 4はResult下にCore `errors` collectionを含んだ。Draft 5はそのcollectionをEntity-side Core grammarから削除する。Draft 4 `errors` elementはunknown Core elementであり、Draft 5ではinvalidである。
+
+Draft 4 Core errorにはdeterministic mechanical migrationがない。semantic error definitionおよびtransport-to-semantic-error mappingにはapplicable versioned Capability ContractまたはExtensionが必要である。migration toolはsource informationを外部にpreserveするかunmappedとして報告しなければならず、errorをsilentにdropしたりHTTP statusをsemantic errorへconvertしたりしてはならない。
+
+Draft 5はtransport、Interface、Representation、Contract、およびsemantic outcomeの区別を続けるが、Core Result `errors` collectionではなくprocessingおよびdiagnosticを通じて表現する。
+
+## D.6 Interface Model Restructuring
+
+Draft 4は各Capabilityへinline Interfaceを付加した。
+
+```xml
+<capability
+  id="action"
+  type="https://example.org/capabilities/action/1">
+  <interfaces>
+    <interface
+      type="http"
+      method="POST"
+      endpoint="/api/action" />
+  </interfaces>
+</capability>
+```
+
+Draft 5はshared InterfaceをEntity levelへ配置し、Capabilityから参照する。
+
+```xml
+<ar-entity
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  version="0.1">
+
+  <interfaces>
+    <interface id="web-api">
+      <realization>
+        <http:api base="./api/" />
+      </realization>
+    </interface>
+  </interfaces>
+
+  <capabilities>
+    <capability
+      id="action"
+      type="https://example.org/capabilities/action/1">
+      <interface-uses>
+        <interface-use ref="web-api">
+          <mapping>
+            <http:operation
+              method="POST"
+              path="action" />
+          </mapping>
+        </interface-use>
+      </interface-uses>
+    </capability>
+  </capabilities>
+</ar-entity>
+```
+
+このrestructuringは次を確立する。
+
+```text
+Interface
+= shared attachment / realization context
+
+InterfaceUse
+= Capability-specific reference and optional mapping
+```
+
+migrationがDraft 4 inline Interfaceをcoalesceしてよいのは、shared Realization dataがsemantically identicalであると証明できる場合だけである。similar endpointまたはstring prefixは十分なproofではない。それ以外の場合はdistinct Entity Interfaceを作成することが望ましい。
+
+Draft 5はphysical、spatial、またはcontact-oriented access boundary用のAttachmentを追加する。InterfaceはAttachment、Realization、または両方を含められるが、どちらも含まないことはできない。Attachment-only connector Interfaceはvalidであり、Capabilityを持つ必要がない。
+
+InterfaceおよびInterfaceUse orderは引き続きpreferenceを表さない。Draft 5はさらに、1つのCapabilityが同じ`ref`を持つ複数のInterfaceUseを含むことをpermitし、それらはdistinct routeのままである。
+
+## D.7 HTTP Baseline Changes
+
+HTTPはCore Interface attributeを使用して表現されなくなった。次を使用するStandard Interface Extensionである。
+
+- Interface Realization内の`http:api`
+- InterfaceUse Mapping内の`http:operation`
+
+Draft 4 fieldは概念的に次のようにmapされるが、URLおよびsharing analysisを必要とする。
+
+| Draft 4 field | Draft 5 location | Migration note |
+|---|---|---|
+| `interface/@type="http"` | HTTP Extension semantic root | Core enumとしてpreserveしない |
+| `interface/@endpoint` | `http:api/@base`と`http:operation/@path` | URL resolution ruleの下でdeterministicallyにsplit |
+| `interface/@method` | `http:operation/@method` | method syntaxとRuntime supportはseparate |
+| `interface/@encoding="json"` | baseline method/request mappingとContract/Representation declaration | generic Core encoding attributeなし |
+
+Draft 4は`GET`および`POST`をCore 0.1 baseline methodとして記述した。Draft 5はvalid HTTP method syntaxをその2つに限定しない。Runtimeはsubsetだけをsupportしてもよく、otherwise valid documentをCore-invalidと宣言せず`Support`を通じてunsupported behaviorを報告する。
+
+Draft 5は`base + path`をcanonical HTTP modelとして使用する。`base`はoptionalであり、omissionはfinal AR-XML retrieval URIを使用し、present relativeまたはempty valueはそのURIに対してresolveされる。trailing slashはmandatoryではなく、RFC 3986 path mergingがresultを決定する。Host Application URLはsubstituteされない。deployment security policyはこれらのresolution ruleとは独立して適用される。
+
+GET scalar baselineは引き続き`string`、`number`、`integer`、および`boolean`に限定される。`object`、`array`、および`binary`のgeneric query serializationは引き続きbaselineの範囲外である。
+
+Draft 5はapplicable `POST`、`PUT`、および`PATCH` operationについてJSON-object request mappingを定義する。arbitrary headerまたはgeneral mapping DSLは導入しない。
+
+最もvisibleなresponse-mapping incompatibilityはsingle-output JSONである。
+
+```text
+Draft 4 single JSON Output
+→ top-level scalar permitted
+
+Draft 5 baseline JSON Result
+→ top-level object keyed by Output name
+```
+
+`temperature`というOutputについてDraft 5は次を要求する。
+
+```json
+{
+  "temperature": 21.4
+}
+```
+
+Draft 4 scalar `21.4` shortcutはDraft 5 baseline JSON Resultではない。Draft 4のgeneric single-output `text/*`およびbinary/media whole-body shortcutもDraft 5 Core HTTP baseline ruleとしてgeneralizeされない。そのようなbehaviorが必要な場合、applicable versioned Extensionまたはmapping specificationが必要である。
+
+HTTP `2xx`、`204`、Content-Type validation、unknown JSON member handling、およびmissing declared Output handlingは概念的にalignedのままであり、Draft 5はHTTP-level、Representation-level、およびsemantic outcomeをより明示的に分離する。
+
+## D.8 RequirementおよびExtension Model
+
+Draft 4はRequirementをRuntime Contextとは別のdeclarationとして導入し、authentication Requirementをauthentication mechanismから区別した。Draft 5はこれらの原則を維持しformalizeする。
+
+Draft 5 Requirementの変更には次が含まれる。
+
+- `type`はclosed Core `kind` enumではなくSemantic Identifierである。
+- placementがCapabilityまたはInterface scopeを決定する。
+- `requirements`はbodyに0個以上のforeign Extension parameter elementを持つ`requirement` itemを含む。
+- unknown Requirement semanticsは`RequirementEvaluation = UNKNOWN`を生成する。
+- authenticationおよびauthorizationはdistinct prerequisiteおよびenforcement concernのままである。
+
+`type="authentication"`のようなDraft 4 valueをexact globally governed semantic identifierとassumeしてはならない。migrationにはselected Requirement vocabularyが必要であり、mapping sourceを報告しなければならない。
+
+Draft 5はexplicit Extension Slotを定義する。
+
+| Slot | Draft 5 purpose |
+|---|---|
+| Property slot | Extension-defined Entity characteristicまたはstate |
+| Requirement body | typed Requirement用のdata |
+| Attachment | physical、spatial、またはcontact-oriented boundary |
+| Realization | concrete shared interaction mechanism |
+| Mapping | Capability-specificなInterfaceのuse |
+| Constraint area | Extension-defined InputまたはOutput constraint |
+
+unknown foreign rootはcorrect slot内だけでCore-validである。unknown Core element、unknown Core/unqualified attribute、およびslot外のforeign child elementはinvalidである。Core element上のforeign namespaced metadata attributeはpermittedであり、Core semanticsをredefineできない。Draft 5はseparate metadata-attribute ruleを伴うclosed machine-validatable child-placement modelを規定する。
+
+## D.9 Contract、Profile、およびSemantic Resolution
+
+Draft 4はすでにCapability Contractをnormative semantic sourceとして確立し、redefinitionおよびweakeningをprohibitし、Contract-defined narrowingをpermitし、`RESOLVED`、`UNRESOLVED`、`VALIDATED`、`UNVALIDATED`、および`CONFLICT` conceptを導入した。Draft 5はこれらのfoundationを維持し、そのalgorithmをnormativeにする。
+
+Draft 5はCapability ContractおよびProfileにexact-versioned absolute identifierを要求する。`latest`などのmoving aliasはnormative identityではない。definitionはAR-DOMへstructurallyにmergeされず、omitted Entity projection fieldはomittedのままである。
+
+projection comparisonはInvocation shape、named InputおよびOutput、Core type、requiredness、format、unit、Requirement、Representation、およびExtension constraintを明示的にcoverする。known contradictionは`CONFLICT`を生成し、unknown comparison semanticsは`UNVALIDATED`を生成する。known allowed narrowingが`VALIDATED`を生成するのは、すべてのapplicable comparisonがsuccessする場合だけである。
+
+ProfileはDraft 4のconceptual versioned constraint setから、Capability、Property、Identifier、Interface、Requirement、およびExtension policy constraintをcoverするdefined information modelへexpandedされる。initial Capability presenceは`required`および`optional`に限定される。
+
+Profile evaluationは次を使用する。
+
+```text
+ProfileResolution:
+  RESOLVED | UNRESOLVED
+
+ProfileConformance:
+  CONFORMANT | NON_CONFORMANT | UNDETERMINED
+```
+
+unknown required semanticsまたはunresolved definitionはguessed `NON_CONFORMANT`ではなく`UNDETERMINED`を生成する。Profile ClaimはVerified ConformanceおよびCertificationとはdistinctのままである。
+
+Draft 5はexplicit resolver separationを導入する。
+
+```text
+Entity Resolver
+= Entity identity → AR-XML location
+
+Semantic Registry
+= Semantic Identifier → semantic definition
+```
+
+同じexact identifierに対するconflicting definitionにsilent first-wins behaviorを使用してはならない。network dereferencingはoptionalのままであり、Draft 5はcentralized registryをmandateしない。
+
+## D.10 Validation、AR-DOM、およびRuntime Evaluation
+
+Draft 4はparse error、validation error、Contract resolution failure、conformance conflict、availability、およびinvocation errorを区別した。Draft 5はそのguidanceをstaged load modelにする。
+
+```text
+Resolve / Fetch / Parse / Validate / Expose
+```
+
+loadingはCapabilityをinvokeしない。ContractまたはProfile resolutionはload中またはload後に行われる場合があるが、Core structural validityおよびexecutionとは別である。
+
+Draft 5は次についてdeterministic Core ruleを追加する。
+
+- Core namespace、`version="0.1"`、およびexplicitly selected Draft 5 grammar
+- closed Core content
+- order-insensitive child validationおよびcanonical serialization order
+- singleton containerおよびwrapper cardinality
+- required lexical valueおよびCore data type
+- Extension Slot envelope
+- typed local-ID uniqueness
+- scoped InputおよびOutput name uniqueness
+- local reference integrity
+- Interface Attachment-or-Realization invariant
+
+AR-DOMはCore information、collection membership、local IDおよびreference、ならびにforeign Extension subtreeを明示的にpreserveする。resolved definition、evaluation state、Credential、route selection、invocation state、およびexecution resultはexcludeする。
+
+Runtime evaluationはDraft 4 state modelを7つのindependent domainへexpandする。
+
+```text
+ContractResolution
+ProjectionValidation
+RequirementEvaluation
+AttachmentEvaluation
+Support
+ProfileResolution
+ProfileConformance
+Availability
+```
+
+各InterfaceUseはrouteとしてevaluateされる。known conflict、unsatisfied mandatory Requirement、unsupported required feature、またはdeterministic policy blockは`UNAVAILABLE`を生成する。required uncertaintyは`UNKNOWN`を生成し、それ以外の場合routeは`READY`である。Capability aggregationは`any READY`、それ以外は`any UNKNOWN`、それ以外は`UNAVAILABLE`である。
+
+Draft 4はunresolved Contractに対するinvocation policy discretionを許可した。Draft 5 baseline evaluationはよりstrictである。unresolvedまたはunvalidated required semanticsはrouteが`READY`となることを妨げ、known blockerがすでに`UNAVAILABLE`を生成する場合を除きuncertaintyを生成する。
+
+## D.11 Security、Privacy、およびConformance
+
+Draft 5は、AR-XMLおよびRuntime dataをuntrustedとして扱うDraft 4の方針、credential-origin separation、browserとRuntimeのpolicy layering、およびexplicit initiating intentのrequirementを維持する。
+
+これらのruleを次へexpandする。
+
+- XML external entityおよびresource-exhaustion defense
+- SSRF、redirect、DNS rebinding、scheme、origin、およびprotected-network policy
+- semantic-definition substitution、downgrade、conflict、およびcache poisoning
+- Extension processor isolation
+- retry、replay、idempotency、およびphysical safety
+- Identifier correlation、Subject association、location、telemetry、およびregistry-query privacy
+- opaque Extension privacy
+- mandatory AIまたはLLM processingを伴わないdeterministic securityおよびconformance
+
+Draft 5は5つのbaseline conformance classを定義する。AR-XML Producer、AR-XML Consumer、Runtime、Extension、およびProfile Evaluatorである。Core Document validityは別途evaluateされる。HTTP mappingおよびinvocationはapplicable class内のexplicit feature claimである。あるclassに対するclaimは他のclassを意味しない。
+
+## D.12 Migration Checklist
+
+Draft 4からDraft 5へのmigration toolまたはreviewは、少なくとも次のstepを実行することが望ましい。
+
+1. original Draft 4 resourceを変更せずparseおよびpreserveする。
+2. provenanceおよびすべてのtransformation decisionをrecordする。
+3. `ar-entity`、Core 0.1 namespace、および`version="0.1"`を維持し、Draft 5 processing contextを別途recordする。
+4. request-oriented InputおよびResultをexplicit Invocation下へmoveする。
+5. Draft 4 Result error declarationをsilentにremoveせず、ContractまたはExtension mapping用にreportする。
+6. inline InterfaceをEntity-level Interfaces collectionへliftする。
+7. unique Interface IDをassignし、valid local referenceを持つCapability InterfaceUseを作成する。
+8. HTTP binding informationをHTTP RealizationおよびMapping dataへconvertする。
+9. URL resolution semanticsを変更せず、各legacy endpointを`base`と`path`にsplitする。
+10. baselineが適用される場合、single-output JSON scalar shortcutをDraft 5 object mappingでreplaceする。
+11. explicit semantic vocabulary decisionを通じてのみRequirement typeをmapする。
+12. Identifier、Subject、Property、Canonical Entity Identity、trust、またはProfile conformanceを発明しない。
+13. uncertainまたはunmappedなすべてのsource informationをmigration reportにpreserveする。
+14. complete Draft 5 Core grammarおよびapplicable Extensionの下でnew XMLをvalidateする。
+15. 利用可能な場合、exact ContractおよびProfileを独立してresolveする。
+16. ProjectionValidationおよびProfileConformanceをCore validityとは別にreportする。
+
+deterministic choiceを行えないmigrationは停止し、policyまたはuser inputを要求するか、explicit unresolved migration diagnosticをemitしなければならない。deterministic conformanceをclaimしながらnatural-language similarity、endpoint shape、common convention、またはAI outputによってguessしてはならない。
+
+## D.13 Draft 4から維持されるConcept
+
+syntax changeにもかかわらず、Draft 5はDraft 4のcentral decisionをいくつかpreserveする。
+
+- Capability Contractはnormative semantic sourceである。
+- Entity Capabilityはlocal projectionであり、Contract自体ではない。
+- semantic weakeningおよびredefinitionはforbiddenである。
+- known permitted narrowingはcompatibleな場合がある。
+- Semantic Identifier identityはnetwork dereferencingを要求しない。
+- ProfileはContractをredefineせずconstrainする。
+- Profile ClaimはVerified ConformanceまたはCertificationではない。
+- Core data typeはdomain meaningではなくshapeを記述する。
+- ResultとRepresentationはdistinctである。
+- Representation orderはpreferenceではない。
+- Requirement declarationはcurrent Runtime stateではない。
+- HTTP statusはsemantic Capability errorではない。
+- HTTP `2xx`はHTTP-level successであり、`204`はResult shapeを条件とする。
+- Cross-Origin successは引き続きbrowserおよびRuntime policyに従う。
+- CredentialはAR-XML外で管理される。
+- Availability、authorization、およびexecutionはdistinctである。
+- `READY`はsuccessまたはsafetyを保証しない。
+- side effectを伴うCapabilityをavailability testのためだけにinvokeしてはならない。
+
+したがってDraft 5は、Draft 4ですでにsoundであったsemantic separationをdiscardせず、syntaxおよびprocessing modelをrebuildする。
+
+---
