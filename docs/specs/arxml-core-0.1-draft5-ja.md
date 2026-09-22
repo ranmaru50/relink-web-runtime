@@ -4560,3 +4560,234 @@ Draft 5はRelations、Observation、Subscription、Event、Stream、workflow、g
 future specificationはappropriate Extension、companion specification、またはnew Core versionを通じてそのようなfeatureを定義してもよい（MAY）。EntityとLocation、CapabilityとInterfaceおよびInvocation、DescriptionとExecution、ResolutionとAuthentication、AuthenticationとAuthorization、ResultとRepresentation、ならびにProfile ClaimとVerified ConformanceおよびCertificationなど、Draft 5が依拠する分離をpreserveしなければならない（MUST）。
 
 ---
+
+<a id="appendix-a-ar-dom-summary"></a>
+# Appendix A. AR-DOM要約
+
+このappendixは、normative bodyで定義されたAR-DOMのinformative implementation summaryである。programming-language API、object layout、storage format、または追加conformance requirementを定義しない。このsummaryがSections 7–36または56–60とconflictする場合、normative sectionが優先する。
+
+AR-DOMはCore parsingおよびvalidation成功後にexposeされるimplementation-independent representationである。issuer-authored description dataを表す。browser DOM、mutable execution record、またはregistry definitionのmerged viewではない。
+
+## A.1 Document Root
+
+1つのDraft 5 documentは1つのAR Entity rootを生成する。
+
+```text
+ARDocumentView
+├─ coreNamespace = https://relink.dev/ns/arxml/core/0.1
+├─ version       = 0.1
+└─ entity        = AREntity
+```
+
+`ARDocumentView`はdescriptive notationにすぎない。Draft 5は`ar-document` wrapperをserializeしない。XML document elementは`ar-entity`であり、`AREntity`が唯一のtop-level information-model objectである。
+
+retrieval URLまたはdocument baseは、knownの場合loaded documentに関連付けられたRuntime contextである。Entity Identifier、Property、Canonical Entity Identity、Interface、または`AREntity`のchildではない。
+
+## A.2 Entity Containment
+
+complete Core containment shapeは次のとおりである。
+
+```text
+AREntity
+├─ category?                         0..1
+├─ identifiers                      0..*
+│  └─ Identifier
+├─ properties                       0..*
+│  ├─ Property
+│  └─ PropertyExtension
+├─ subjects                         0..*
+│  └─ Subject
+├─ profileClaims                    0..*
+│  └─ ProfileClaim
+├─ interfaces                       0..*
+│  └─ Interface
+└─ capabilities                     0..*
+   └─ Capability
+```
+
+すべてのcollectionはemptyでもよい。`PropertyExtension`はXML `properties` Extension Slotに直接現れるpreserved foreign semantic rootを示す。Core `Property`へ変換されない。
+
+XML collection wrapper `identifiers`、`properties`、`subjects`、`profiles`、`interfaces`、および`capabilities`は、独立identityを持つ追加domain objectを作成しない。implementationはexactまたはloss-aware reserializationのためにwrapper-presence informationをpreserveしてもよいが（MAY）、absent empty wrapperとpresent empty wrapperは同じCore collection membershipを持つ。
+
+## A.3 Core Node Summary
+
+| AR-DOM item | Core information | Important invariant |
+|---|---|---|
+| `AREntity` | optional Category、Identifier、Property、Subject、ProfileClaim、Interface、およびCapability collection | otherwise emptyでもよい。computationまたはconnectivityを意味しない |
+| `Identifier` | `type`、`value`、optional `subjectRef` | presentな`subjectRef`はlocal Subjectへresolveする |
+| `Property` | `type`、`value`、optional `unit` | repeated `type` valueはallowed。valueはissuer-declaredのまま |
+| `Subject` | `id`、optional `type` | `id`はSubjects内でunique。Subjectはnested Entityではない |
+| `ProfileClaim` | `href` | exact-versioned absolute Profile identifier。claimはverified conformanceではない |
+| `Interface` | `id`、optional Attachment、optional Realization、Requirements | `id`はInterfaces内でunique。AttachmentまたはRealizationがrequired |
+| `Capability` | `id`、`type`、optional `subjectRef`、Requirements、optional Invocation、InterfaceUses | `id`はCapabilities内でunique。`type`はexact Capability Contractを識別 |
+| `Requirement` | `type`、0個以上のforeign body element | placementがCapabilityまたはInterface scopeを決定 |
+| `Invocation` | Inputs、optional Result | emptyでもよい。presenceはexecutionを引き起こさない |
+| `Input` | `name`、`type`、`required`、optional `format`、optional `unit`、Constraints | `name`はそのInvocation内でunique。absent `required`は`true`を意味する |
+| `Result` | 1個以上のOutputs、Representations | present Resultはnon-empty。Runtime result valueではない |
+| `Output` | `name`、`type`、optional `format`、optional `unit`、Constraints | `name`はそのResult内でunique |
+| `Representation` | `mediaType` | Result全体を記述。orderはpreferenceではない |
+| `InterfaceUse` | `ref`、optional Mapping | `ref`はlocal Interfaceへresolve。repeated referenceはallowed |
+
+normative processing ruleがtyped valueまたはdefaultを定義する場合を除き、Core attributeはXML lexical valueを保持する。特に`required`はdefault `true`を持つbooleanとしてsemanticallyにexposeされる一方、identifier、Property value、unit、format、path、およびsemantic identifierはheuristicallyにcoerceされない。
+
+InputおよびOutputの`type`は次のいずれかである。
+
+```text
+string | number | integer | boolean | binary | object | array
+```
+
+これらのvalueはstructural data shapeを記述する。domain meaningはresolved Capability Contractおよびapplicable semantic definitionから得られる。
+
+## A.4 Capability Subtree
+
+request-oriented Capability subtreeを次に要約する。
+
+```text
+Capability
+├─ id                             1
+├─ type                           1
+├─ subjectRef?                    0..1
+├─ requirements                   0..*
+│  └─ Requirement
+│     ├─ type                     1
+│     └─ extensionBodyElements    0..*
+├─ invocation?                    0..1
+│  ├─ inputs                      0..*
+│  │  └─ Input
+│  │     ├─ name                  1
+│  │     ├─ type                  1
+│  │     ├─ required              1, default true
+│  │     ├─ format?               0..1
+│  │     ├─ unit?                 0..1
+│  │     └─ constraints           0..*
+│  └─ result?                     0..1
+│     ├─ outputs                  1..*
+│     │  └─ Output
+│     │     ├─ name               1
+│     │     ├─ type               1
+│     │     ├─ format?            0..1
+│     │     ├─ unit?              0..1
+│     │     └─ constraints        0..*
+│     └─ representations          0..*
+│        └─ Representation
+│           └─ mediaType          1
+└─ interfaceUses                 0..*
+   └─ InterfaceUse
+      ├─ ref                      1
+      └─ mapping?                 0..1
+```
+
+omitted Invocationはpresent empty Invocationとはdistinctである。omitted Resultはsemantic return valueがないことを示し、present Resultは1つ以上のOutputを宣言する。これらはexplicit issuer-authored projection dataなので、implementationはこの区別をpreserveしなければならない。
+
+Capability subtreeはEntity-side projectionである。resolved Contract Input、Output、Requirement、またはconstraintは挿入されない。Contract comparisonは別個のresolved definitionを使用し、別個のProjectionValidation resultを生成する。
+
+## A.5 Interface Subtree
+
+Entity-shared Interface subtreeは次のとおりである。
+
+```text
+Interface
+├─ id                             1
+├─ attachment?                    0..1
+│  └─ extensionRoot               exactly 1 when present
+├─ realization?                   0..1
+│  └─ extensionRoot               exactly 1 when present
+└─ requirements                   0..*
+   └─ Requirement
+      ├─ type                     1
+      └─ extensionBodyElements    0..*
+```
+
+AttachmentまたはRealizationの少なくとも1つがpresentである。Attachment-onlyまたはRealization-only Interfaceはvalidである。RequirementだけではInterfaceはvalidにならない。
+
+InterfaceUseは参照先Interfaceのcopyを含まない。implementationはlexical `ref`を保持することが望ましく（SHOULD）、efficient navigation用にderived reference indexを維持してもよい（MAY）。そのようなindexはserialized description dataではない。
+
+1つのCapabilityは同じ`ref`を持つ複数のInterfaceUseを持ってよい。AR-DOMはdistinct Mappingを含め、それらをdistinct collection memberとしてpreserveする。collapseもrankもしない。
+
+## A.6 Extension Content
+
+AR-DOMはCore-defined slotのforeign Extension subtreeをpreserveする。
+
+| Slot | AR-DOM owner | Preserved foreign roots |
+|---|---|---:|
+| Property slot | `AREntity.properties` | 0個以上 |
+| Requirement body | `Requirement` | 0個以上 |
+| Attachment | `Interface` | wrapperがpresentなら正確に1つ |
+| Realization | `Interface` | wrapperがpresentなら正確に1つ |
+| Mapping | `InterfaceUse` | wrapperがpresentなら正確に1つ |
+| Constraint area | `Input`または`Output` | 0個以上。wrapperはemptyでもよい |
+
+preserved foreign rootはexpanded nameと、processorがclaimするinspectionまたはserialization modeに十分なsubtree informationを含む。namespace prefix spellingはsemantic identityではない。foreign rootのattributeおよびdescendantはExtension-owned dataのままである。Core elementに付加されたforeign metadata attributeは、Section 32.3に基づきowning elementおよびexpanded nameとともに別途preserveされる。Core model fieldではない。
+
+unknown Extension contentはinvented Core fieldへ変換されない。Core validationはslot envelopeがvalidであることを記録する。Extension-specific validationおよびRuntime supportは別のままである。requested serialization modeについてunknown subtreeを十分にpreserveできない場合、implementationはlossless round-trippingをclaimせずそのlimitationを報告する。
+
+## A.7 Local IDおよびReference
+
+AR-DOMには3つの独立したtyped local-ID spaceがある。
+
+```text
+Subject.id
+Interface.id
+Capability.id
+```
+
+同じlexical valueが異なる各typed collectionに1回ずつ現れてもよい。1つのtyped collection内ではvalueはuniqueである。
+
+referenceは同じdocument内でのみresolveされる。
+
+| Reference | Target |
+|---|---|
+| `Identifier.subjectRef` | `Subject.id` |
+| `Capability.subjectRef` | `Subject.id` |
+| `InterfaceUse.ref` | `Interface.id` |
+
+missing `Capability.subjectRef`はdescribed Entity自体がCapability subjectであることを意味する。missing `Identifier.subjectRef`も同様にIdentifierをdescribed Entityへscopeする。どちらのomissionもimplicit Subject nodeを作成しない。
+
+Runtime-selected per-request targetはInvocation Inputであり、`subjectRef`のmutationではない。AR-DOMはlocal referenceからrelation、ownership、containment、またはcomponent hierarchyをinferしない。
+
+## A.8 OrderおよびReserialization
+
+AR-DOMはprocessorのserialization claimに十分なcollection membershipおよびdocument orderをpreserveする。preserved orderはCore preference、priority、recency、fallback、またはexecution semanticsを獲得しない。
+
+canonical serializerはSection 21で定義されたrecommended orderでCore childをemitすることが望ましい。別のpermitted orderでもProducer conformanceはinvalidateされない。canonical reorderingはpresentationを変更し、information-model meaningは変更しない。Extension subtree orderingはapplicable Extensionによってgovernされる。
+
+modelが要求するすべてのsignificant lexical value、local ID、reference、wrapper-presence distinction、およびpreservation modeが要求するforeign contentは、reserializationに利用可能なままでなければならない。reserializationはsemantic repair、implicit Contract expansion、Profile application、またはRuntime-state insertionをauthorizeしない。
+
+## A.9 AR-DOM外に保持されるData
+
+次はissuer-authored `AREntity` childではない。
+
+- AR-XML retrieval URLまたはdocument base
+- Entity Resolver record
+- resolved Capability ContractまたはProfile definition
+- registry source、provenance、trust、およびcache metadata
+- ContractResolutionおよびProfileResolution state
+- ProjectionValidationおよびProfileConformance state
+- RequirementEvaluation、AttachmentEvaluation、Support、およびAvailability state
+- selected InterfaceUse route
+- Credential、authentication state、およびauthorization decision
+- current moving positionを含むRuntime Context
+- invocation request、serialized request、response、およびexecution result
+- Certificationまたはthird-party verification record
+
+implementationは関連するcontext、resolution、evaluation、またはexecution objectを通じてこれらをexposeしてもよい。AR-DOM descriptionから区別して保持しなければならず、Applicationが明示的に、それを許可するslot内にnew valid description dataをconstructしない限り、Entity documentへserializeしてはならない。
+
+principal separationは次のとおりである。
+
+```text
+AR-DOM
+= issuer-authored validated description
+
+Resolved Definitions
+= independently obtained semantic sources
+
+Evaluation State
+= derived results under current definitions, support, policy, and context
+
+Execution State
+= explicit request and its Runtime outcome
+```
+
+これらのviewのexposureまたはtraversalはobservationalである。Capabilityをinvokeしない。
+
+---
