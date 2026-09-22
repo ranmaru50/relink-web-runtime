@@ -3069,3 +3069,370 @@ credential acquisition、authorization prompt、device access、network request�
 invocation resultはdescriptionを書き換えない。ApplicationはRuntime Contextまたはobservationを別途維持してもよい（MAY）。
 
 ---
+
+<a id="part-ix--standard-extensions--http"></a>
+# Part IX — Standard Extensions / HTTP
+
+<a id="71-http-extension-scope"></a>
+# 71. HTTP ExtensionのScope
+
+HTTPはAR-XML Draft 5における最初のStandard Interface Extensionである。Core Capability semantic modelの一部ではない。
+
+HTTP Extension namespaceは次のとおりである。
+
+```text
+https://relink.dev/ns/arxml/http/0.1
+```
+
+このPartは2つのforeign semantic rootを定義する。
+
+```text
+http:api
+→ Interface Realization
+
+http:operation
+→ InterfaceUse Mapping
+```
+
+`http:api`はInterfaceが共有するHTTP configurationを記述する。`http:operation`は1つのCapabilityがそのInterfaceをどのように使用するかを記述する。
+
+HTTP elementはCapability Contract内に直接現れてはならない（MUST NOT）。HTTP method、path、URL、header、status code、またはJSON mappingはimplementation routing informationであり、normative Capability meaningではない。
+
+HTTP ExtensionはCapability Input、Output、Requirement、またはconstraintをredefineしない。すでに定義されたsemantic InvocationをHTTPへmapする。
+
+このbaselineはcommon semantic requestおよびJSON Result mappingを定義する。GETはSection 74.2に基づくwire-equivalent serializationを許可するが、receiver-specific lexical conventionまたはquery-name collisionを扱わない。そのようなcaseはimplicit deployment agreementだけによってbaselineでsupportされるとclaimしてはならない（MUST NOT）。次は定義しない。
+
+- arbitrary header mapping DSL
+- cookieまたはcredential storage
+- OAuth token acquisition
+- HTTP status-to-semantic-error mapping
+- multipart body
+- streaming、subscription、またはevent semantics
+- arbitrary object、array、またはbinary GET query serialization
+- あらゆるHTTP content negotiation strategy
+
+このExtensionでpermittedなHTTP methodがRuntimeに実装されているとは限らない。methodおよびfeature supportはPart VIIIの`Support` stateを通じてevaluateされる。
+
+<a id="72-http-interface-realization"></a>
+# 72. HTTP Interface Realization
+
+HTTP Interfaceは`http:api`を`realization`のsingle semantic rootとして使用する。
+
+```xml
+<interface
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  id="web-api">
+
+  <realization>
+    <http:api base="./api/" />
+  </realization>
+</interface>
+```
+
+`http:api`はunqualified `base` attributeを持ってもよい（MAY）。存在する場合、`base`はshared HTTP base contextを識別するabsoluteまたはrelative URI referenceである。empty referenceもpermittedである。省略時のbase contextはfinal AR-XML document retrieval URIである。明示的`base`がabsoluteの場合、そのschemeは`http`または`https`でなければならない（MUST。scheme comparisonはcase-insensitive）。relativeまたはempty `base`のresolution結果も同様に、non-empty hostを持つ`http`または`https` URIでなければならない（MUST）。
+
+baseline `base + path` modelでは、URI syntaxおよびreference resolutionはSection 5.2のstrict reference-resolution algorithmを使用して[RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html)に従わなければならない（MUST）。present relativeまたはempty `base`はfinal AR-XML document retrieval URIに対してresolveされる。omitted `base`はそのfinal URIを直接使用する。このretrieval URIはabsoluteでなければならず（MUST）、結果のbase contextはnon-empty hostを持つ`http`または`https`を使用しなければならない（MUST）。redirectされたdocument retrievalでは、original request URIではなくfinal retrieval URIを使用する。Host Application document URLを代用してはならない（MUST NOT）。
+
+trailing `/`はrequiredではない。通常のRFC 3986 path-merging effectを持つ。directory-style baseは`/`で終わり、file-style baseではrelative operation pathをresolveすると最後のsegmentがreplaceされる。`base`とoperation `path`はどちらもqueryまたはfragmentを含み得る。Section 73で規定するように、operation `path`はschemeおよびauthorityを持たないものでなければならない（MUST）。RFC 3986が、emptyおよびquery-only referenceを含む各referenceのquery inheritanceまたはreplacementを決定する。HTTP request-target constructionはresolved fragmentを除外する。fragmentはInvocation Inputではない。
+
+resolution前にURI syntaxをvalidateする。raw backslash、raw non-ASCII character、space、control、およびmalformed percent escapeは、これらのURI inputではinvalidである。browser error recoveryによってaccepted baseline referenceへrepairしてはならない（MUST NOT）。internationalized nameまたはnon-ASCII pathは、baseline processing前に適切なASCII URI formで提供されなければならない。事前にpercent-decodeせず、literal `.`および`..` segmentにRFC 3986 dot-segment removalを適用する。`%2e`および`%2E`はこのalgorithmにおけるliteral dot segmentではない。これらのruleはlocatorだけをgovernし、ContractまたはProfile identityをnormalizeしてはならない（MUST NOT）。
+
+HTTP implementationはrequest発行時にresolved authorityおよびpath semanticsをpreserveしなければならない（MUST）。underlying URL APIがそれらを変更する場合（例えばencoded dot segmentをpath traversalとして解釈する場合）、異なるtargetへsilentにaccessせず、unsupported target handlingを報告してinvocationを防止しなければならない（MUST）。support limitationはHTTP Extension syntax validityとは別のままである。
+
+例:
+
+```text
+AR-XML retrieval URL:
+https://example.org/entities/lab/ar.xml
+
+http:api base:
+./api/
+
+resolved HTTP base:
+https://example.org/entities/lab/api/
+```
+
+`base`がomitted、empty、またはrelativeで、final AR-XML retrieval URIが利用できない場合、Runtimeはtarget URLをconstructできない。documentはstructurally validなままでよいが、そのHTTP routeはrequired resolution contextがないためevaluationにおいて`UNAVAILABLE`である。absolute `http:api@base`はretrieval URIなしでもshared contextを提供できる。`http:operation@path`は独自のschemeまたはauthorityを提供できない。HTTP baselineはapplication-supplied replacement baseまたはそのprecedence ruleを定義しない。Applicationは独自policyの下でknown retrieval URLを用いてresourceをreloadまたはre-evaluateしてもよい。non-`http`/`https` resolved schemeはHTTP Extension validation failureであり、`READY` routeを生成できない。
+
+explicit baseを持たないrealizationはvalidである。
+
+```xml
+<realization xmlns="https://relink.dev/ns/arxml/core/0.1"
+             xmlns:http="https://relink.dev/ns/arxml/http/0.1">
+  <http:api />
+</realization>
+```
+
+final retrieval URIが`https://example.org/entities/lab/ar.xml?rev=5`、operation pathが`light/state`の場合、次のtarget URLがdeterministicである。
+
+| `base` declaration | Input query mapping前のOperation target |
+|---|---|
+| Omitted | `https://example.org/entities/lab/light/state` |
+| Empty string | `https://example.org/entities/lab/light/state` |
+| `./api/` | `https://example.org/entities/lab/api/light/state` |
+| `https://example.org/api` | `https://example.org/light/state` |
+| `https://example.org/api/?v=1#anchor` | `https://example.org/api/light/state` |
+
+baselineはその他の`http:api` attributeまたはchild elementを定義しない。後のcompatible Extension revisionが定義しない限り、HTTP Extension processorは`http:api`下のunknown unqualified attributeまたはHTTP-namespace childをrejectしなければならない（MUST）。
+
+authenticationは`http:api`のsecretまたはcredential attributeとしてencodeされない。shared authentication prerequisiteはInterface Requirementに属し、credentialはRuntimeの管理下に残る。
+
+cross-origin permission、DNS、TLS、CORS、proxy behavior、origin allowlist、およびnetwork accessはRuntimeまたはhost-environment policyである。absoluteまたはresolved URLはrequestが許可されることを保証しない。
+
+<a id="73-http-operation-mapping"></a>
+# 73. HTTP Operation Mapping
+
+HTTP Capability routeは`http:operation`を`mapping`のsingle semantic rootとして使用する。
+
+```xml
+<interface-use
+  xmlns="https://relink.dev/ns/arxml/core/0.1"
+  xmlns:http="https://relink.dev/ns/arxml/http/0.1"
+  ref="web-api">
+
+  <mapping>
+    <http:operation
+      method="POST"
+      path="light/state" />
+  </mapping>
+</interface-use>
+```
+
+`http:operation`はunqualified attribute `method`および`path`を持たなければならない（MUST）。
+
+`method`はnon-empty valid HTTP method tokenでなければならない（MUST）。Extensionはmethodを`GET`および`POST`に限定しない。standard methodはregistered uppercase spellingを使用することが望ましい（SHOULD）。method tokenはcase-sensitiveである。processorはunknown methodをuppercaseしてequivalenceをassumeしてはならない（MUST NOT）。
+
+`path`はpresentで、schemeもauthority componentも持たないRFC 3986 URI-referenceでなければならない（MUST）。これはnetwork-path alternativeを除外した`relative-ref`のsubsetである。`relative-ref`だけではauthorityも許可してしまう。empty、relative-path、absolute-path（single leading `/`）、query-bearing、およびfragment-bearing referenceはpermittedである。absolute URI referenceおよび`//`で始まるnetwork-path referenceは、baseと同じauthorityをnameする場合を含め、HTTP Extension validationによってrejectされなければならない（MUST）。
+
+Section 72で規定されたRFC 3986 Section 5.2 algorithmを使用し、このreferenceをshared Interface base contextに対してresolveしてtargetをconstructする。resolved HTTP targetはbase contextのschemeおよびauthorityをinheritし、`http`または`https`を使用し、non-empty hostを持たなければならない（MUST）。異なるschemeまたはauthorityには、独自の`http:api` Realizationを持つ別のInterfaceが必要である。fragmentはHTTP request targetから除外される。`base + path`という表記はURI-reference resolutionを示し、raw string concatenationまたはbrowser URL repairではない。
+
+例:
+
+```text
+resolved base:
+https://example.org/entities/lab/api/
+
+operation path:
+light/state
+
+request URL before Input query mapping:
+https://example.org/entities/lab/api/light/state
+```
+
+base context `https://example.org/api/?mode=read`について、次の追加reference formはvalidである。
+
+| Operation `path` | Input mapping前のResolved URI | Input mapping前のHTTP target |
+|---|---|---|
+| `/api/x` | `https://example.org/api/x` | `https://example.org/api/x` |
+| `x?mode=write` | `https://example.org/api/x?mode=write` | `https://example.org/api/x?mode=write` |
+| `?mode=write` | `https://example.org/api/?mode=write` | `https://example.org/api/?mode=write` |
+| Empty string | `https://example.org/api/?mode=read` | `https://example.org/api/?mode=read` |
+| `#result` | `https://example.org/api/?mode=read#result` | `https://example.org/api/?mode=read` |
+
+対照的に、`https://other.example/action`および`//other.example/action`はschemeまたはauthorityを提供するため、operation `path` valueとしてinvalidである。そのserver上のoperationには別のInterfaceが必要である。その`http:api@base`を`https://other.example/`、operation `path`を`action`にしてよい。これらはHTTP Extension validation outcomeであり、Core envelope errorではない。
+
+参照先Interfaceは`http:api` Realizationを持たなければならない（MUST）。異なる、またはabsent Realizationを持つInterfaceへ適用された`http:operation` Mappingは、このHTTP Extensionの下でinvalidである。
+
+baselineはその他の`http:operation` attributeまたはchild elementを定義しない。authenticationおよびauthorizationはRequirementであり、Mapping attributeではない。staticまたはdynamic generic header mappingはこのbaselineの範囲外である。
+
+同じCapabilityは、同じHTTP Interface上の複数operationを含む、HTTP operationを持つ複数のInterfaceUseを含んでもよい（MAY）。各routeは別々にevaluateされ、document orderはpreferenceを表さない。
+
+<a id="74-http-request-mapping"></a>
+# 74. HTTP Request Mapping
+
+## 74.1 Common Rule
+
+serialization前に、Runtimeはsupplied valueをCapabilityのeffective Input semanticsに対してvalidateしなければならない（MUST）。missing required Inputまたはknown typeもしくはconstraint validationにfailするvalueはrequestをpreventしなければならない（MUST）。
+
+Input nameはsemantic keyである。baselineはそのままJSON object member nameまたはGET query parameter nameとして使用する。renaming ruleは定義しない。
+
+absent optional Inputはomittedとなる。Coreは`null` shortcutを定義しない。applicable semantic definitionが明示的にpermitしてmapしない限り、JSON `null` valueはCore Inputにacceptedされない。
+
+credential、authorization header、cookie、およびambient authenticationは、policyに従ってRuntimeまたはhost environmentが提供する。AR-XMLに埋め込まれたsecretから読み取ってはならない（MUST NOT）。
+
+## 74.2 GET Query Mapping
+
+`method="GET"`について、baselineはrequest bodyを送信しない。present scalar Inputはquery parameterへmapされる。
+
+```text
+query parameter name  = Input name
+query parameter value = scalar lexical form
+```
+
+supported GET baseline Input typeは次のとおりである。
+
+```text
+string
+number
+integer
+boolean
+```
+
+lexical formは次のとおりである。
+
+- `string`: string value
+- `number`: 後述のwire-equivalence boundaryに従い、supplied numeric valueおよびapplicable numeric constraintをpreserveするnumeric lexical form
+- `integer`: 同じboundaryの下でsupplied integer valueをpreserveするintegral numeric lexical form
+- `boolean`: 正確に`true`または`false`
+
+Core primitive vocabularyはquery valueについてcanonical numeric spelling、precision、またはexponent policyを選択しない。GET baselineが異なるnumeric spellingを許可するのは、receiverで同じtyped Input valueをpreserveする場合だけである。APIが特定のspellingを要求する場合、numerically equalなspellingを異なるものとして扱う場合、またはreceiver-specific numeric conventionを適用する場合、そのrequirementはbaselineの範囲外である。例えば`1`と`1.0`がinterchangeableなのは、両方が同じoperation meaningを持つ同じpermitted numeric Input valueへdecodeされる場合だけである。これはarbitrary APIに対するuniversal equivalence assertionではない。
+
+baselineは複数のwire-equivalent query serializationを許可する。ここでwire equivalenceとは、parameter decodingおよびtyped Input interpretationが同じInput nameとvalueを生成し、既存locator parameterをpreserveし、operation meaningを変更しないことを意味する。byte-identical request、parameter sorting、single space encoding、fixed percent-escape set、またはhexadecimal letter caseは要求しない。parameter orderはpreferenceを表さない。
+
+HTTP stackのquery encoderを使用するだけではwire equivalenceを確立しない。特に`+`と`%20`はuniversally interchangeableではない。receiverが`+`をliteralに解釈する場合がある。同様に、byte-level signature requirementを含むreceiverにとってsignificantなlexical distinctionは、別のAPIが無視する場合でもbaselineの範囲外である。Runtimeはreceiver-specific conventionをsilentに選択したり、undocumented deployment agreementをbaseline semanticsとして扱ったりしてはならない（MUST NOT）。
+
+resolved operation URI内のexisting queryはlocator dataのままである。present Inputはexisting parameterのmeaningを変更せずにparameterを追加する。InputがなければInput parameterは追加されない。existing decoded query parameterとpresent Input間のname collisionはbaselineの範囲外である。baseline-only Runtimeはrequired collision-handling featureを`Support = UNSUPPORTED`として報告しなければならず（MUST）、replacement、repetition、またはsilent omissionを選択してはならない（MUST NOT）。query mappingはquery componentに対して動作し、fragmentに対しては動作しない。
+
+receiver-sensitive numeric spellingまたはその他のreceiver-specific encodingが必要な場合にも、同じsupport boundaryが適用される。baseline-only Runtimeはrequired mapping featureを`UNSUPPORTED`として報告しなければならず（MUST）、Section 66に従ってaffected routeを`UNAVAILABLE`にする。unknown compatibilityまたはunknown query-decoding semanticsは、assumed equivalenceまたは`READY`ではなく`Support = UNKNOWN`を生成する。これらはmapping-support outcomeであり、Core validity failureではない。evaluationはequivalenceを確立するためにCapabilityをexecuteしてprobeしてはならない（MUST NOT）。
+
+追加conventionには、Part IIIのExtension modelを使用し、Mapping subtreeから明示的に識別可能な、別途規定されたversioned Mapping Extension semanticsが必要である。このbaselineは`http:operation`にconvention selectorを導入せず、generic mapping DSLも導入しない。conforming baseline-only implementationはそのような追加featureのsupportをclaimしない。識別されたExtensionを実装するprocessorは、そのExtensionのsupportを別途evaluateする。document-external agreementだけをbaseline conformanceへpromoteしてはならない（MUST NOT）。
+
+value例:
+
+```text
+q = relink
+page = 2
+active = true
+```
+
+これは次とequivalentなqueryを生成する。
+
+```text
+?active=true&page=2&q=relink
+```
+
+`object`、`array`、または`binary`のGET serializationはbaselineの範囲外である。そのようなInputがGET operationにpresentまたはrequiredな場合、baseline-only Runtimeは必要なmapping featureを`UNSUPPORTED`として報告する。JSON-in-query、repeated-key、base64、またはその他のserializationを発明してはならない（MUST NOT）。
+
+## 74.3 JSON Object Request Mapping
+
+`POST`、`PUT`、および`PATCH`について、baselineはpresent Inputを1つのJSON objectへmapする。
+
+```text
+JSON member name  = Input name
+JSON member value = Input value represented by its Core data type
+```
+
+Input例:
+
+```text
+on = true
+level = 0.75
+```
+
+これは次を生成する。
+
+```json
+{
+  "on": true,
+  "level": 0.75
+}
+```
+
+request `Content-Type`は`application/json`である。JSON member orderはsemantic significanceを持たない。present Inputを持たないInvocationは`{}`へmapされる。
+
+Core `string`、`number`、`integer`、`boolean`、`object`、および`array` valueは対応するJSON value kindへmapされる。`integer`はintegral meaningを持つJSON numberで表現される。JSON serializationはJSON syntaxに従い、JSON syntaxは`NaN`またはinfinity tokenを提供しない。baselineはarbitrary-precision requirement、universal numeric range、exact-decimal、またはrounding policyを追加しない。applicable numeric constraintおよびRuntimeのdeclared supportが、valueをusableかどうか決定する。Core `binary`にはbaseline JSON request mappingがなく、追加mapping specificationが必要である。
+
+`GET`、`POST`、`PUT`、および`PATCH`以外のmethodも`http:operation`でpermittedだが、そのrequest Input mappingはこのbaselineでは定義されない。Runtimeは追加のversioned HTTP mapping specificationを通じてそのようなmethodをsupportしてもよい。それ以外の場合、Input serializationが必要ならrouteは`UNSUPPORTED`である。
+
+## 74.4 No Generic Header DSL
+
+baselineはInput nameをHTTP header nameとして解釈してはならず（MUST NOT）、arbitrary header-expression languageを提供しない。`Content-Type`およびrepresentation negotiation headerを含むRuntime生成のstandard protocol headerはsemantic Input remappingではない。
+
+<a id="75-http-response-and-result-mapping"></a>
+# 75. HTTP ResponseおよびResult Mapping
+
+## 75.1 HTTP-level Outcome
+
+`2xx` classのすべてのHTTP statusはHTTP-level successである。non-`2xx` statusはbaselineにおけるHTTP Interface-level non-successである。
+
+HTTP statusはCapability semantic error identifierではない。
+
+```text
+HTTP status
+≠ Capability semantic result
+≠ Capability semantic error
+```
+
+baselineはHTTP statusだけから`control-denied`、`insufficient-funds`、または`emergency-stop-active`などのdomain errorをinferしてはならない（MUST NOT）。別個のversioned semantic error mapping specificationが必要である。
+
+network failure、timeout、TLS failure、CORS rejection、およびmalformed HTTPはtransportまたはInterface failureであり、Core validation failureではない。
+
+## 75.2 Representation Selection
+
+Representation selectionは概念的に次に基づく。
+
+```text
+caller preference
+∩ Runtime support
+∩ declared Entity Representations
+∩ applicable HTTP support
+```
+
+Representationのdocument orderはpreferenceを表してはならない（MUST NOT）。Runtimeは明示的selection policyからstandard HTTP `Accept` negotiationを生成してもよい（MAY）。これはgeneric header mapping DSLではない。
+
+baseline JSON Result mappingは、Resultがpresentの場合にdeclared `application/json` Representationを要求する。Resultがabsentの場合は代わりにSection 75.4が適用される。selectまたはvalidateするResult Representationは存在しない。
+
+このJSON baselineでは、compatibilityは次のruleによって決定され、Application sniffingまたはrecovery policyによっては決定されない。
+
+1. [RFC 9110 Section 8.3.1](https://httpwg.org/specs/rfc9110.html#media.type)のmedia-type syntaxを使用して、declared media typeおよびresponse `Content-Type`をparseする。responseはsyntactically validな`Content-Type` field valueを正確に1つ含まなければならない（MUST）。missing、malformed、repeated field、media typeのlist、またはduplicate parameter name（ASCII case-insensitiveに比較）はRepresentation failureである。
+2. typeおよびsubtypeをASCII case-insensitiveに比較する。selected declarationとresponseはどちらも`application/json`でなければならない（MUST）。`application/problem+json`のようなstructured suffixは、単に`+json`で終わるという理由ではmatchしない。
+3. parameter orderはsignificanceを持たない。このbaselineでは、`charset`およびunknown extra parameterを含む、syntactically validでnon-duplicateなすべてのmedia-type parameterは両側でignoreされ、compatibilityまたはdecodingに影響してはならない（MUST NOT）。baseline semantic constraintを提供しない。JSONは[RFC 8259 Sections 8.1 and 11](https://www.rfc-editor.org/rfc/rfc8259.html#section-8.1)に従ってUTF-8としてdecodeされる。parameterは別のcharacter encodingをselectできない。valid UTF-8 JSONでないcontentはRepresentation failureである。
+4. media typeのmatchingはbodyをvalidateしない。Section 75.3は引き続きJSON objectおよびsemantic Output checkを要求する。その他のmedia typeおよびparameter-dependent mappingには別途識別されるmapping specificationが必要であり、このbaseline claimの範囲外である。
+
+declared `application/json`について、次のcompatibility resultはfixedである（applicableな場合、valid UTF-8 JSON bodyを仮定する）。
+
+| Received Content-Type | Baseline media-type result |
+|---|---|
+| `application/json` | Compatible |
+| `Application/JSON; Charset="utf-8"` | Compatible。parameterはignored |
+| `application/json; vendor=example` | Compatible。extra parameterはignored |
+| `application/problem+json` | Representation failure |
+| Content-Type fieldなし | Resultがpresentの場合、Representation failure |
+
+Application policyはprocessingを別途blockまたはabortしてもよいが、baseline mismatchをcompatibleとしてrelabelしたり、policy固有recoveryをbaseline conformance resultにしたりしてはならない（MUST NOT）。
+
+## 75.3 Baseline JSON Result
+
+JSON Result bodyはtop-level JSON objectでなければならない（MUST）。各declared Outputはexact nameによって1つのobject memberへmapされる。
+
+```text
+JSON member name  = Output name
+JSON member value = Output value
+```
+
+`temperature`という名前のsingle Outputについても、baseline responseはobjectである。
+
+```json
+{
+  "temperature": 21.4
+}
+```
+
+次のscalar shortcutはそのdeclarationに対するvalid baseline JSON Resultではない。
+
+```json
+21.4
+```
+
+すべてのdeclared Outputは対応するobject memberを持たなければならない（MUST）。各member valueはOutputのCore structural data typeおよびunderstood semantic constraintをすべてsatisfyしなければならない（MUST）。numeric decodingはselected JSON implementationおよびapplicable numeric constraintに従う。baselineはarbitrary-precisionまたはexact-decimal preservation requirementを追加しない。Runtimeはnumeric support limitationをCore document validityとは別に報告する。
+
+Capability Contract、Profile、またはapplicable Extensionがdeterministicallyにprohibitしない限り、unknown JSON object memberはignoreしてもよい（MAY）。unknown memberをignoreしても、AR-DOMまたはsemantic Resultに追加されない。
+
+JSON member orderはsemantic significanceを持たない。multiple Outputも同じname-to-member ruleを使用する。
+
+## 75.4 No ResultおよびHTTP 204
+
+`204 No Content`はHTTP-level successである。semantic invocationにreturned valueがないことを表すabsent Resultとcompatibleである。empty ResultおよびOutputを宣言しないResultはinvalid Draft 5 Core structureである。
+
+1つ以上のOutputが宣言されている場合、`204` responseまたはその他のabsent bodyはsuccessful semantic Output productionではなく、ResultまたはRepresentation mapping failureである。
+
+Resultがabsentの場合、Runtimeはresponse bodyからOutputを発明してはならない（MUST NOT）。valid `2xx` HTTP responseについて、bodyがabsentでもpresentでも、baselineはsemantic Outputなしでinvocation mappingを完了する。bodyはCapability Result interpretationでignoreされなければならず（MUST）、parseせずdiscardしてもよい（MAY）。そのpresence、content、およびContent-Typeによってbaseline ResultまたはRepresentation failureを生じさせてはならない（MUST NOT）。このruleはremote business outcomeをinferせず、transport failure、invalid HTTP framing、または独立して報告されたpolicy abortをoverrideしない。non-`2xx` responseはHTTP Interface-level non-successのままである。otherwise undeclared bodyを解釈するmappingには別のversioned mapping specificationが必要である。Application policyはbaseline outcomeをsilentにredefineしてはならない（MUST NOT）。
+
+## 75.5 AuthenticationおよびAuthorization
+
+shared HTTP authentication prerequisiteはInterface Requirementとして宣言することが望ましい（SHOULD）。Capability-specific authorization prerequisiteはCapability Requirementとして宣言してもよい（MAY）。
+
+HTTP ExtensionはRuntime policy外でcredentialをissue、store、refresh、またはforwardしない。`READY`はserverがrequestをauthenticateまたはauthorizeすることを保証しない。
+
+---
