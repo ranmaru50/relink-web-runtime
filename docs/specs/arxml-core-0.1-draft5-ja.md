@@ -4791,3 +4791,190 @@ Execution State
 これらのviewのexposureまたはtraversalはobservationalである。Capabilityをinvokeしない。
 
 ---
+
+<a id="appendix-b-cardinality-table"></a>
+# Appendix B. Cardinality表
+
+このappendixはnormative bodyで定義されたcardinalityのinformative consolidated indexである。new element、attribute、またはoccurrence ruleを導入しない。rowがapplicable normative sectionとconflictする場合、normative sectionが優先する。以下のCore attribute listは、Section 32.3が許可する追加foreign namespaced metadata attributeをprohibitしない。
+
+## B.1 Notation
+
+| Notation | Meaning |
+|---|---|
+| `1` | 正確に1つ。required |
+| `0..1` | 0または1。optional singleton |
+| `0..*` | 0個以上 |
+| `1..*` | 1個以上 |
+| `exactly 1 when present` | ownerまたはwrapperはoptionalだが、ownerが存在する場合のrequired content countは1 |
+
+**XML occurrence** columnは、記載されたparent内のdirect XML childまたはattributeをcountする。**AR-DOM cardinality** columnは、Core parsingおよびvalidation成功後のinformation-model itemをcountする。
+
+collection wrapperは、item collectionのcardinalityが`0..*`でもoptional singletonである。したがってabsent wrapperとpresent empty wrapperは、serializerがclaimするmodeのpreservation requirementに従い、同じempty Core collectionをexposeする。
+
+## B.2 Document RootおよびEntity Child
+
+| Parent | XML name | Kind | XML occurrence | AR-DOM item | AR-DOM cardinality | Normative note |
+|---|---|---|---:|---|---:|---|
+| XML document | `ar-entity` | Core element | `1` | `AREntity` | `1` | 唯一のdocument element。Core wrapperはpermittedでない |
+| `ar-entity` | `version` | unqualified attribute | `1` | document version | `1` | 正確に`0.1` |
+| `ar-entity` | `category` | Core element | `0..1` | Category | `0..1` | non-empty character value |
+| `ar-entity` | `identifiers` | Core container | `0..1` | Identifiers collection | `0..*` | containerはemptyでもよい |
+| `ar-entity` | `properties` | Core containerおよびExtension Slot | `0..1` | PropertiesおよびProperty Extensions | `0..*` | Coreおよびforeign itemはinterleaveしてよい |
+| `ar-entity` | `subjects` | Core container | `0..1` | Subjects collection | `0..*` | containerはemptyでもよい |
+| `ar-entity` | `profiles` | Core container | `0..1` | ProfileClaims collection | `0..*` | containerはemptyでもよい |
+| `ar-entity` | `interfaces` | Core container | `0..1` | Interfaces collection | `0..*` | containerはemptyでもよい |
+| `ar-entity` | `capabilities` | Core container | `0..1` | Capabilities collection | `0..*` | containerはemptyでもよい |
+
+foreign elementは`ar-entity`直下にpermittedでない。上記のEntity childはいずれもrequiredではないため、empty `ar-entity` formはvalidである。
+
+## B.3 Entity Collection Item
+
+| XML parent | XML item | XML occurrence | Required Core information | Optional Core information | Item constraints |
+|---|---|---:|---|---|---|
+| `identifiers` | `identifier` | `0..*` | `type`、`value` | `subject-ref` | repeated `type` allowed。`subject-ref`はSubjectをtargetとする |
+| `properties` | `property` | `0..*` | `type`、`value` | `unit` | repeated `type` allowed |
+| `properties` | foreign Property root | `0..*` | foreign expanded nameおよびsubtree | Extension-defined | 各direct foreign childが1つのProperty Extension item |
+| `subjects` | `subject` | `0..*` | `id` | `type` | `id`はSubjects内でunique |
+| `profiles` | `conforms-to` | `0..*` | `href` | none | `href`はexact-versioned absolute Profile identifier |
+| `interfaces` | `interface` | `0..*` | `id`、AttachmentまたはRealization | Attachment、Realization、Requirements | `id`はInterfaces内でunique |
+| `capabilities` | `capability` | `0..*` | `id`、`type` | `subject-ref`、Requirements、Invocation、InterfaceUses | `id`はCapabilities内でunique |
+
+`Identifier.subjectRef`および`Capability.subjectRef`はそれぞれAR-DOM cardinality `0..1`を持つ。absentの場合、described Entity自体がsubjectであり、implicit Subject itemは作成されない。
+
+## B.4 Capability、Invocation、およびResult
+
+| XML parent | XML child or attribute | Kind | XML occurrence | AR-DOM cardinality | Notes |
+|---|---|---|---:|---:|---|
+| `capability` | `id` | attribute | `1` | `1` | non-empty local ID |
+| `capability` | `type` | attribute | `1` | `1` | exact-versioned absolute Capability Contract identifier |
+| `capability` | `subject-ref` | attribute | `0..1` | `0..1` | local Subjectをtargetとする |
+| `capability` | `requirements` | container | `0..1` | Requirements `0..*` | emptyでもよい |
+| `capability` | `invocation` | element | `0..1` | `0..1` | emptyでもよい |
+| `capability` | `interface-uses` | container | `0..1` | InterfaceUses `0..*` | emptyでもよい |
+| `invocation` | `inputs` | container | `0..1` | Inputs `0..*` | emptyでもよい |
+| `invocation` | `result` | element | `0..1` | `0..1` | presentの場合non-empty Outputs collectionを含む |
+| `inputs` | `input` | item | `0..*` | `0..*` | `name`はこのInvocation内でunique |
+| `result` | `outputs` | container | Resultがpresentの場合`1` | Outputs `1..*` | Resultがpresentの場合required |
+| `result` | `representations` | container | `0..1` | Representations `0..*` | emptyでもよい |
+| `outputs` | `output` | item | `1..*` | `1..*` | Resultがpresentの場合少なくとも1つのOutput。`name`はこのResult内でunique |
+| `representations` | `representation` | item | `0..*` | `0..*` | orderはpreferenceを表さない |
+| `interface-uses` | `interface-use` | item | `0..*` | `0..*` | duplicate `ref` valueはallowed |
+
+次のstateはすべてstructurally distinguishableであり、resolved Contractがprojection conflictを生成しない限りvalidである。
+
+```text
+Capability without Invocation
+Capability with empty Invocation
+Invocation without Result
+Invocation with Result containing one or more Outputs
+Capability without InterfaceUse
+Capability with an empty interface-uses container
+```
+
+Draft 5はResult下にCore `errors` childを定義しない。
+
+## B.5 Input、Output、およびRepresentation Field
+
+| Owner | Core field | XML form | Cardinality | Default or constraint |
+|---|---|---|---:|---|
+| Input | `name` | attribute | `1` | non-empty。sibling Input間でunique |
+| Input | `type` | attribute | `1` | 1つのCore structural data type |
+| Input | `required` | attribute | `0..1` | defaultは`true`。lexical valueは`true`または`false` |
+| Input | `format` | attribute | `0..1` | presentの場合non-empty |
+| Input | `unit` | attribute | `0..1` | presentの場合non-empty |
+| Input | Constraints | `constraints` wrapper | `0..1` | wrapperは`0..*`個のforeign constraint rootを含む。empty wrapperはvalid |
+| Output | `name` | attribute | `1` | non-empty。sibling Output間でunique |
+| Output | `type` | attribute | `1` | 1つのCore structural data type |
+| Output | `format` | attribute | `0..1` | presentの場合non-empty |
+| Output | `unit` | attribute | `0..1` | presentの場合non-empty |
+| Output | Constraints | `constraints` wrapper | `0..1` | wrapperは`0..*`個のforeign constraint rootを含む。empty wrapperはvalid |
+| Representation | `mediaType` | `media-type` attribute | `1` | non-empty RFC 9110 media-type syntax。registry lookupなし |
+
+InputおよびOutputはCore value childを持たない。Runtime Input valueおよびreturned Output valueはinvocation stateに属し、AR-DOM description cardinalityには属さない。
+
+## B.6 InterfaceおよびInterfaceUse
+
+| XML parent | XML child or attribute | Kind | XML occurrence | Content cardinality | Notes |
+|---|---|---|---:|---:|---|
+| `interface` | `id` | attribute | `1` | `1` | non-emptyでInterfaces内でunique |
+| `interface` | `attachment` | wrapper | `0..1` | presentの場合正確に`1`つのforeign root | Attachment Extension Slot |
+| `interface` | `realization` | wrapper | `0..1` | presentの場合正確に`1`つのforeign root | Realization Extension Slot |
+| `interface` | `requirements` | container | `0..1` | `requirement` `0..*` | emptyでもよい |
+| `interface-use` | `ref` | attribute | `1` | `1` | local Interfaceをtargetとする |
+| `interface-use` | `mapping` | wrapper | `0..1` | presentの場合正確に`1`つのforeign root | Mapping Extension Slot |
+
+Interface conditional cardinalityは次のとおりである。
+
+```text
+count(attachment) + count(realization) >= 1
+```
+
+それぞれが個別に`0..1`なので、InterfaceはAttachmentのみ、Realizationのみ、または両方を持つ。どちらも持たないInterfaceは、Requirementを含んでいてもinvalidである。
+
+InterfaceはすべてのCapabilityからunreferencedでもよい。逆に、InterfaceUseは常に1つのCapabilityにownedされ、同じdocument内の1つのInterfaceを参照する。
+
+## B.7 RequirementおよびExtension Slot
+
+| Slot or owner | Core envelope occurrence | Foreign semantic-root count | Direct character data | Core note |
+|---|---:|---:|---|---|
+| `properties`内のProperty slot | container `0..1` | `0..*` | Core Property value外はwhitespaceのみ | foreign rootはCore `property` itemとcoexist |
+| `requirement` | そのRequirements container内のitem `0..*` | `0..*` | whitespaceのみ | `type` attribute required。複数foreign parameter element allowed |
+| `attachment` | Interfaceごとにwrapper `0..1` | 正確に`1` | whitespaceのみ | emptyの場合wrapperはinvalid |
+| `realization` | Interfaceごとにwrapper `0..1` | 正確に`1` | whitespaceのみ | emptyの場合wrapperはinvalid |
+| `mapping` | InterfaceUseごとにwrapper `0..1` | 正確に`1` | whitespaceのみ | emptyの場合wrapperはinvalid |
+| `constraints` | InputまたはOutputごとにwrapper `0..1` | `0..*` | whitespaceのみ | empty wrapperはvalid。複数のindependent constraint root allowed |
+
+各foreign semantic root内部のgrammarはCoreによってcardinality-constrainedされない。applicable Extension specificationによってvalidateされる。これらのslot外のforeign child elementはinvalidである。Core element上のforeign namespaced metadata attributeはSection 32.3に基づいてpermittedであり、child cardinalityにはcountされない。
+
+各`requirement`は正確に1つのnon-empty `type` attributeを持ち、Core `kind`または`scope` attributeを持たない。Requirement scopeはownerから得られる。
+
+| Owner | Requirement scope |
+|---|---|
+| Capability `requirements` | Capability prerequisite |
+| Interface `requirements` | Interface prerequisite |
+
+## B.8 Local UniquenessおよびReference Constraint
+
+| Scope | Unique value | Cardinality consequence |
+|---|---|---|
+| Subjects collection | `subject/@id` | given Subject IDに対して最大1つのSubject target |
+| Interfaces collection | `interface/@id` | given Interface IDに対して最大1つのInterface target |
+| Capabilities collection | `capability/@id` | given Capability IDに対して最大1つのCapability |
+| 1つのInvocation | `input/@name` | given nameに対して最大1つのInput |
+| 1つのResult | `output/@name` | given nameに対して最大1つのOutput |
+
+typed local-ID spaceは独立している。同じlexical valueがSubject IDとして1回、Interface IDとして1回、Capability IDとして1回現れてもよい。
+
+| Reference field | Cardinality | Required target | Dangling result |
+|---|---:|---|---|
+| `Identifier.subjectRef` | `0..1` | 同じdocument内の1つのSubject | Core-invalid |
+| `Capability.subjectRef` | `0..1` | 同じdocument内の1つのSubject | Core-invalid |
+| `InterfaceUse.ref` | `1` | 同じdocument内の1つのInterface | Core-invalid |
+
+forward referenceはpermittedである。reference integrityはcomplete documentが利用可能になった後でcheckされる。
+
+## B.9 Standard HTTP Extension Cardinality
+
+| Extension root | Permitted Core slot | Root occurrence in slot | Required attributes | Optional Core-baseline attributes or children |
+|---|---|---:|---|---|
+| `http:api` | Realization | 正確に`1`つのsemantic root | none | `base`（`0..1`。omissionはfinal retrieval URIを使用） |
+| `http:operation` | Mapping | 正確に`1`つのsemantic root | `method`、`path` | none |
+
+Interfaceは1つのCore Realization wrapperだけを持ち、そのwrapperは1つのsemantic rootを持つ。distinct HTTP realization contextを必要とするEntityはdistinct Interfaceを宣言する。複数のCapability InterfaceUseが同じHTTP Interfaceを参照してもよく、1つのCapabilityがdistinct InterfaceUse内で同じInterface `ref`を繰り返してもよい。
+
+HTTP Extension cardinalityはHTTP method syntaxを`GET`および`POST`に限定しない。method implementation supportはRuntime propertyであり、document occurrence constraintではない。
+
+## B.10 CardinalityはPreferenceまたはAvailabilityではない
+
+cardinalityはpresenceおよびmultiplicityだけを記述する。priority、preference、fallback、recency、truth、Runtime support、またはAvailabilityを割り当てない。特に次のとおりである。
+
+- 同じ`type`の複数IdentifierまたはPropertyはordered alternativeではない。
+- 複数Representationはdocument orderによってrankされない。
+- 複数InterfaceおよびInterfaceUseはimplicit fallback orderではない。
+- present Requirementは必ずしもsatisfiedではない。
+- present RealizationまたはMappingは必ずしもsupportedではない。
+- present Capabilityは必ずしもinvocableまたはavailableではない。
+
+これらのquestionは、ここで要約されたcardinalityの変更ではなく、normative bodyのsemantic、validation、およびRuntime evaluation ruleによってresolveされる。
+
+---
