@@ -89,7 +89,8 @@ function evaluateRoute(routeId: string, use: InterfaceUse, definition: Interface
 function evaluateRequirements(requirements: readonly RequirementDefinition[]): RequirementEvaluationState { return requirements.length === 0 ? "SATISFIED" : "UNKNOWN"; }
 function combineRequirement(states: readonly RequirementEvaluationState[]): RequirementEvaluationState { if (states.includes("UNSATISFIED")) return "UNSATISFIED"; if (states.includes("UNKNOWN")) return "UNKNOWN"; return "SATISFIED"; }
 
-function getContractRequirements(contract: CapabilityContract): readonly RequirementDefinition[] { return [...(contract.requirements ?? []), ...(contract.invocation?.requirements ?? [])]; }
+/** Draft 5 Contract Requirement は Capability Contract 直下だけに存在します。 */
+function getContractRequirements(contract: CapabilityContract): readonly RequirementDefinition[] { return contract.requirements ?? []; }
 
 interface RequirementComparison { readonly conflict: boolean; readonly unknown: boolean; }
 

@@ -6,7 +6,7 @@ import { FetchHTTPInvoker } from "../src/adapters/web/BrowserFetchAdapters";
 import { BrowserXMLParser } from "../src/adapters/web/BrowserXMLParser";
 import { buildARDocument } from "../src/application/validation";
 import { resolveHTTPTarget } from "../src/application/invocation";
-import { ARRuntime, InMemorySemanticRegistry, evaluateProfileDocument } from "../src/index";
+import { ARRuntime, InMemorySemanticRegistry, evaluateProfileDocument, type CapabilityContract } from "../src/index";
 import { InterfaceError, RepresentationError, ValidationError } from "../src/domain/errors";
 
 const parser = new BrowserXMLParser();
@@ -15,6 +15,14 @@ const http = "https://relink.dev/ns/arxml/http/0.1";
 const base = `<?xml version="1.0"?><ar-entity xmlns="${core}" xmlns:http="${http}" version="0.1">`;
 
 describe("AR-XML Core 0.1 Draft 5", () => {
+  it("CapabilityContract の Requirement は Draft 5 の top-level だけを受理する", () => {
+    const contract: CapabilityContract = { identifier: "https://example.test/contracts/top-level/1", requirements: [{ type: "urn:credential", extensions: [] }] };
+    expect(contract.requirements).toHaveLength(1);
+    // @ts-expect-error Draft 5 Contract model に Invocation-scoped Requirement は存在しません。
+    const invalidContract: CapabilityContract = { identifier: "https://example.test/contracts/nested/1", invocation: { requirements: [] } };
+    expect(invalidContract).toBeDefined();
+  });
+
   it("empty/passive/Properties-only Entity を公開する", () => {
     for (const xml of [`<ar-entity xmlns="${core}" version="0.1"/>`, `<ar-entity xmlns="${core}" version="0.1"><properties><property type="urn:property:name" value="lab"/></properties></ar-entity>`]) {
       expect(buildARDocument(parser.parse(xml), "https://example.test/entity.arxml")).toBeDefined();

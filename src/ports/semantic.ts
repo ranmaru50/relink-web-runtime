@@ -9,7 +9,7 @@ export interface CapabilityContract {
   readonly requirements?: readonly RequirementDefinition[];
   /** Entity 側の Input requiredness strengthening を許可する Contract Input 名です。 */
   readonly permittedInputRequirednessNarrowing?: readonly string[];
-  readonly invocation?: { readonly inputs?: readonly InputDefinition[]; readonly result?: ResultDefinition; readonly requirements?: readonly RequirementDefinition[] };
+  readonly invocation?: { readonly inputs?: readonly InputDefinition[]; readonly result?: ResultDefinition };
 }
 /** Profile の exact identity と、最小限の Capability 要件です。 */
 export interface ProfileCapabilityRequirement { readonly contractIdentifier: string; readonly required?: boolean; readonly requiredInputNames?: readonly string[]; readonly requiredOutputNames?: readonly string[]; }
