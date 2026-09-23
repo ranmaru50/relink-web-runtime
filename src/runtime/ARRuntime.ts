@@ -9,7 +9,7 @@ import { invokeCapability, SameOriginNetworkPolicy, type InputValues, type Invoc
 import { parseManifest } from "../application/manifest";
 import { buildARDocument } from "../application/validation";
 import { HTTPSDowngradeError, HTTPResponseError, ManifestFetchError, NetworkPolicyError, TransportError, ValidationError } from "../domain/errors";
-import type { ARDocument, AvailabilityState, Capability, CapabilityEvaluation } from "../domain/model";
+import type { ARDocument, ARDocumentFormat, AvailabilityState, Capability, CapabilityEvaluation } from "../domain/model";
 import { EmptySemanticRegistry, evaluateProfileDocument, type SemanticRegistry } from "../ports/semantic";
 import type { HTTPInvoker, ResourceFetcher, ResourceFetchOptions, ResourceFetchResult, XMLParser } from "../ports/runtime";
 
@@ -20,7 +20,7 @@ export class DefaultResourceNetworkPolicy implements ResourceNetworkPolicy {
   public permits(url: URL, requestedUrl: string): boolean { const requested = new URL(requestedUrl); if (url.protocol !== "http:" && url.protocol !== "https:") return false; return requested.protocol !== "https:" || url.protocol === "https:"; }
 }
 /** Runtime の外部境界と semantic registry を差し替える設定です。 */
-export interface ARRuntimeOptions { readonly xmlParser?: XMLParser; readonly resourceFetcher?: ResourceFetcher; readonly httpInvoker?: HTTPInvoker; readonly networkPolicy?: NetworkPolicy; readonly resourceNetworkPolicy?: ResourceNetworkPolicy; readonly resourceCredentials?: RequestCredentials; readonly semanticRegistry?: SemanticRegistry; }
+export interface ARRuntimeOptions { readonly xmlParser?: XMLParser; readonly resourceFetcher?: ResourceFetcher; readonly httpInvoker?: HTTPInvoker; readonly networkPolicy?: NetworkPolicy; readonly resourceNetworkPolicy?: ResourceNetworkPolicy; readonly resourceCredentials?: RequestCredentials; readonly semanticRegistry?: SemanticRegistry; readonly documentFormat?: ARDocumentFormat; }
 
 /** Draft 5 AR-XML を副作用なく読み込み、明示 Invocation を別 API で提供します。 */
 export class ARRuntime {
@@ -30,7 +30,8 @@ export class ARRuntime {
   private readonly networkPolicy: NetworkPolicy;
   private readonly resourceNetworkPolicy: ResourceNetworkPolicy;
   private readonly semanticRegistry: SemanticRegistry;
-  public constructor(options: ARRuntimeOptions = {}) { this.xmlParser = options.xmlParser ?? new BrowserXMLParser(); this.resourceFetcher = options.resourceFetcher ?? new BrowserResourceFetcher(globalThis.fetch.bind(globalThis), { credentials: options.resourceCredentials }); this.httpInvoker = options.httpInvoker ?? new FetchHTTPInvoker(); this.networkPolicy = options.networkPolicy ?? new SameOriginNetworkPolicy(); this.resourceNetworkPolicy = options.resourceNetworkPolicy ?? new DefaultResourceNetworkPolicy(); this.semanticRegistry = options.semanticRegistry ?? new EmptySemanticRegistry(); }
+  private readonly documentFormat: ARDocumentFormat;
+  public constructor(options: ARRuntimeOptions = {}) { this.xmlParser = options.xmlParser ?? new BrowserXMLParser(); this.resourceFetcher = options.resourceFetcher ?? new BrowserResourceFetcher(globalThis.fetch.bind(globalThis), { credentials: options.resourceCredentials }); this.httpInvoker = options.httpInvoker ?? new FetchHTTPInvoker(); this.networkPolicy = options.networkPolicy ?? new SameOriginNetworkPolicy(); this.resourceNetworkPolicy = options.resourceNetworkPolicy ?? new DefaultResourceNetworkPolicy(); this.semanticRegistry = options.semanticRegistry ?? new EmptySemanticRegistry(); this.documentFormat = options.documentFormat ?? "draft5"; }
 
   /** AR-XML または明示 Manifest 経由の description を取得します。Capability は実行しません。 */
   public async load(url: string, options: { readonly signal?: AbortSignal; readonly credentials?: RequestCredentials } = {}): Promise<RuntimeDocument> {
@@ -53,7 +54,7 @@ export class ARRuntime {
     const responseUrl = parseDocumentUrl(result.responseUrl); this.assertResourceRequest(responseUrl, requested.href); for (const redirectUrl of result.redirectUrls ?? []) this.assertResourceRequest(parseDocumentUrl(redirectUrl), requested.href); return result;
   }
 
-  private buildRuntimeDocument(result: ResourceFetchResult): RuntimeDocument { const responseUrl = parseDocumentUrl(result.responseUrl); return new RuntimeDocument(buildARDocument(this.xmlParser.parse(result.body), responseUrl.href), this.httpInvoker, this.networkPolicy, this.semanticRegistry); }
+  private buildRuntimeDocument(result: ResourceFetchResult): RuntimeDocument { const responseUrl = parseDocumentUrl(result.responseUrl); return new RuntimeDocument(buildARDocument(this.xmlParser.parse(result.body), responseUrl.href, { format: this.documentFormat }), this.httpInvoker, this.networkPolicy, this.semanticRegistry); }
   private assertResourceRequest(targetUrl: URL, requestedUrl: string): void { if (new URL(requestedUrl).protocol === "https:" && targetUrl.protocol === "http:") throw new HTTPSDowngradeError(requestedUrl, targetUrl.href); if (!this.resourceNetworkPolicy.permits(targetUrl, requestedUrl)) throw new NetworkPolicyError(targetUrl.href); }
 }
 

@@ -46,23 +46,38 @@ export function sameCoreType(left: CoreDataType, right: CoreDataType): boolean {
 /** Output 型を比較する helper です。 */
 export function sameOutputShape(left: OutputDefinition, right: OutputDefinition): boolean { return left.name === right.name && sameCoreType(left.type, right.type) && left.format === right.format && left.unit === right.unit; }
 
-/** Profile の Entity characteristic 要件を決定的に比較します。 */
+/** Profile の Entity characteristic 要件を、matching candidate の存在量化で比較します。 */
 export function evaluateProfileDocument(document: ARDocument, profileIdentifier: string, registry: SemanticRegistry): { readonly resolution: "RESOLVED" | "UNRESOLVED"; readonly conformance: "CONFORMANT" | "NON_CONFORMANT" | "UNDETERMINED" } {
   const candidates = registry.resolveProfile(profileIdentifier).filter((item) => item.identifier === profileIdentifier);
   if (candidates.length !== 1) return { resolution: "UNRESOLVED", conformance: "UNDETERMINED" };
   const profile = candidates[0]!;
   const capabilityTypes = new Set(document.capabilities.map((item) => item.semanticType));
   for (const required of profile.requiredCapabilities ?? []) if (!capabilityTypes.has(required)) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" };
+  let undetermined = false;
   for (const required of profile.capabilityRequirements ?? []) {
-    const capability = document.capabilities.find((item) => item.semanticType === required.contractIdentifier);
-    if (!capability) { if (required.required !== false) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" }; continue; }
-    if ((required.requiredInputNames?.length ?? 0) > 0 && !capability.invocation) return { resolution: "RESOLVED", conformance: "UNDETERMINED" };
-    if ((required.requiredOutputNames?.length ?? 0) > 0 && !capability.invocation?.result) return { resolution: "RESOLVED", conformance: "UNDETERMINED" };
-    const inputNames = new Set(capability.invocation?.inputs.map((item) => item.name)); for (const name of required.requiredInputNames ?? []) if (!inputNames.has(name)) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" };
-    const outputNames = new Set(capability.invocation?.result?.outputs.map((item) => item.name)); for (const name of required.requiredOutputNames ?? []) if (!outputNames.has(name)) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" };
+    if (required.required === false) continue;
+    const matching = document.capabilities.filter((item) => item.semanticType === required.contractIdentifier);
+    if (matching.length === 0) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" };
+    const candidateStates = matching.map((capability) => evaluateCapabilityRequirement(capability, required));
+    if (candidateStates.includes("CONFORMANT")) continue;
+    if (candidateStates.includes("UNDETERMINED")) { undetermined = true; continue; }
+    return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" };
   }
   for (const required of profile.propertyRequirements ?? []) { const found = document.properties.some((item) => item.type === required.type && (required.value === undefined || item.value === required.value)); if (!found && required.required !== false) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" }; }
   for (const required of profile.identifierRequirements ?? []) { const found = document.identifiers.some((item) => item.type === required.type && (required.value === undefined || item.value === required.value)); if (!found && required.required !== false) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" }; }
   for (const required of profile.interfaceRequirements ?? []) { const found = document.interfaces.some((item) => (required.id === undefined || item.id === required.id) && (!required.requireRealization || item.realization !== undefined)); if (!found && required.required !== false) return { resolution: "RESOLVED", conformance: "NON_CONFORMANT" }; }
-  return { resolution: "RESOLVED", conformance: "CONFORMANT" };
+  return { resolution: "RESOLVED", conformance: undetermined ? "UNDETERMINED" : "CONFORMANT" };
+}
+
+type ProfileCandidateState = "CONFORMANT" | "NON_CONFORMANT" | "UNDETERMINED";
+
+/** 一つの Capability candidate を Profile の Invocation/Result 要件へ照合します。 */
+function evaluateCapabilityRequirement(capability: ARDocument["capabilities"][number], requirement: ProfileCapabilityRequirement): ProfileCandidateState {
+  if ((requirement.requiredInputNames?.length ?? 0) > 0 && !capability.invocation) return "UNDETERMINED";
+  if ((requirement.requiredOutputNames?.length ?? 0) > 0 && !capability.invocation?.result) return "UNDETERMINED";
+  const inputNames = new Set(capability.invocation?.inputs.map((item) => item.name));
+  if ((requirement.requiredInputNames ?? []).some((name) => !inputNames.has(name))) return "NON_CONFORMANT";
+  const outputNames = new Set(capability.invocation?.result?.outputs.map((item) => item.name));
+  if ((requirement.requiredOutputNames ?? []).some((name) => !outputNames.has(name))) return "NON_CONFORMANT";
+  return "CONFORMANT";
 }

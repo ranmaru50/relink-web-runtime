@@ -27,6 +27,8 @@ const result = await capability?.invoke({ on: true }, { accept: "application/jso
 
 `RuntimeCapability.invoke()` is the explicit Application/Human request boundary. It validates Inputs, requires a unique READY route (or an explicit `routeId`/unambiguous `interfaceRef`), performs the supported Extension mapping once, and returns semantic Outputs. It never retries another route after transport, Interface, Representation, or Capability errors.
 
+The default `ARRuntime` document format is Draft 5. Draft 4 compatibility is an explicit migration mode: pass `{ documentFormat: "draft4" }`; Draft 4 Capability children are rejected by the default Draft 5 validator.
+
 ## RuntimeDocument
 
 ```ts

@@ -27,6 +27,8 @@ const result = await capability?.invoke({ on: true }, { accept: "application/jso
 
 `RuntimeCapability.invoke()` が Application/Human による明示的な要求の境界です。Input を検証し、一意な READY Route（複数ある場合は `routeId`、または一意な `interfaceRef` を明示）を選択し、対応する Extension Mapping を1回だけ実行して semantic Output を返します。Transport、Interface、Representation、Capability error の後に別 Route を自動 retry しません。
 
+既定の `ARRuntime` document format は Draft 5 です。Draft 4 compatibility は明示的な migration mode として `{ documentFormat: "draft4" }` を指定します。既定の Draft 5 validator は Draft 4 Capability child を拒否します。
+
 ## RuntimeDocument
 
 ```ts

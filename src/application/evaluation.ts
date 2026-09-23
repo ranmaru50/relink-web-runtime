@@ -3,8 +3,8 @@
 
 import { parseHTTPApi, parseHTTPOperation } from "./invocation";
 import { routeHandleFor } from "./routes";
-import type { Capability, CapabilityEvaluation, InterfaceDefinition, InterfaceUse, ProjectionValidationState, RequirementDefinition, RequirementEvaluationState, RouteEvaluation, SupportState } from "../domain/model";
-import type { CapabilityContract, SemanticRegistry } from "../ports/semantic";
+import type { ARDocument, Capability, CapabilityEvaluation, InterfaceDefinition, InterfaceUse, ProjectionValidationState, RequirementDefinition, RequirementEvaluationState, RouteEvaluation, SupportState } from "../domain/model";
+import { evaluateProfileDocument, type CapabilityContract, type SemanticRegistry } from "../ports/semantic";
 
 /** exact identifier で Contract を解決し、first-wins を避けます。 */
 export function resolveContract(identifier: string, registry: SemanticRegistry): { readonly state: "RESOLVED" | "UNRESOLVED"; readonly contract?: CapabilityContract } {
@@ -22,22 +22,24 @@ export function validateProjection(capability: Capability, contract: CapabilityC
   if (!expected || !capability.invocation) return "VALIDATED";
   const contractInputs = expected.inputs ?? [];
   const entityInputs = capability.invocation.inputs;
+  let unvalidatedDifference = false;
   if (contractInputs.length !== entityInputs.length) return "CONFLICT";
   for (const item of contractInputs) {
     const actual = entityInputs.find((candidate) => candidate.name === item.name);
-    if (!actual || actual.type !== item.type || actual.required !== item.required || actual.format !== item.format || actual.unit !== item.unit) return "CONFLICT";
+    if (!actual || actual.type !== item.type) return "CONFLICT";
+    if (actual.required !== item.required || actual.format !== item.format || actual.unit !== item.unit) unvalidatedDifference = true;
   }
   if (Boolean(expected.result) !== Boolean(capability.invocation.result)) return "CONFLICT";
   if (expected.result && capability.invocation.result) {
     if (expected.result.outputs.length !== capability.invocation.result.outputs.length) return "CONFLICT";
-    for (const output of expected.result.outputs) { const actual = capability.invocation.result.outputs.find((candidate) => candidate.name === output.name); if (!actual || actual.type !== output.type || actual.format !== output.format || actual.unit !== output.unit) return "CONFLICT"; }
+    for (const output of expected.result.outputs) { const actual = capability.invocation.result.outputs.find((candidate) => candidate.name === output.name); if (!actual || actual.type !== output.type) return "CONFLICT"; if (actual.format !== output.format || actual.unit !== output.unit) unvalidatedDifference = true; }
     const expectedRepresentations = expected.result.representations.map((item) => item.mediaType.toLowerCase()).sort();
     const actualRepresentations = capability.invocation.result.representations.map((item) => item.mediaType.toLowerCase()).sort();
     if (expectedRepresentations.length !== actualRepresentations.length || expectedRepresentations.some((item, index) => item !== actualRepresentations[index])) return "CONFLICT";
   }
   const contractRequirements = contract.requirements ?? expected.requirements ?? [];
   const hasUnknownConstraint = contractInputs.some((item) => (item.constraints?.length ?? 0) > 0) || entityInputs.some((item) => (item.constraints?.length ?? 0) > 0) || expected.result?.outputs.some((item) => (item.constraints?.length ?? 0) > 0) === true || capability.invocation.result?.outputs.some((item) => (item.constraints?.length ?? 0) > 0) === true;
-  return hasUnknownConstraint || contractRequirements.length > 0 || capability.requirements.length > 0 ? "UNVALIDATED" : "VALIDATED";
+  return hasUnknownConstraint || contractRequirements.length > 0 || capability.requirements.length > 0 || unvalidatedDifference ? "UNVALIDATED" : "VALIDATED";
 }
 
 /** InterfaceUse を document order ではなく route 単位で評価します。 */
@@ -91,10 +93,5 @@ function aggregateAvailability(routes: readonly RouteEvaluation[]): "READY" | "U
 export type ProfileResolutionState = "RESOLVED" | "UNRESOLVED";
 export type ProfileConformanceState = "CONFORMANT" | "NON_CONFORMANT" | "UNDETERMINED";
 export interface ProfileEvaluation { readonly resolution: ProfileResolutionState; readonly conformance: ProfileConformanceState; }
-/** Profile を exact identifier で解決し、要求 Capability の有無だけを決定的に比較します。 */
-export function evaluateProfile(capabilityTypes: readonly string[], profileIdentifier: string, registry: SemanticRegistry): ProfileEvaluation {
-  const candidates = registry.resolveProfile(profileIdentifier).filter((item) => item.identifier === profileIdentifier);
-  if (candidates.length !== 1) return { resolution: "UNRESOLVED", conformance: "UNDETERMINED" };
-  const required = candidates[0]?.requiredCapabilities ?? [];
-  return { resolution: "RESOLVED", conformance: required.every((item) => capabilityTypes.includes(item)) ? "CONFORMANT" : "NON_CONFORMANT" };
-}
+/** 公開 Profile 評価の互換 entry point です。必ず文書全体 evaluator へ委譲します。 */
+export function evaluateProfile(document: ARDocument, profileIdentifier: string, registry: SemanticRegistry): ProfileEvaluation { return evaluateProfileDocument(document, profileIdentifier, registry); }

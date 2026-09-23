@@ -4,16 +4,18 @@
 import type { ParsedARDocument, ParsedElement } from "./parsing";
 import { toOpaqueExtension } from "./parsing";
 import { ValidationError } from "../domain/errors";
-import type { ARDocument, Capability, CoreDataType, ForeignMetadataAttribute, Identifier, InputDefinition, InterfaceDefinition, InterfaceUse, InvocationDefinition, OpaqueExtensionElement, OutputDefinition, ProfileClaim, Property, RepresentationDefinition, RequirementDefinition, ResultDefinition, Subject } from "../domain/model";
+import type { ARDocument, ARDocumentFormat, Capability, CoreDataType, ForeignMetadataAttribute, Identifier, InputDefinition, InterfaceDefinition, InterfaceUse, InvocationDefinition, OpaqueExtensionElement, OutputDefinition, ProfileClaim, Property, RepresentationDefinition, RequirementDefinition, ResultDefinition, Subject } from "../domain/model";
 
 /** AR-XML Core 0.1 Draft 5 の namespace です。 */
 export const ARXML_CORE_NAMESPACE = "https://relink.dev/ns/arxml/core/0.1";
 /** Core が定義するデータ型の集合です。 */
 const CORE_TYPES: readonly CoreDataType[] = ["string", "number", "integer", "boolean", "binary", "object", "array"];
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
+/** Draft 4 compatibility を暗黙に有効化しないための build option です。 */
+export interface ARDocumentBuildOptions { readonly format?: ARDocumentFormat; }
 
 /** 中間構造を検証し、Runtime 状態を含まない Draft 5 AR-DOM を構築します。 */
-export function buildARDocument(parsed: ParsedARDocument, url: string): ARDocument {
+export function buildARDocument(parsed: ParsedARDocument, url: string, options: ARDocumentBuildOptions = {}): ARDocument {
   const root = parsed.root;
   if (!root || root.localName !== "ar-entity" || root.namespace !== ARXML_CORE_NAMESPACE) throw new ValidationError("Draft 5 の ar-entity root が必要です");
   requireAttributes(root, ["version"]);
@@ -30,7 +32,7 @@ export function buildARDocument(parsed: ParsedARDocument, url: string): ARDocume
   const profileClaims = parseProfiles(containers.get("profiles"));
   const interfaces = parseInterfaces(containers.get("interfaces"));
   const interfaceIds = uniqueIds(interfaces.map((item) => item.id), "Interface");
-  const capabilities = parseCapabilities(containers.get("capabilities"));
+  const capabilities = parseCapabilities(containers.get("capabilities"), options.format === "draft4");
   const capabilityIds = uniqueIds(capabilities.map((item) => item.localId), "Capability");
 
   for (const identifier of identifiers) if (identifier.subjectRef && !subjectIds.has(identifier.subjectRef)) throw new ValidationError(`Identifier の subject-ref が解決できません: ${identifier.subjectRef}`);
@@ -104,12 +106,15 @@ function parseInterfaces(container: ParsedElement | undefined): InterfaceDefinit
   });
 }
 
-function parseCapabilities(container: ParsedElement | undefined): Capability[] {
+function parseCapabilities(container: ParsedElement | undefined, allowDraft4: boolean): Capability[] {
   if (!container) return [];
   requireAttributes(container, []); rejectText(container, "capabilities");
   return container.children.map((element) => {
     requireCoreElement(element, "capability"); requireAttributes(element, ["id", "type", "subject-ref"]); rejectText(element, "capability");
-    if (element.children.some((child) => child.namespace === ARXML_CORE_NAMESPACE && ["inputs", "result", "interfaces"].includes(child.localName))) return parseLegacyCapability(element);
+    if (element.children.some((child) => child.namespace === ARXML_CORE_NAMESPACE && ["inputs", "result", "interfaces"].includes(child.localName))) {
+      if (!allowDraft4) throw new ValidationError("Draft 4 Capability grammar は明示的な format=draft4 でのみ受理できます");
+      return parseLegacyCapability(element);
+    }
     const children = singletonChildren(element, ["requirements", "invocation", "interface-uses"]);
     const invocation = parseInvocation(children.get("invocation"));
     const result: Capability = { localId: nonEmpty(attribute(element, "id"), "capability/@id"), semanticType: absoluteVersionedIdentifier(attribute(element, "type"), "capability/@type"), ...(attribute(element, "subject-ref") ? { subjectRef: attribute(element, "subject-ref") } : {}), requirements: parseRequirements(children.get("requirements")), ...(invocation ? { invocation } : {}), interfaceUses: parseInterfaceUses(children.get("interface-uses")), metadata: foreignAttributes(element) };

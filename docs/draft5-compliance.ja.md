@@ -12,7 +12,7 @@
 
 - `tests/draft5-runtime.test.ts`: Draft 5 固有の Core、Extension、評価、Profile、HTTP の振る舞い。
 - `tests/document-loading.test.ts`、`tests/runtime.test.ts`、`tests/distribution.test.ts`、`tests/harness.test.ts`: 既存の公開 Runtime API の回帰検証。
-- 直近の結果: 5 テストファイル成功、54 テスト成功。
+- 直近の結果: 5 テストファイル成功、57 テスト成功。
 
 状態の意味:
 
@@ -28,15 +28,15 @@
 | D5-02 | 7, 14–18 | Capability、Interface、InterfaceUse、Invocation、Result、Representation を別概念として扱う。 | **PASS** | 別々のドメイン型・パーサーを使用。Attachment-only Interface と Invocation なし Capability をテスト済み。 |
 | D5-03 | 9–13 | Category、Identifier、Property、Subject、Profile Claim を Core フィールドとして表現する。 | **PARTIAL** | Category、Identifier、Property、Subject の解析・検証はある。Profile Claim の各規則を網羅する専用の正常系・異常系テストは未追加。 |
 | D5-04 | 19–21 | Core namespace/version/root と順序に依存しない Core コンテナを検証する。 | **PARTIAL** | namespace、version、root、閉じた child grammar、singleton 検査はある。全順列の組合せと Appendix B の全 cardinality は未網羅。 |
-| D5-05 | 22–30 | Core XML の属性、必須項目、空要素制約、シリアライズ規則を検証する。 | **PARTIAL** | 主要モデルを検証し、未知 Core 属性・child を拒否する。章ごとの完全な serialization fixture は未整備。 |
+| D5-05 | 22–30 | Core XML の属性、必須項目、空要素制約、シリアライズ規則を検証する。 | **PARTIAL** | 主要モデルを検証し、未知 Core 属性・child を拒否する。`documentFormat: "draft4"` を明示しない限り Draft 4 Capability child も拒否する。章ごとの完全な serialization fixture は未整備。 |
 | D5-06 | 23, 26, 29, 50–51, 58 | typed local ID、厳密な ref、exact-versioned Contract/Profile identifier、重複 ID を検査する。 | **PASS** | typed ID 重複、dangling ref、exact identifier、`latest` 拒否を検証と registry テストで確認済み。 |
 | D5-07 | 11, 24, 60 | foreign metadata と許可された opaque Extension を Core の意味を変えずに保持する。 | **PARTIAL** | foreign attribute と property Extension root を opaque に保持する。lossless serializer がないため round-trip 保持は未証明。 |
 | D5-08 | 31–36, 59 | Extension Slot を明示し、未知 foreign element は許可 Slot 内だけ Core-valid とする。 | **PASS** | Attachment、Realization、Requirement、Mapping の未知 Extension を各 Slot で保持。Slot 外の不正 foreign child は拒否。 |
 | D5-09 | 32, 36, 79 | Extension 処理を Core 検証から分離し、未対応意味論を報告できる。 | **PARTIAL** | `ExtensionRegistry` と opaque モデルがあり、HTTP 対応も分離。任意 Extension を Runtime 評価へ接続する部分は未実装。 |
 | D5-10 | 33–35 | Attachment、Realization、Mapping の Slot 意味論を分け、Core を再定義しない。 | **PASS** | Slot ごとの解析・評価を分離。Attachment-only route を実行可能な HTTP route として扱わない。 |
 | D5-11 | 37–41, 62–63 | Contract 解決は exact identity を使い、未解決・競合を first-wins にせず Projection 状態と分ける。 | **PASS** | exact registry 解決、重複定義の競合、`CONFLICT`、`UNVALIDATED` をテスト済み。 |
-| D5-12 | 39–40 | Entity 側 Capability projection と Contract の input/output、型、required、format、unit、Result 有無を比較する。 | **PARTIAL** | Representation 比較、Requirement の考慮、constraint を安全に `UNVALIDATED` とする処理を追加。Requirement compatibility、narrowing、Contract 定義不備の個別報告は未実装。 |
-| D5-13 | 42–49, 68 | Profile identity と Capability/Property/Identifier/Interface 必須要件を Runtime availability と分けて評価する。 | **PARTIAL** | 公開 `RuntimeDocument.evaluateProfile()` を文書全体 evaluator へ統合し、Invocation/Output の証拠不足を `UNDETERMINED` とする処理を追加。candidate 集約、optional、subject scope、claim、narrowing、Extension policy は未完成。 |
+| D5-12 | 39–40 | Entity 側 Capability projection と Contract の input/output、型、required、format、unit、Result 有無を比較する。 | **PARTIAL** | Representation 比較、Requirement の考慮、constraint を安全に `UNVALIDATED` とする処理を追加。未実装の narrowing 差分は `UNVALIDATED` に留める。完全な narrowing rule と Contract 定義不備の個別報告は未実装。 |
+| D5-13 | 42–49, 68 | Profile identity と Capability/Property/Identifier/Interface 必須要件を Runtime availability と分けて評価する。 | **PARTIAL** | 公開 `RuntimeDocument.evaluateProfile()` を文書全体 evaluator へ統合し、matching Capability candidate を全件 existential 評価して document order 依存を除去。Invocation/Output の証拠不足は `UNDETERMINED` とする。subject scope、claim、narrowing、Extension policy は未完成。 |
 | D5-14 | 50–55 | Semantic identifier は exact code-point identity とし、解決を Entity loading から分離する。 | **PARTIAL** | exact registry lookup と競合は実装済み。Registry source、定義検証、全 resolution source/error state は未実装。 |
 | D5-15 | 56–60 | Core validity、Extension validity、preservation、exposure を別層で処理する。 | **PARTIAL** | Core 検証と HTTP Extension 検証を Contract/Profile 評価から分離。分類済み error/result API の全体設計は残課題。 |
 | D5-16 | 61, 69–70 | Description data と可変 Runtime state を分離し、availability を authorization/execution と混同しない。 | **PASS** | Runtime 評価を別計算し、load 中の Capability 実行なし。HTTP 失敗も Core invalidity ではなく Interface error として報告。 |
@@ -48,7 +48,7 @@
 | D5-22 | 75 | 成功・非成功 status、JSON Content-Type、malformed JSON、missing output、型不一致、204 を区別する。 | **PASS** | malformed JSON、missing Output、wrong Content-Type、Result あり/なし 204、型 mapping、non-2xx を専用テスト済み。 |
 | D5-23 | 76–80 | Producer、Consumer、Extension、Runtime、Profile Evaluator の適合クラスを独立に示す。 | **PARTIAL** | Core/Extension/evaluation モジュールと回帰テストは分離。正式な conformance-class harness と producer/consumer fixture は未整備。 |
 | D5-24 | 81–91 | 規範例と issue の参照シナリオを executable regression fixture とする。 | **PARTIAL** | empty、Properties-only、Attachment-only、no-Invocation、shared HTTP、multiple-use、unknown Extension をテストに反映。全 reference lab 例と専用 fixture ファイルは未網羅。 |
-| D5-25 | 92–96, Appendix C–E | Security/privacy、namespace evolution、registry、compatibility、error category、Draft 4→5 移行を文書・テストで扱う。 | **PARTIAL** | same-origin default、Invocation redirect fail-closed、load-time side effect なし、Draft 4 compatibility、層別 error、必須 GitHub Actions CI workflow を追加。完全な security suite、namespace evolution matrix、Appendix C/D/E harness は未実装。 |
+| D5-25 | 92–96, Appendix C–E | Security/privacy、namespace evolution、registry、compatibility、error category、Draft 4→5 移行を文書・テストで扱う。 | **PARTIAL** | same-origin default、Invocation redirect fail-closed、load-time side effect なし、明示 Draft 4 migration mode、層別 error、必須 GitHub Actions CI workflow を追加。完全な security suite、namespace evolution matrix、Appendix C/D/E harness は未実装。 |
 
 ## 明示的な対象外
 

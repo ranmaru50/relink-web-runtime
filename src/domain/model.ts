@@ -3,6 +3,8 @@
 
 /** Core が定義する構造データ型です。 */
 export type CoreDataType = "string" | "number" | "integer" | "boolean" | "binary" | "object" | "array";
+/** AR-XML を解釈する明示的な grammar mode です。 */
+export type ARDocumentFormat = "draft5" | "draft4";
 /** 文書内で Capability を識別する型です。 */
 export type CapabilityLocalId = string;
 /** Capability Contract を識別する、完全な Semantic Identifier です。 */

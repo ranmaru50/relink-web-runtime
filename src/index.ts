@@ -30,6 +30,7 @@ export { evaluateCapability, evaluateProfile, resolveContract, validateProjectio
 export type { ProfileConformanceState, ProfileEvaluation, ProfileResolutionState } from "./application/evaluation";
 export type {
   ARDocument,
+  ARDocumentFormat,
   AvailabilityState,
   Capability,
   CapabilityEvaluation,

@@ -38,6 +38,16 @@ describe("AR-XML Core 0.1 Draft 5", () => {
     expect(() => buildARDocument(parser.parse(`${base}<unknown/></ar-entity>`), "https://example.test/entity.arxml")).toThrow(ValidationError);
   });
 
+  it("Draft 4 Capability grammar はDraft 5 validatorで暗黙受理せず、明示modeだけで移行する", async () => {
+    const legacyXml = `${base}<capabilities><capability id="legacy" type="https://example.test/contracts/legacy/1"><inputs><input name="value" type="string"/></inputs><interfaces><interface type="http" method="GET" endpoint="./legacy"/></interfaces></capability></capabilities></ar-entity>`;
+    expect(() => buildARDocument(parser.parse(legacyXml), "https://example.test/entity.arxml")).toThrow(ValidationError);
+    expect(buildARDocument(parser.parse(legacyXml), "https://example.test/entity.arxml", { format: "draft4" }).capabilities[0]?.legacyDraft4).toBe(true);
+    const draft5Runtime = new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(legacyXml) } });
+    await expect(draft5Runtime.load("https://example.test/entity.arxml")).rejects.toBeInstanceOf(ValidationError);
+    const migrationRuntime = new ARRuntime({ documentFormat: "draft4", resourceFetcher: { fetchText: vi.fn().mockResolvedValue(legacyXml) } });
+    await expect(migrationRuntime.load("https://example.test/entity.arxml")).resolves.toBeDefined();
+  });
+
   it("typed ID の重複、入力名の重複、未知属性、許可外 foreign child を検証する", () => {
     expect(() => buildARDocument(parser.parse(`${base}<interfaces><interface id="same"><realization><http:api/></realization></interface><interface id="same"><realization><http:api/></realization></interface></interfaces></ar-entity>`), "https://example.test/entity.arxml")).toThrow(ValidationError);
     expect(() => buildARDocument(parser.parse(`${base}<capabilities><capability id="x" type="https://example.test/contracts/x/1"><invocation><inputs><input name="x" type="string"/><input name="x" type="string"/></inputs></invocation></capability></capabilities></ar-entity>`), "https://example.test/entity.arxml")).toThrow(ValidationError);
@@ -182,6 +192,24 @@ describe("Draft 5 HTTP Extension", () => {
     const unknownProfile = new InMemorySemanticRegistry([], [{ identifier: "https://example.test/profiles/invocation/1", capabilityRequirements: [{ contractIdentifier: "https://example.test/contracts/x/1", requiredInputNames: ["required"] }] }]);
     const unknownProfileDocument = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(`${base}<capabilities><capability id="x" type="https://example.test/contracts/x/1"/></capabilities></ar-entity>`) }, semanticRegistry: unknownProfile }).load("https://example.test/entity.arxml");
     expect(unknownProfileDocument.evaluateProfile("https://example.test/profiles/invocation/1")).toEqual({ resolution: "RESOLVED", conformance: "UNDETERMINED" });
+  });
+
+  it("Profile Capability candidate を全件評価し、document order に依存しない", () => {
+    const candidate = (id: string, input: string) => `<capability id="${id}" type="https://example.test/contracts/candidate/1"><invocation><inputs><input name="${input}" type="boolean"/></inputs></invocation></capability>`;
+    const profile = new InMemorySemanticRegistry([], [{ identifier: "https://example.test/profiles/candidate/1", capabilityRequirements: [{ contractIdentifier: "https://example.test/contracts/candidate/1", requiredInputNames: ["required"] }] }]);
+    const ordered = buildARDocument(parser.parse(`${base}<capabilities>${candidate("bad", "other")}${candidate("good", "required")}</capabilities></ar-entity>`), "https://example.test/entity.arxml");
+    const reversed = buildARDocument(parser.parse(`${base}<capabilities>${candidate("good", "required")}${candidate("bad", "other")}</capabilities></ar-entity>`), "https://example.test/entity.arxml");
+    expect(evaluateProfileDocument(ordered, "https://example.test/profiles/candidate/1", profile)).toEqual({ resolution: "RESOLVED", conformance: "CONFORMANT" });
+    expect(evaluateProfileDocument(reversed, "https://example.test/profiles/candidate/1", profile)).toEqual({ resolution: "RESOLVED", conformance: "CONFORMANT" });
+    const indeterminate = buildARDocument(parser.parse(`${base}<capabilities>${candidate("bad", "other")}<capability id="unknown" type="https://example.test/contracts/candidate/1"/></capabilities></ar-entity>`), "https://example.test/entity.arxml");
+    expect(evaluateProfileDocument(indeterminate, "https://example.test/profiles/candidate/1", profile)).toEqual({ resolution: "RESOLVED", conformance: "UNDETERMINED" });
+  });
+
+  it("未実装のInput narrowing差分はCONFLICTではなくUNVALIDATEDに留める", async () => {
+    const xml = `${base}<interfaces><interface id="web"><realization><http:api/></realization></interface></interfaces><capabilities><capability id="x" type="https://example.test/contracts/x/1"><invocation><inputs><input name="value" type="boolean" required="true"/></inputs></invocation><interface-uses><interface-use ref="web"><mapping><http:operation method="GET" path="x"/></mapping></interface-use></interface-uses></capability></capabilities></ar-entity>`;
+    const contract = { identifier: "https://example.test/contracts/x/1", invocation: { inputs: [{ name: "value", type: "boolean", required: false }] } } as const;
+    const document = await new ARRuntime({ resourceFetcher: { fetchText: vi.fn().mockResolvedValue(xml) }, semanticRegistry: new InMemorySemanticRegistry([contract]) }).load("https://example.test/entity.arxml");
+    expect(document.getCapability("x")?.evaluation).toMatchObject({ projectionValidation: "UNVALIDATED", availability: "UNKNOWN" });
   });
 
   it("既定の HTTP Invoker は redirect を fail-closed にする", async () => {
