@@ -14,7 +14,7 @@ Resolve Entity → Fetch → Parse → Core Validate → Expose AR-DOM
                                   Explicit Application Invocation
 ```
 
-Draft 5 keeps Entity, Capability, Invocation, Interface, InterfaceUse, Contract, Profile, Availability, Authorization, and Execution as separate concepts. Passive and physical Entities remain valid even when they contain no Capability or Interface. Draft 5 is the default parser mode; Draft 4 migration requires the explicit `documentFormat: "draft4"` option.
+Draft 5 keeps Entity, Capability, Invocation, Interface, InterfaceUse, Contract, Profile, Availability, Authorization, and Execution as separate concepts. Passive and physical Entities remain valid even when they contain no Capability or Interface. Draft 5 is the default parser mode; Draft 4 is available only as an explicit migration compatibility mode via `documentFormat: "draft4"` and is not a Draft 5 conformance mode.
 
 ## Draft 5 example
 

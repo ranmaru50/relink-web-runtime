@@ -7,6 +7,8 @@ import type { ARDocument, CoreDataType, InputDefinition, OutputDefinition, Requi
 export interface CapabilityContract {
   readonly identifier: string;
   readonly requirements?: readonly RequirementDefinition[];
+  /** Entity 側の Input requiredness strengthening を許可する Contract Input 名です。 */
+  readonly permittedInputRequirednessNarrowing?: readonly string[];
   readonly invocation?: { readonly inputs?: readonly InputDefinition[]; readonly result?: ResultDefinition; readonly requirements?: readonly RequirementDefinition[] };
 }
 /** Profile の exact identity と、最小限の Capability 要件です。 */

@@ -27,7 +27,7 @@ const result = await capability?.invoke({ on: true }, { accept: "application/jso
 
 `RuntimeCapability.invoke()` が Application/Human による明示的な要求の境界です。Input を検証し、一意な READY Route（複数ある場合は `routeId`、または一意な `interfaceRef` を明示）を選択し、対応する Extension Mapping を1回だけ実行して semantic Output を返します。Transport、Interface、Representation、Capability error の後に別 Route を自動 retry しません。
 
-既定の `ARRuntime` document format は Draft 5 です。Draft 4 compatibility は明示的な migration mode として `{ documentFormat: "draft4" }` を指定します。既定の Draft 5 validator は Draft 4 Capability child を拒否します。
+既定の `ARRuntime` document format は Draft 5 です。Draft 4 は Draft 5 conformance mode ではなく、`{ documentFormat: "draft4" }` を指定した明示的な移行互換 mode としてのみ利用します。既定の Draft 5 validator は Draft 4 Capability child を拒否します。
 
 ## RuntimeDocument
 
@@ -82,6 +82,8 @@ new ARRuntime({
 ```
 
 既定の `EmptySemanticRegistry` は Contract/Profile を `UNRESOLVED` とします。Registry の解決は定義の認証や Authorization を意味しません。
+
+`CapabilityContract.permittedInputRequirednessNarrowing` には、Entity 側で `required: false` → `true` の strengthening を許可する Contract Input 名を明示します。この宣言がない strengthening と weakening は既知の `CONFLICT` です。opaque な Requirement の追加と projection compatibility は分離して評価します。
 
 `RuntimeDocument.evaluateProfile()` は、Capability、Property、Identifier、Interface 要件を含むロード済み文書全体を評価します。必須の Invocation/Output 制約について証拠が不足する場合は、誤って適合とせず `UNDETERMINED` を返します。
 

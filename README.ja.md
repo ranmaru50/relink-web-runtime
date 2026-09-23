@@ -14,7 +14,7 @@ Entity 解決 → Fetch → Parse → Core Validate → AR-DOM 公開
                                       Application による明示 Invocation
 ```
 
-Draft 5 では Entity、Capability、Invocation、Interface、InterfaceUse、Contract、Profile、Availability、Authorization、Execution を別概念として扱います。Capability や Interface を持たない Passive / Physical Entity も有効です。Draft 5 が既定の parser mode で、Draft 4 migration には明示的に `documentFormat: "draft4"` を指定します。
+Draft 5 では Entity、Capability、Invocation、Interface、InterfaceUse、Contract、Profile、Availability、Authorization、Execution を別概念として扱います。Capability や Interface を持たない Passive / Physical Entity も有効です。Draft 5 が既定の parser mode です。Draft 4 は `documentFormat: "draft4"` を指定した明示的な移行互換 mode としてのみ利用でき、Draft 5 conformance mode ではありません。
 
 ## Draft 5 の例
 

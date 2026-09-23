@@ -27,7 +27,7 @@ const result = await capability?.invoke({ on: true }, { accept: "application/jso
 
 `RuntimeCapability.invoke()` is the explicit Application/Human request boundary. It validates Inputs, requires a unique READY route (or an explicit `routeId`/unambiguous `interfaceRef`), performs the supported Extension mapping once, and returns semantic Outputs. It never retries another route after transport, Interface, Representation, or Capability errors.
 
-The default `ARRuntime` document format is Draft 5. Draft 4 compatibility is an explicit migration mode: pass `{ documentFormat: "draft4" }`; Draft 4 Capability children are rejected by the default Draft 5 validator.
+The default `ARRuntime` document format is Draft 5. Draft 4 is an explicit migration compatibility mode, not a Draft 5 conformance mode: pass `{ documentFormat: "draft4" }`; Draft 4 Capability children are rejected by the default Draft 5 validator.
 
 ## RuntimeDocument
 
@@ -82,6 +82,8 @@ new ARRuntime({
 ```
 
 `EmptySemanticRegistry` is the default and produces `UNRESOLVED` Contract/Profile states. Registry resolution does not authenticate definitions or grant authorization.
+
+`CapabilityContract.permittedInputRequirednessNarrowing` explicitly lists Contract Input names for which Entity-side `required: false` → `true` strengthening is permitted. Without that declaration, strengthening and weakening are known `CONFLICT` states; opaque Requirement additions are evaluated separately from projection compatibility.
 
 `RuntimeDocument.evaluateProfile()` evaluates the complete loaded document, including Capability, Property, Identifier, and Interface requirements. Missing evidence for a required invocation/output constraint produces `UNDETERMINED` rather than false conformance.
 

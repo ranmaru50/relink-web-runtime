@@ -3,7 +3,7 @@
 
 import { parseHTTPApi, parseHTTPOperation } from "./invocation";
 import { routeHandleFor } from "./routes";
-import type { ARDocument, Capability, CapabilityEvaluation, InterfaceDefinition, InterfaceUse, ProjectionValidationState, RequirementDefinition, RequirementEvaluationState, RouteEvaluation, SupportState } from "../domain/model";
+import type { ARDocument, Capability, CapabilityEvaluation, InterfaceDefinition, InterfaceUse, OpaqueExtensionElement, ProjectionValidationState, RequirementDefinition, RequirementEvaluationState, RouteEvaluation, SupportState } from "../domain/model";
 import { evaluateProfileDocument, type CapabilityContract, type SemanticRegistry } from "../ports/semantic";
 
 /** exact identifier で Contract を解決し、first-wins を避けます。 */
@@ -17,29 +17,36 @@ export function resolveContract(identifier: string, registry: SemanticRegistry):
 export function validateProjection(capability: Capability, contract: CapabilityContract | undefined, resolved: "RESOLVED" | "UNRESOLVED"): ProjectionValidationState {
   if (resolved !== "RESOLVED" || !contract) return "UNVALIDATED";
   const expected = contract.invocation;
-  if (!expected && capability.invocation) return "CONFLICT";
-  if (expected && !capability.invocation) return "CONFLICT";
-  if (!expected || !capability.invocation) return "VALIDATED";
-  const contractInputs = expected.inputs ?? [];
-  const entityInputs = capability.invocation.inputs;
+  let hasConflict = false;
   let unvalidatedDifference = false;
-  if (contractInputs.length !== entityInputs.length) return "CONFLICT";
-  for (const item of contractInputs) {
-    const actual = entityInputs.find((candidate) => candidate.name === item.name);
-    if (!actual || actual.type !== item.type) return "CONFLICT";
-    if (actual.required !== item.required || actual.format !== item.format || actual.unit !== item.unit) unvalidatedDifference = true;
+  if (!expected && capability.invocation) hasConflict = true;
+  if (expected && !capability.invocation) hasConflict = true;
+  if (expected && capability.invocation) {
+    const contractInputs = expected.inputs ?? [];
+    const entityInputs = capability.invocation.inputs;
+    if (contractInputs.length !== entityInputs.length) hasConflict = true;
+    const permittedNarrowing = new Set(contract.permittedInputRequirednessNarrowing ?? []);
+    for (const item of contractInputs) {
+      const actual = entityInputs.find((candidate) => candidate.name === item.name);
+      if (!actual || actual.type !== item.type) { hasConflict = true; continue; }
+      if (item.required && !actual.required) hasConflict = true;
+      if (!item.required && actual.required && !permittedNarrowing.has(item.name)) hasConflict = true;
+      if (actual.format !== item.format || actual.unit !== item.unit) unvalidatedDifference = true;
+    }
+    if (Boolean(expected.result) !== Boolean(capability.invocation.result)) hasConflict = true;
+    if (expected.result && capability.invocation.result) {
+      if (expected.result.outputs.length !== capability.invocation.result.outputs.length) hasConflict = true;
+      for (const output of expected.result.outputs) { const actual = capability.invocation.result.outputs.find((candidate) => candidate.name === output.name); if (!actual || actual.type !== output.type) { hasConflict = true; continue; } if (actual.format !== output.format || actual.unit !== output.unit) unvalidatedDifference = true; }
+      const expectedRepresentations = expected.result.representations.map((item) => item.mediaType.toLowerCase()).sort();
+      const actualRepresentations = capability.invocation.result.representations.map((item) => item.mediaType.toLowerCase()).sort();
+      if (expectedRepresentations.length !== actualRepresentations.length || expectedRepresentations.some((item, index) => item !== actualRepresentations[index])) hasConflict = true;
+    }
+    const hasUnknownConstraint = (expected.inputs ?? []).some((item) => (item.constraints?.length ?? 0) > 0) || capability.invocation.inputs.some((item) => (item.constraints?.length ?? 0) > 0) || expected.result?.outputs.some((item) => (item.constraints?.length ?? 0) > 0) === true || capability.invocation.result?.outputs.some((item) => (item.constraints?.length ?? 0) > 0) === true;
+    if (hasUnknownConstraint) unvalidatedDifference = true;
   }
-  if (Boolean(expected.result) !== Boolean(capability.invocation.result)) return "CONFLICT";
-  if (expected.result && capability.invocation.result) {
-    if (expected.result.outputs.length !== capability.invocation.result.outputs.length) return "CONFLICT";
-    for (const output of expected.result.outputs) { const actual = capability.invocation.result.outputs.find((candidate) => candidate.name === output.name); if (!actual || actual.type !== output.type) return "CONFLICT"; if (actual.format !== output.format || actual.unit !== output.unit) unvalidatedDifference = true; }
-    const expectedRepresentations = expected.result.representations.map((item) => item.mediaType.toLowerCase()).sort();
-    const actualRepresentations = capability.invocation.result.representations.map((item) => item.mediaType.toLowerCase()).sort();
-    if (expectedRepresentations.length !== actualRepresentations.length || expectedRepresentations.some((item, index) => item !== actualRepresentations[index])) return "CONFLICT";
-  }
-  const contractRequirements = contract.requirements ?? expected.requirements ?? [];
-  const hasUnknownConstraint = contractInputs.some((item) => (item.constraints?.length ?? 0) > 0) || entityInputs.some((item) => (item.constraints?.length ?? 0) > 0) || expected.result?.outputs.some((item) => (item.constraints?.length ?? 0) > 0) === true || capability.invocation.result?.outputs.some((item) => (item.constraints?.length ?? 0) > 0) === true;
-  return hasUnknownConstraint || contractRequirements.length > 0 || capability.requirements.length > 0 || unvalidatedDifference ? "UNVALIDATED" : "VALIDATED";
+  const requirementComparison = compareRequirements(getContractRequirements(contract), capability.requirements);
+  if (hasConflict || requirementComparison.conflict) return "CONFLICT";
+  return unvalidatedDifference || requirementComparison.unknown ? "UNVALIDATED" : "VALIDATED";
 }
 
 /** InterfaceUse を document order ではなく route 単位で評価します。 */
@@ -49,7 +56,7 @@ export function evaluateCapability(capability: Capability, interfaces: readonly 
   const projectionValidation = validateProjection(capability, contract.contract, contract.state);
   if (!capability.invocation) return { contractResolution: contract.state, projectionValidation, routes: [] };
   const capabilityRequirement = evaluateRequirements(capability.requirements);
-  const contractRequirements = contract.contract ? contract.contract.requirements ?? contract.contract.invocation?.requirements ?? [] : [];
+  const contractRequirements = contract.contract ? getContractRequirements(contract.contract) : [];
   const contractRequirement = contract.state === "RESOLVED" ? evaluateRequirements(contractRequirements) : "UNKNOWN";
   const routes = capability.interfaceUses.map((use) => evaluateRoute(routeHandleFor(capability.localId, use, capability.interfaceUses), use, interfaces.find((item) => item.id === use.ref), projectionValidation, capabilityRequirement, contractRequirement));
   const availability = aggregateAvailability(routes);
@@ -81,6 +88,44 @@ function evaluateRoute(routeId: string, use: InterfaceUse, definition: Interface
 /** Requirement に専用 evaluator がない場合は安全側の UNKNOWN を返します。 */
 function evaluateRequirements(requirements: readonly RequirementDefinition[]): RequirementEvaluationState { return requirements.length === 0 ? "SATISFIED" : "UNKNOWN"; }
 function combineRequirement(states: readonly RequirementEvaluationState[]): RequirementEvaluationState { if (states.includes("UNSATISFIED")) return "UNSATISFIED"; if (states.includes("UNKNOWN")) return "UNKNOWN"; return "SATISFIED"; }
+
+function getContractRequirements(contract: CapabilityContract): readonly RequirementDefinition[] { return [...(contract.requirements ?? []), ...(contract.invocation?.requirements ?? [])]; }
+
+interface RequirementComparison { readonly conflict: boolean; readonly unknown: boolean; }
+
+/** Contract Requirement の omission/変更と Entity 固有の追加を分離して比較します。 */
+function compareRequirements(contractItems: readonly RequirementDefinition[], entityItems: readonly RequirementDefinition[]): RequirementComparison {
+  const usedEntityIndexes = new Set<number>();
+  let unknown = false;
+  for (const contractItem of contractItems) {
+    const exactIndex = entityItems.findIndex((entityItem, index) => !usedEntityIndexes.has(index) && equivalentRequirement(contractItem, entityItem));
+    if (exactIndex >= 0) { usedEntityIndexes.add(exactIndex); continue; }
+    if (entityItems.some((entityItem) => entityItem.type === contractItem.type)) { unknown = true; continue; }
+    return { conflict: true, unknown };
+  }
+  return { conflict: false, unknown };
+}
+
+/** Requirement body は opaque のため、同一構造だけを決定的な一致として扱います。 */
+function equivalentRequirement(left: RequirementDefinition, right: RequirementDefinition): boolean {
+  return left.type === right.type && equivalentExtensions(left.extensions, right.extensions);
+}
+
+function equivalentExtensions(left: readonly OpaqueExtensionElement[], right: readonly OpaqueExtensionElement[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((leftItem, index) => {
+    const rightItem = right[index];
+    return leftItem.namespace === rightItem?.namespace && leftItem.localName === rightItem.localName && leftItem.text === rightItem.text && leftItem.attributes.length === (rightItem?.attributes.length ?? -1) && leftItem.attributes.every((attribute, attributeIndex) => {
+      const rightAttribute = rightItem?.attributes[attributeIndex];
+      return attribute.namespace === rightAttribute?.namespace && attribute.localName === rightAttribute.localName && attribute.value === rightAttribute.value;
+    }) && equivalentOpaqueChildren(leftItem.children, rightItem?.children ?? []);
+  });
+}
+
+function equivalentOpaqueChildren(left: readonly OpaqueExtensionElement[], right: readonly OpaqueExtensionElement[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((leftItem, index) => equivalentExtensions([leftItem], right[index] ? [right[index]] : []));
+}
 
 function aggregateAvailability(routes: readonly RouteEvaluation[]): "READY" | "UNAVAILABLE" | "UNKNOWN" {
   if (routes.some((route) => route.availability === "READY")) return "READY";

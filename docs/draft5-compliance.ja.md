@@ -28,7 +28,7 @@
 | D5-02 | 7, 14–18 | Capability、Interface、InterfaceUse、Invocation、Result、Representation を別概念として扱う。 | **PASS** | 別々のドメイン型・パーサーを使用。Attachment-only Interface と Invocation なし Capability をテスト済み。 |
 | D5-03 | 9–13 | Category、Identifier、Property、Subject、Profile Claim を Core フィールドとして表現する。 | **PARTIAL** | Category、Identifier、Property、Subject の解析・検証はある。Profile Claim の各規則を網羅する専用の正常系・異常系テストは未追加。 |
 | D5-04 | 19–21 | Core namespace/version/root と順序に依存しない Core コンテナを検証する。 | **PARTIAL** | namespace、version、root、閉じた child grammar、singleton 検査はある。全順列の組合せと Appendix B の全 cardinality は未網羅。 |
-| D5-05 | 22–30 | Core XML の属性、必須項目、空要素制約、シリアライズ規則を検証する。 | **PARTIAL** | 主要モデルを検証し、未知 Core 属性・child を拒否する。`documentFormat: "draft4"` を明示しない限り Draft 4 Capability child も拒否する。章ごとの完全な serialization fixture は未整備。 |
+| D5-05 | 22–30 | Core XML の属性、必須項目、空要素制約、シリアライズ規則を検証する。 | **PARTIAL** | 主要モデルを検証し、未知 Core 属性・child を拒否する。Draft 4 Capability child は、明示的な移行互換 mode である `documentFormat: "draft4"` を指定した場合だけ受理する。この mode は Draft 5 conformance mode ではない。章ごとの完全な serialization fixture は未整備。 |
 | D5-06 | 23, 26, 29, 50–51, 58 | typed local ID、厳密な ref、exact-versioned Contract/Profile identifier、重複 ID を検査する。 | **PASS** | typed ID 重複、dangling ref、exact identifier、`latest` 拒否を検証と registry テストで確認済み。 |
 | D5-07 | 11, 24, 60 | foreign metadata と許可された opaque Extension を Core の意味を変えずに保持する。 | **PARTIAL** | foreign attribute と property Extension root を opaque に保持する。lossless serializer がないため round-trip 保持は未証明。 |
 | D5-08 | 31–36, 59 | Extension Slot を明示し、未知 foreign element は許可 Slot 内だけ Core-valid とする。 | **PASS** | Attachment、Realization、Requirement、Mapping の未知 Extension を各 Slot で保持。Slot 外の不正 foreign child は拒否。 |
@@ -48,7 +48,7 @@
 | D5-22 | 75 | 成功・非成功 status、JSON Content-Type、malformed JSON、missing output、型不一致、204 を区別する。 | **PASS** | malformed JSON、missing Output、wrong Content-Type、Result あり/なし 204、型 mapping、non-2xx を専用テスト済み。 |
 | D5-23 | 76–80 | Producer、Consumer、Extension、Runtime、Profile Evaluator の適合クラスを独立に示す。 | **PARTIAL** | Core/Extension/evaluation モジュールと回帰テストは分離。正式な conformance-class harness と producer/consumer fixture は未整備。 |
 | D5-24 | 81–91 | 規範例と issue の参照シナリオを executable regression fixture とする。 | **PARTIAL** | empty、Properties-only、Attachment-only、no-Invocation、shared HTTP、multiple-use、unknown Extension をテストに反映。全 reference lab 例と専用 fixture ファイルは未網羅。 |
-| D5-25 | 92–96, Appendix C–E | Security/privacy、namespace evolution、registry、compatibility、error category、Draft 4→5 移行を文書・テストで扱う。 | **PARTIAL** | same-origin default、Invocation redirect fail-closed、load-time side effect なし、明示 Draft 4 migration mode、層別 error、必須 GitHub Actions CI workflow を追加。完全な security suite、namespace evolution matrix、Appendix C/D/E harness は未実装。 |
+| D5-25 | 92–96, Appendix C–E | Security/privacy、namespace evolution、registry、compatibility、error category、Draft 4→5 移行を文書・テストで扱う。 | **PARTIAL** | same-origin default、Invocation redirect fail-closed、load-time side effect なし、Draft 5 conformance 対象外の明示 Draft 4 移行互換 mode、層別 error、必須 GitHub Actions CI workflow を追加。完全な security suite、namespace evolution matrix、Appendix C/D/E harness は未実装。 |
 
 ## 明示的な対象外
 
