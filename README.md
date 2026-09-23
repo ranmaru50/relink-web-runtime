@@ -4,6 +4,8 @@ Experimental Web Browser Runtime for **AR-XML Core 0.1 Draft 5**.
 
 日本語 README: [README.ja.md](README.ja.md)
 
+Quick start: [Web Developer Library Guide](docs/library-guide.md) / [日本語版](docs/library-guide.ja.md)
+
 ## Scope
 
 The Runtime loads and exposes declarative AR-XML without executing described Capabilities:

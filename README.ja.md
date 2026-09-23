@@ -4,6 +4,8 @@
 
 英語 README: [README.md](README.md)
 
+利用ガイド: [Web開発者向けライブラリ利用ガイド](docs/library-guide.ja.md) / [English](docs/library-guide.md)
+
 ## Scope
 
 Runtime は宣言的な AR-XML を読み込み、記述された Capability を自動実行せずに公開します。
