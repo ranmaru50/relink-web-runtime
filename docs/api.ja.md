@@ -1,165 +1,113 @@
-# RELink Web Runtime Public API Reference（日本語）
+# RELink Web Runtime Public API Reference
 
-Runtime `0.1.0`の**Beta / Experimental** Public API Referenceです。`1.0.0`未満では、Release間のBackward Compatibilityを保証しません。
+これは Draft 5 Runtime 移行版の正式な Public API Reference です。Experimental API のため、`1.0.0`未満では Release 間の後方互換性を保証しません。
 
-英語正本: [Public API Reference](api.md)
-
-このDocumentは、通常のWeb Applicationが使うAPI、AdvancedなIntegrationとExtension Point、Data Model Type、Errorを分類して説明します。PackageのPublic Entry Pointは次のImportです。
+英語版: [Public API Reference](api.md)
 
 ```ts
 import { ARRuntime } from "@relink/web-runtime";
 ```
 
-`src/`以下のModule、Parser / AdapterのConcrete実装、`resolveEndpoint`、`parseManifest`はPublic APIではありません。
-
 ## Runtime / Specification Baseline
 
 | Runtime | AR-XML Core | Resolver Core | Manifest |
 | --- | --- | --- | --- |
-| 0.1.0 | 0.1 Draft 4 | 0.1 | 0.1 |
+| Draft 5 migration | 0.1 Draft 5 | 0.1 | 0.1 |
 
-## Typical application API
+## Loading と明示 Invocation
 
-### `ARRuntime`
-
-AR-XML URLをLoadし、Parse・Validation済みのRuntime Documentを返します。
-
-```ts
-new ARRuntime(options?: ARRuntimeOptions)
-load(
-  url: string,
-  options?: { signal?: AbortSignal; credentials?: RequestCredentials },
-): Promise<RuntimeDocument>
-```
+`ARRuntime.load()` は Entity 解決、リソース取得、XML Parsing、Core Validation、AR-DOM の公開を行います。Capability を自動実行することはありません。
 
 ```ts
 const runtime = new ARRuntime();
-const document = await runtime.load(anchorUrl);
-const capability = document.getCapability("temperature");
-
-if (!capability) {
-  throw new Error("Capability not found");
-}
-
-const result = await capability.invoke({}, { accept: "application/json" });
-console.log(result.values.temperature);
+const document = await runtime.load("https://example.test/entity.arxml");
+const capability = document.getCapability("light");
+const result = await capability?.invoke({ on: true }, { accept: "application/json" });
 ```
 
-`load()`はURL Resolve、Resource Fetch、AR-XML Parse、Validation、Runtime APIによるExposeを担当します。`load()`はCapabilityを自動実行しません。
+`RuntimeCapability.invoke()` が Application/Human による明示的な要求の境界です。Input を検証し、一意な READY Route（複数ある場合は `routeId`、または一意な `interfaceRef` を明示）を選択し、対応する Extension Mapping を1回だけ実行して semantic Output を返します。Transport、Interface、Representation、Capability error の後に別 Route を自動 retry しません。
 
-### `RuntimeDocument`
+既定の `ARRuntime` document format は Draft 5 です。Draft 4 は Draft 5 conformance mode ではなく、`{ documentFormat: "draft4" }` を指定した明示的な移行互換 mode としてのみ利用します。既定の Draft 5 validator は Draft 4 Capability child を拒否します。
 
-`ARRuntime.load()`が返す、Load済みAR-DOMのPublic Facadeです。
+## RuntimeDocument
 
 ```ts
 readonly url: string
 readonly category: string | undefined
+readonly identifiers: readonly Identifier[]
+readonly properties: readonly Property[]
+readonly propertyExtensions: readonly OpaqueExtensionElement[]
+readonly subjects: readonly Subject[]
 readonly profileClaims: readonly ProfileClaim[]
+readonly interfaces: readonly InterfaceDefinition[]
 readonly capabilities: readonly Capability[]
 getCapability(localId: string): RuntimeCapability | undefined
+evaluateCapability(localId: string): CapabilityEvaluation | undefined
+evaluateProfile(identifier: string): ProfileEvaluation
 ```
 
-### `RuntimeCapability`
+`url` は最終的な AR-XML 取得 URL です。相対 HTTP `http:api` / `http:operation` URI の解決基準になります。
 
-Document内のCapabilityに対するPublic Facadeです。ApplicationまたはHumanからの明示的なExecution Requestを送ります。
+READY な `InterfaceUse` route が複数ある場合、呼び出し側は `routeId` を指定する必要があります。Route handle は `RouteEvaluation.routeId` で公開され、同じ `interfaceRef` を共有する route を document order で暗黙選択しません。
 
-```ts
-readonly definition: Capability
-invoke(inputs: InputValues, options?: InvokeOptions): Promise<InvocationResult>
-```
+## Draft 5 Description Model
 
-`invoke()`はInput Validation、Interface選択、HTTP Request、Response Decode、Output Mappingを実行します。現在のBaselineはHTTP `GET` / `POST` Interfaceをサポートします。
+- `Capability` は issuer-authored な `Invocation` と `InterfaceUse` の記述データを持ちます。変更可能な Runtime 状態は持ちません。
+- `InterfaceDefinition` は Entity 共有の Interface で、foreign `Attachment` または `Realization` Extension と Interface Requirements を持てます。
+- `InterfaceUse` は Interface を参照し、任意で1つの Mapping Extension を持ちます。同じ Interface への複数参照が可能で、順序は Preference を示しません。
+- `OpaqueExtensionElement` は許可された Extension Slot 内の未知 foreign subtree を保存します。
+- `Result` は1件以上の名前付き Output と任意の Representation を持ちます。Draft 4 の `errors` child は Draft 5 Core にありません。
 
-### `DefaultResourceNetworkPolicy`
-
-Document Retrievalの既定Policyです。HTTP(S)を扱い、HTTPSからHTTPへのDowngradeを拒否します。必要な場合は`ARRuntimeOptions.resourceNetworkPolicy`へより厳しいPolicyを指定します。
-
-```ts
-new DefaultResourceNetworkPolicy()
-permits(url: URL, requestedUrl: string): boolean
-```
-
-## Advanced / integration API
-
-### Invocation types
-
-- `InputValues`: Capabilityへ渡すInput値`Readonly<Record<string, unknown>>`です。
-- `InvokeOptions`: `accept?: string`と`signal?: AbortSignal`を指定します。
-- `InvocationResult`: Map済みOutputの`values`と、選択したMedia Typeの`representation`を持ちます。
-- `NetworkPolicy`: Capability Interface URLの許可・拒否を`permits(url, documentUrl)`で実装します。既定は同一Originです。
-
-### `ARRuntimeOptions`
-
-Browser固有処理とNetwork Policyを差し替えるConfigurationです。
+Runtime から導出された状態は `CapabilityEvaluation` で公開します。
 
 ```ts
-interface ARRuntimeOptions {
-  xmlParser?: XMLParser;
-  resourceFetcher?: ResourceFetcher;
-  httpInvoker?: HTTPInvoker;
-  networkPolicy?: NetworkPolicy;
-  resourceNetworkPolicy?: ResourceNetworkPolicy;
-  resourceCredentials?: RequestCredentials;
+interface CapabilityEvaluation {
+  contractResolution: "RESOLVED" | "UNRESOLVED";
+  projectionValidation: "VALIDATED" | "UNVALIDATED" | "CONFLICT";
+  availability?: "READY" | "UNAVAILABLE" | "UNKNOWN";
+  routes: readonly RouteEvaluation[];
 }
 ```
 
-### Extension ports
+Invocation がない Capability には Availability 値がありません。Load、Inspection、Contract Resolution、Availability Evaluation は Capability の副作用を発生させません。
 
-- `ResourceNetworkPolicy`: Document Retrieval先の`permits(url, requestedUrl)`を実装します。
-- `ResourceFetcher`: `fetchResource(url, options?)`で本文、Status、Response URLを返します。互換性のため旧`fetchText(url, signal?)`形式も利用できます。
-- `XMLParser`: `parse(xml)`でRuntime Validationへ渡すXML中間Modelを返します。
-- `HTTPInvoker`: `invoke(url, init)`で最小HTTP Response Portを提供します。
-- `HTTPResponse`: `status`、`headers.get()`、`text()`、`blob()`を提供します。
-- `ResourceFetchOptions` / `ResourceFetchResult`: Resource Fetch PortのInput / Result Typeです。
+## Semantic Registry
 
-これらのPortは、Test Fake、別のFetch実装、Custom Network Policyに利用できます。Browser AdapterのConcrete ClassはPublic APIとして公開していません。
+Contract と Profile は exact identity で解決します。`latest` の置換や first-wins の競合処理は行いません。
 
-## Data model / type definitions
-
-AR-DOMとAR-XML CoreのData Modelを表すType-onlyのPublic APIです。
-
-- `ARDocument`: Document URL、Category、Profile Claim、Capability。
-- `Capability`: Local ID、Semantic Type、Input、Result、Requirement、Interface、Runtime State。
-- `CapabilityLocalId` / `SemanticCapabilityIdentifier`: Capability Identifier。
-- `InputDefinition` / `OutputDefinition`: Input / OutputのName、Type、Format、Unit。
-- `ResultDefinition`: Output、Representation、Capability Errorの定義。
-- `RepresentationDefinition`: Response Media Typeの定義。
-- `InterfaceDefinition` / `HTTPInterfaceDefinition`: 現在のHTTP Interface（`GET` / `POST`）の定義。
-- `RequirementDefinition`: Capability Requirementの定義。
-- `ProfileClaim`: Profile URIのClaim。
-- `CoreDataType`: `string`、`number`、`integer`、`boolean`、`binary`、`object`、`array`。
-- `CapabilityErrorDefinition`: Capability Error Typeの定義。
-- `ContractResolutionState`、`ProjectionValidationState`、`AvailabilityState`: Runtime StateのUnion Type。
-
-## Errors
-
-全てのRuntime Errorは`ARRuntimeError`を継承します。`category`でFailure Layerを識別できます。
-
-- `ParseError`: XML Parse失敗。
-- `ValidationError`: AR-XML CoreまたはInput Validation失敗。
-- `TransportError`: NetworkまたはResponse読取失敗。
-- `HTTPResponseError`: Document Retrieval中のnon-2xx Response。
-- `HTTPSDowngradeError`: HTTPSからHTTPへのDowngrade。
-- `NetworkPolicyError`: Document RetrievalがPolicyで拒否された場合。
-- `InterfaceError`: HTTP Interface不備、非成功Response、Invocation拒否。
-- `RepresentationError`: Response RepresentationまたはOutput Mapping失敗。
-- `ContractResolutionError` / `ContractError`: Contract Resolution失敗またはConflict。
-- `CapabilityError`: Semantic Capability Error用の予約Error。
-- `ManifestError`: Manifest Errorの基底Class。
-- `ManifestFetchError`: Manifest Retrieval失敗。
-- `ManifestParseError`: Manifest JSON Parse失敗。
-- `ManifestValidationError`: Manifest 0.1 Validation失敗。
-
-## Responsibility boundary
-
-```text
-ARRuntime.load()
-  = Resolve / Fetch / Parse / Validate / Expose
-
-RuntimeCapability.invoke()
-  = Application / Humanによる明示的なExecution Request
-
-load()はCapabilityを自動実行しない
+```ts
+new ARRuntime({
+  semanticRegistry: new InMemorySemanticRegistry([contract], [profile]),
+});
 ```
 
-Runtimeを通じてDocumentやCapabilityをExposeしても、自動Execution、Authorization、Backend Successを意味しません。Executionは`RuntimeCapability.invoke()`を明示的に呼び出した場合だけ発生します。
+既定の `EmptySemanticRegistry` は Contract/Profile を `UNRESOLVED` とします。Registry の解決は定義の認証や Authorization を意味しません。
+
+`CapabilityContract.permittedInputRequirednessNarrowing` には、Entity 側で `required: false` → `true` の strengthening を許可する Contract Input 名を明示します。この宣言がない strengthening と weakening は既知の `CONFLICT` です。opaque な Requirement の追加と projection compatibility は分離して評価します。
+
+`RuntimeDocument.evaluateProfile()` は、Capability、Property、Identifier、Interface 要件を含むロード済み文書全体を評価します。必須の Invocation/Output 制約について証拠が不足する場合は、誤って適合とせず `UNDETERMINED` を返します。
+
+## HTTP Standard Interface Extension
+
+Draft 5 の HTTP 動作は Core Interface の構文ではありません。次の2つを認識します。
+
+```xml
+<interface id="web">
+  <realization>
+    <http:api base="./api/" />
+  </realization>
+</interface>
+<interface-use ref="web">
+  <mapping>
+    <http:operation method="POST" path="light/state" />
+  </mapping>
+</interface-use>
+```
+
+Baseline は GET の scalar query mapping と、POST/PUT/PATCH の JSON object mapping をサポートします。JSON Result を宣言した場合は `application/json` が必須で、Response は全 Output を含む top-level JSON object でなければなりません。`2xx` は HTTP success、non-`2xx` は Interface failure です。HTTP status を Capability の semantic error へ推測変換しません。既定の Browser HTTP adapter は `redirect: "error"` を使用し、未承認の redirect origin へ Invocation が暗黙に移動しないようにします。
+
+## Ports と Errors
+
+`XMLParser`、`ResourceFetcher`、`HTTPInvoker`、`NetworkPolicy`、`ResourceNetworkPolicy` は Browser Adapter と Test のために差し替え可能です。`SemanticRegistry` は exact-identity definition の境界です。
+
+すべての Error は `ARRuntimeError` を継承します。`ParseError`、`ValidationError`、`TransportError`、`InterfaceError`、`RepresentationError`、`ContractResolutionError`、`ContractError` は別カテゴリです。許可された Slot 内の未知 Extension は Core-valid のまま保持されますが、Runtime support を推測しません。

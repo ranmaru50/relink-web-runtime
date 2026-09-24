@@ -1,7 +1,7 @@
 {
   "name": "@relink/web-runtime",
-  "version": "0.1.0",
-  "description": "Experimental browser Runtime for AR-XML Core 0.1 Draft 4",
+  "version": "0.2.0",
+  "description": "Experimental browser Runtime for AR-XML Core 0.1 Draft 5",
   "type": "module",
   "main": "./dist/relink-web-runtime.js",
   "module": "./dist/relink-web-runtime.js",
@@ -16,18 +16,25 @@
   "files": [
     "dist/relink-web-runtime.js",
     "dist/types/index.d.ts",
+    "dist/types/application/evaluation.d.ts",
     "dist/types/application/invocation.d.ts",
     "dist/types/application/parsing.d.ts",
     "dist/types/domain",
+    "dist/types/ports/extension.d.ts",
     "dist/types/ports/runtime.d.ts",
+    "dist/types/ports/semantic.d.ts",
     "dist/types/runtime",
     "LICENSE",
     "README.md",
     "README.ja.md",
     "docs/api.md",
     "docs/api.ja.md",
+    "docs/library-guide.md",
+    "docs/library-guide.ja.md",
     "docs/releases/0.1.0.md",
-    "docs/releases/0.1.0.ja.md"
+    "docs/releases/0.1.0.ja.md",
+    "docs/releases/0.2.0.md",
+    "docs/releases/0.2.0.ja.md"
   ],
   "sideEffects": false,
   "publishConfig": {
