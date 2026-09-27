@@ -56,6 +56,38 @@ describe("AR-XML Core 0.1 Draft 5", () => {
     await expect(migrationRuntime.load("https://example.test/entity.arxml")).resolves.toBeDefined();
   });
 
+  it.each([
+    { label: "outputsを省略", outputs: "" },
+    { label: "outputsを空にする", outputs: "<outputs/>" },
+  ])("Outputを持たないDraft 4 Resultは明示modeで204を処理する: $label", async ({ outputs }) => {
+    const legacyXml = `${base}<capabilities><capability id="empty" type="https://example.test/contracts/empty/1"><result>${outputs}<representations><representation media-type="application/json"/></representations></result><interfaces><interface type="http" method="GET" endpoint="./empty"/></interfaces></capability></capabilities></ar-entity>`;
+    const text = vi.fn().mockResolvedValue("");
+    const blob = vi.fn().mockResolvedValue(new Blob());
+    const invoke = vi.fn().mockResolvedValue({ status: 204, headers: new Headers(), text, blob });
+    const runtime = new ARRuntime({ documentFormat: "draft4", resourceFetcher: { fetchText: vi.fn().mockResolvedValue(legacyXml) }, httpInvoker: { invoke } });
+    const document = await runtime.load("https://example.test/entity.arxml");
+    expect(document.getCapability("empty")?.definition.result?.outputs).toEqual([]);
+    expect(invoke).not.toHaveBeenCalled();
+    await expect(document.getCapability("empty")?.invoke({})).resolves.toEqual({ values: {}, representation: "application/json" });
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(text).not.toHaveBeenCalled();
+    expect(blob).not.toHaveBeenCalled();
+  });
+
+  it("Draft 4でOutputがある204は本文を読まずRepresentationErrorにする", async () => {
+    const legacyXml = `${base}<capabilities><capability id="read" type="https://example.test/contracts/read/1"><result><outputs><output name="value" type="number"/></outputs><representations><representation media-type="application/json"/></representations></result><interfaces><interface type="http" method="GET" endpoint="./read"/></interfaces></capability></capabilities></ar-entity>`;
+    const text = vi.fn().mockResolvedValue("");
+    const invoke = vi.fn().mockResolvedValue({ status: 204, headers: new Headers({ "content-type": "application/json" }), text, blob: async () => new Blob() });
+    const document = await new ARRuntime({ documentFormat: "draft4", resourceFetcher: { fetchText: vi.fn().mockResolvedValue(legacyXml) }, httpInvoker: { invoke } }).load("https://example.test/entity.arxml");
+    await expect(document.getCapability("read")?.invoke({})).rejects.toBeInstanceOf(RepresentationError);
+    expect(text).not.toHaveBeenCalled();
+  });
+
+  it.each(["", "<outputs/>"])("Draft 5 ResultはOutputを省略または空にできない: %s", (outputs) => {
+    const xml = `${base}<capabilities><capability id="empty" type="https://example.test/contracts/empty/1"><invocation><result>${outputs}<representations><representation media-type="application/json"/></representations></result></invocation></capability></capabilities></ar-entity>`;
+    expect(() => buildARDocument(parser.parse(xml), "https://example.test/entity.arxml")).toThrow(ValidationError);
+  });
+
   it("typed ID の重複、入力名の重複、未知属性、許可外 foreign child を検証する", () => {
     expect(() => buildARDocument(parser.parse(`${base}<interfaces><interface id="same"><realization><http:api/></realization></interface><interface id="same"><realization><http:api/></realization></interface></interfaces></ar-entity>`), "https://example.test/entity.arxml")).toThrow(ValidationError);
     expect(() => buildARDocument(parser.parse(`${base}<capabilities><capability id="x" type="https://example.test/contracts/x/1"><invocation><inputs><input name="x" type="string"/><input name="x" type="string"/></inputs></invocation></capability></capabilities></ar-entity>`), "https://example.test/entity.arxml")).toThrow(ValidationError);

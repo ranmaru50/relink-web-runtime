@@ -8,7 +8,7 @@
 
 公開済み Version は不変の tag と GitHub Release で保持します。Runtime 0.1.0 / Draft 4 は [v0.1.0](https://github.com/ranmaru50/relink-web-runtime/releases/tag/v0.1.0) から取得できます。公開済み tag の移動・再作成や asset の置換を行いません。0.2.0 公開後の修正は 0.2.1 などの新しい Version を使い、大きな API や意味の変更では後続の minor Version を検討します。
 
-`ver.0.2.0` は昇格用の一時ブランチです。`main` 向け PR のマージと検証後に外部 workflow の依存を確認し、残っていなければ削除します。以後の作業は `main` から開始します。その時点で `ver.0.2.0` 用の一時的な CI trigger も削除できます。
+Runtime 0.2.x の `main` 昇格は完了しました。一時的な `ver.0.2.0` ブランチは廃止し、CI は `main` と短命な作業ブランチを対象とします。以後の作業は `main` から開始します。過去の完全な commit SHA に固定された artifact URL は、削除したブランチ名に依存しません。
 
 現在の parser baseline は Draft 5 です。Draft 4 は `{ documentFormat: "draft4" }` を指定する明示的な移行互換機能としてのみ利用でき、Draft 5 conformance の対象外です。`load()` は Capability を実行しません。これらの契約は [Public API Reference](api.ja.md) を参照してください。
 
@@ -43,9 +43,9 @@ CI はこれらすべてを必須とします。`verify:external` は `npm pack`
 
 `verify:artifacts` は生成先を空にして Library を2回ビルドし、ESM と全 Declaration の SHA-256 digest と File 集合を比較します。差異があれば失敗し、成功時に `dist/relink-web-runtime.js.sha256` を作成します。同じ Node.js、OS、lock 済み build 依存のもとでの再現性を確認するもので、異なる toolchain 間の byte 一致を保証しません。生成物はコミットしないため、CI は Git 内のコピーとの比較ではなく、毎回 build して包装済み consumer の境界を検証します。
 
-## リリース候補と包装
+## リリースの検証と包装
 
-Runtime 0.2.0 は tag と Release の確定までリリース候補です。まず昇格 PR を `main` にマージし、Reference Lab / Testbed で検証して、必要な修正を `main` 向け PR で反映します。検証済み `main` commit を `v0.2.0` の候補とします。このリポジトリの consumer smoke test は downstream の検証を代替しません。
+Release 確定前に Reference Lab / Testbed で検証し、必要な修正を `main` 向け PR で反映します。検証済み `main` commit をリリース候補とします。このリポジトリの consumer smoke test は downstream の検証を代替しません。実機検証は別の手動確認であり、ソフトウェアだけの結果を実機 acceptance として扱いません。
 
 `Release artifacts` workflow は新しい `v*` tag で実行され、既存 tag を指定した手動実行もできます。`refs/tags/<tag>` を checkout し、lock 済み依存を install して、test/typecheck/build/consumer 検証を実行します。tag は `v<package.json version>` と一致する必要があります。2回のクリーンな Library build が一致することを確認してから `npm pack` を実行し、最終 standalone ESM が checksum と一致することも確認します。
 

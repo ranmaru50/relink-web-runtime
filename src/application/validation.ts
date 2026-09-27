@@ -137,7 +137,15 @@ function parseLegacyCapability(element: ParsedElement): Capability {
 }
 
 function parseLegacyInputs(container: ParsedElement): InputDefinition[] { requireAttributes(container, []); rejectText(container, "inputs"); return container.children.map((item) => parseInputOutput(item, true) as InputDefinition); }
-function parseLegacyResult(element: ParsedElement): ResultDefinition { requireAttributes(element, []); rejectText(element, "result"); const outputs = element.children.find((child) => child.localName === "outputs"); if (!outputs) throw new ValidationError("result には outputs が必要です"); requireAttributes(outputs, []); rejectText(outputs, "outputs"); const representations = element.children.find((child) => child.localName === "representations"); return { outputs: outputs.children.map((item) => parseInputOutput(item, false) as OutputDefinition), representations: representations ? parseRepresentations(representations) : [] }; }
+/** Draft 4のOutputなしResultを保持します。Draft 5のResult検証とは分離します。 */
+function parseLegacyResult(element: ParsedElement): ResultDefinition {
+  requireAttributes(element, []); rejectText(element, "result");
+  const outputs = element.children.find((child) => child.localName === "outputs");
+  // Outputを持たないHTTP 204はDraft 4で有効なため、outputsの省略も受理します。
+  if (outputs) { requireAttributes(outputs, []); rejectText(outputs, "outputs"); }
+  const representations = element.children.find((child) => child.localName === "representations");
+  return { outputs: outputs ? outputs.children.map((item) => parseInputOutput(item, false) as OutputDefinition) : [], representations: representations ? parseRepresentations(representations) : [] };
+}
 function parseLegacyInterfaces(container: ParsedElement): import("../domain/model").LegacyHTTPInterfaceDefinition[] { requireAttributes(container, []); rejectText(container, "interfaces"); return container.children.map((element) => { requireCoreElement(element, "interface"); requireAttributes(element, ["type", "method", "endpoint", "encoding"]); rejectLeaf(element, "interface"); const type = attribute(element, "type"); const method = attribute(element, "method"); if (type !== "http" || (method !== "GET" && method !== "POST")) throw new ValidationError("Draft 4 HTTP Interface が不正です"); const endpoint = nonEmpty(attribute(element, "endpoint"), "interface/@endpoint"); const encoding = attribute(element, "encoding"); if (encoding !== undefined && encoding !== "json") throw new ValidationError("interface/@encoding が不正です"); return { type: "http", method, endpoint, ...(encoding ? { encoding } : {}) }; }); }
 
 function parseInvocation(element: ParsedElement | undefined): InvocationDefinition | undefined {

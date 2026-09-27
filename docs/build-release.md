@@ -8,7 +8,7 @@
 
 Published versions are immutable tags and GitHub Releases. Runtime 0.1.0 / Draft 4 remains available through [v0.1.0](https://github.com/ranmaru50/relink-web-runtime/releases/tag/v0.1.0). Never move or recreate a published tag or replace its assets. After publishing 0.2.0, subsequent fixes use a new version such as 0.2.1; larger API or semantic changes may require a later minor version.
 
-`ver.0.2.0` is a temporary promotion branch. After its PR to `main` is merged and verified, check for external workflow dependencies and delete it if none remain. Future work starts from `main`. The temporary CI trigger for `ver.0.2.0` can be removed at that point.
+The Runtime 0.2.x promotion to `main` is complete. The temporary `ver.0.2.0` branch is retired; CI targets `main` and short-lived work branches. Future work starts from `main`. An artifact URL pinned to an earlier complete commit SHA remains independent of the deleted branch name.
 
 Draft 5 is the current parser baseline. Draft 4 is available only through `{ documentFormat: "draft4" }` for explicit migration compatibility, outside Draft 5 conformance. `load()` never invokes a Capability. See the [Public API Reference](api.md) for these contracts.
 
@@ -43,9 +43,9 @@ CI requires all these checks. `verify:external` runs `npm pack`, checks the exac
 
 `verify:artifacts` builds the library twice from clean output directories and compares SHA-256 digests and file sets for the ESM and all declarations. It fails on any difference and writes `dist/relink-web-runtime.js.sha256`. This checks repeatability under the same Node.js, OS, and locked build dependencies; it does not promise identical bytes across different toolchains. Because generated output is not committed, CI always builds it and checks the packaged consumer boundary instead of comparing against a Git copy.
 
-## Release candidate and packaging
+## Release verification and packaging
 
-Runtime 0.2.0 is a release candidate until its tag and Release are finalized. First merge the promotion PR into `main`, run Reference Lab / Testbed verification, and apply any required fixes through PRs to `main`. Use the verified `main` commit as the candidate for `v0.2.0`. This repository's consumer smoke test does not replace that downstream verification.
+Before finalizing a release, run Reference Lab / Testbed verification and apply any required fixes through PRs to `main`. Use the verified `main` commit as the release candidate. This repository's consumer smoke test does not replace that downstream verification. Physical device verification remains a separate manual check; software-only results must not be presented as physical acceptance.
 
 The `Release artifacts` workflow runs on new `v*` tags or can be dispatched with an existing tag. It checks out `refs/tags/<tag>`, installs locked dependencies, runs tests/typecheck/build/consumer verification, and requires the tag to equal `v<package.json version>`. Two clean library builds must agree. It then runs `npm pack` and checks that the final standalone ESM still matches its checksum.
 

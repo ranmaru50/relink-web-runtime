@@ -29,6 +29,8 @@ const result = await capability?.invoke({ on: true }, { accept: "application/jso
 
 The default `ARRuntime` document format is Draft 5. Draft 4 is an explicit migration compatibility mode, not a Draft 5 conformance mode: pass `{ documentFormat: "draft4" }`; Draft 4 Capability children are rejected by the default Draft 5 validator.
 
+In Draft 4 compatibility mode, a Result may omit `outputs` or contain an empty `outputs`. An HTTP 204 response succeeds with empty values only when no Output is declared; it does not require response Content-Type or body decoding. A declared Output makes HTTP 204 a `RepresentationError`. Draft 5 still requires at least one Output whenever a Result is declared.
+
 ## RuntimeDocument
 
 ```ts
