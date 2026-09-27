@@ -1,9 +1,10 @@
 // scripts/verify-external-consumer.mjs
 import { execFile } from "node:child_process";
-import { cp, mkdtemp, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { assertPackageContents, assertPackageMetadata } from "./distribution-policy.mjs";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = resolve(import.meta.dirname, "..");
@@ -34,6 +35,11 @@ try {
 
   const binDirectory = join(consumerRoot, "node_modules", ".bin");
   const binSuffix = process.platform === "win32" ? ".cmd" : "";
+  const sourceManifest = JSON.parse(await readFile(join(repositoryRoot, "package.json"), "utf8"));
+  const installedManifest = JSON.parse(await readFile(join(consumerRoot, "node_modules", "@relink", "web-runtime", "package.json"), "utf8"));
+  assertPackageMetadata(installedManifest, sourceManifest);
+  // Nodeの実行Pathに空白があっても動作するよう、Shellを介さず直接実行します。
+  await execFileAsync(process.execPath, [join(consumerRoot, "verify.mjs")], { cwd: consumerRoot });
   await runCommand(join(binDirectory, `tsc${binSuffix}`), ["--noEmit"], consumerRoot);
   await runCommand(join(binDirectory, `vite${binSuffix}`), ["build"], consumerRoot);
   console.log("External consumer verification passed.");
@@ -43,7 +49,7 @@ try {
 
 async function copyFixture() {
   await cp(join(fixtureRoot, "src"), join(consumerRoot, "src"), { recursive: true });
-  for (const file of ["index.html", "package.json", "tsconfig.json"]) {
+  for (const file of ["index.html", "package.json", "tsconfig.json", "verify.mjs"]) {
     await cp(join(fixtureRoot, file), join(consumerRoot, file));
   }
 }
@@ -70,14 +76,4 @@ function parsePackResult(output) {
   const packageResult = result[0];
   if (!packageResult?.filename || !Array.isArray(packageResult.files)) throw new Error("npm packの結果が不正です");
   return packageResult;
-}
-
-function assertPackageContents(files) {
-  const paths = files.map((file) => file.path);
-  if (paths.some((path) => path === "src" || path.startsWith("src/"))) throw new Error("配布Packageにsrc/が含まれています");
-  if (paths.some((path) => path === "dist/index.html" || path.startsWith("dist/assets/"))) throw new Error("配布Packageにdemo成果物が含まれています");
-  if (paths.some((path) => path.startsWith("dist/types/adapters/") || path.endsWith("/manifest.d.ts") || path.endsWith("/endpoint.d.ts") || path.endsWith("/validation.d.ts"))) throw new Error("配布Packageに未公開ModuleのDeclarationが含まれています");
-  for (const required of ["dist/relink-web-runtime.js", "dist/types/index.d.ts", "package.json"]) {
-    if (!paths.includes(required)) throw new Error(`配布Packageに必要なFileがありません: ${required}`);
-  }
 }

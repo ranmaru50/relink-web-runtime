@@ -12,7 +12,7 @@ import { ARRuntime } from "@relink/web-runtime";
 
 | Runtime | AR-XML Core | Resolver Core | Manifest |
 | --- | --- | --- | --- |
-| Draft 5 migration | 0.1 Draft 5 | 0.1 | 0.1 |
+| 0.2.0 | 0.1 Draft 5 | 0.1 | 0.1 |
 
 ## Loading と明示 Invocation
 

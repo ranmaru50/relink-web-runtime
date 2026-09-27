@@ -7,6 +7,9 @@ on:
       - main
       - ver.0.2.0
       - codex/**
+      - feature/**
+      - fix/**
+      - docs/**
   pull_request:
     branches:
       - main
@@ -47,3 +50,6 @@ jobs:
 
       - name: Verify external consumer
         run: pnpm verify:external
+
+      - name: Verify reproducible library artifacts
+        run: pnpm verify:artifacts

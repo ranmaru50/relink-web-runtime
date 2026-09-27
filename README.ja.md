@@ -85,6 +85,9 @@ pnpm test
 pnpm typecheck
 pnpm build
 pnpm verify:external
+pnpm verify:artifacts
 ```
 
 Public API は [docs/api.md](docs/api.md) と [docs/api.ja.md](docs/api.ja.md) に、Normative Draft 5 Reference は [docs/specs/arxml-core-0.1-draft5.md](docs/specs/arxml-core-0.1-draft5.md) にあります。
+
+`main` は現在の Runtime 0.2.x 開発ラインで、公開済み Version は不変の tag と Release で保持します。`dist/` 全体は build/prepack で生成し、追跡しません。Standalone ESM は SHA-256 digest とともに Version 固定の Release asset として配布します。ブランチ方針、Package 検証、Release 手順は [ビルドとリリースの方針](docs/build-release.ja.md) を参照してください。

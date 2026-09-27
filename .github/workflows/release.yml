@@ -1,0 +1,75 @@
+# .github/workflows/release.yml
+# 公開はせず、既存tagのSourceを検証してRelease添付用の成果物を作成します。
+name: Release artifacts
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable release tag (for example v0.2.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Run typecheck
+        run: pnpm typecheck
+
+      - name: Build distribution
+        run: pnpm build
+
+      - name: Verify packed external consumer
+        run: pnpm verify:external
+
+      - name: Verify tag and reproducible library artifacts
+        run: pnpm verify:artifacts "$RELEASE_TAG"
+
+      - name: Pack release package
+        run: npm pack --pack-destination dist
+
+      # prepack後のESMも同じdigestを持つことを確認し、そのFileを配布します。
+      - name: Verify final standalone ESM digest
+        working-directory: dist
+        run: sha256sum --check relink-web-runtime.js.sha256
+
+      - name: Upload verified release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: relink-web-runtime-${{ inputs.tag || github.ref_name }}
+          if-no-files-found: error
+          path: |
+            dist/relink-web-runtime.js
+            dist/relink-web-runtime.js.sha256
+            dist/*.tgz

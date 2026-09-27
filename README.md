@@ -85,6 +85,9 @@ pnpm test
 pnpm typecheck
 pnpm build
 pnpm verify:external
+pnpm verify:artifacts
 ```
 
 The public API is documented in [docs/api.md](docs/api.md) and [docs/api.ja.md](docs/api.ja.md). The normative Draft 5 reference is [docs/specs/arxml-core-0.1-draft5.md](docs/specs/arxml-core-0.1-draft5.md).
+
+`main` is the current Runtime 0.2.x development line; published versions remain immutable tags and Releases. All `dist/` files are generated during build/prepack and are untracked. The standalone ESM is distributed as a versioned Release asset with a SHA-256 digest. See [Build and Release Policy](docs/build-release.md) for branch policy, package verification, and release steps.
