@@ -16,7 +16,8 @@ form.addEventListener("submit", async (event) => {
     for (const capability of arDocument.capabilities) {
       const item = document.createElement("section");
       const details = document.createElement("pre");
-      details.textContent = JSON.stringify({ id: capability.localId, type: capability.semanticType, contract: capability.contractResolution, projection: capability.projectionValidation, availability: capability.availability, interfaces: capability.interfaces, representations: capability.result.representations }, null, 2);
+      const runtimeCapability = arDocument.getCapability(capability.localId);
+      details.textContent = JSON.stringify({ id: capability.localId, type: capability.semanticType, evaluation: runtimeCapability?.evaluation, interfaceUses: capability.interfaceUses, representations: capability.invocation?.result?.representations }, null, 2);
       item.append(details);
       const control = document.createElement("button"); control.textContent = "安全な GET を呼び出す";
       control.addEventListener("click", async () => {

@@ -3,9 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { BrowserResourceFetcher } from "../src/adapters/web/BrowserFetchAdapters";
 import { BrowserXMLParser } from "../src/adapters/web/BrowserXMLParser";
 import { HTTPSDowngradeError, HTTPResponseError, ManifestFetchError, ManifestParseError, ManifestValidationError, NetworkPolicyError, TransportError } from "../src/domain/errors";
+import { InMemorySemanticRegistry } from "../src/ports/semantic";
 import { ARRuntime } from "../src/runtime/ARRuntime";
 
-const documentXml = `<?xml version="1.0"?><ar-entity xmlns="https://relink.dev/ns/arxml/core/0.1" version="0.1"><category>environment.sensor</category><capabilities><capability id="start" type="https://example.test/capabilities/start/1"><result><outputs><output name="status" type="string"/></outputs><representations><representation media-type="application/json"/></representations></result><interfaces><interface type="http" method="GET" endpoint="./actions/start"/></interfaces></capability></capabilities></ar-entity>`;
+const documentXml = `<?xml version="1.0"?><ar-entity xmlns="https://relink.dev/ns/arxml/core/0.1" xmlns:http="https://relink.dev/ns/arxml/http/0.1" version="0.1"><category>environment.sensor</category><interfaces><interface id="web"><realization><http:api/></realization></interface></interfaces><capabilities><capability id="start" type="https://example.test/capabilities/start/1"><invocation><result><outputs><output name="status" type="string"/></outputs><representations><representation media-type="application/json"/></representations></result></invocation><interface-uses><interface-use ref="web"><mapping><http:operation method="GET" path="./actions/start"/></mapping></interface-use></interface-uses></capability></capabilities></ar-entity>`;
 const manifestUrl = "https://resolver.example/relink/550e8400-e29b-41d4-a716-446655440000/manifest";
 const descriptionUrl = "https://entity.example/descriptions/entity.xml";
 const manifestJson = JSON.stringify({ manifestVersion: "0.1", anchor: { id: "550e8400-e29b-41d4-a716-446655440000" }, entity: { id: "https://identity.example/entities/12345" }, description: { location: descriptionUrl }, lifecycle: { status: "active" } });
@@ -67,8 +68,9 @@ describe("Resolver Core 0.1 L1 document loading", () => {
 
   it("RT-005 / RT-006: final response URL is the AR-XML base URL", async () => {
     const finalUrl = "https://cdn.example/entity/a/entity.xml";
-    const httpInvoker = { invoke: vi.fn().mockResolvedValue({ status: 200, headers: new Headers({ "content-type": "application/json" }), text: async () => JSON.stringify("started"), blob: async () => new Blob() }) };
-    const document = await new ARRuntime({ resourceFetcher: { fetchResource: vi.fn().mockResolvedValue(resourceResult(finalUrl)) }, httpInvoker }).load("https://resolver.example/relink/entity");
+    const httpInvoker = { invoke: vi.fn().mockResolvedValue({ status: 200, headers: new Headers({ "content-type": "application/json" }), text: async () => JSON.stringify({ status: "started" }), blob: async () => new Blob() }) };
+    const semanticRegistry = new InMemorySemanticRegistry([{ identifier: "https://example.test/capabilities/start/1", invocation: { result: { outputs: [{ name: "status", type: "string" }], representations: [{ mediaType: "application/json" }] } } }]);
+    const document = await new ARRuntime({ resourceFetcher: { fetchResource: vi.fn().mockResolvedValue(resourceResult(finalUrl)) }, httpInvoker, semanticRegistry }).load("https://resolver.example/relink/entity");
 
     expect(document.url).toBe(finalUrl);
     await expect(document.getCapability("start")?.invoke({})).resolves.toEqual({ values: { status: "started" }, representation: "application/json" });

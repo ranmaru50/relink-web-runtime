@@ -31,6 +31,6 @@ export class FetchHTTPInvoker implements HTTPInvoker {
   /** 既定の fetch はブラウザの globalThis に束縛して Illegal invocation を防ぎます。 */
   public constructor(private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis)) {}
   public async invoke(url: URL, init: RequestInit): Promise<HTTPResponse> {
-    try { return await this.fetcher(url, init); } catch (error) { throw new TransportError("HTTP 呼び出し中に通信エラーが発生しました", error); }
+    try { return await this.fetcher(url, { ...init, redirect: "error" }); } catch (error) { throw new TransportError("HTTP 呼び出し中に通信エラーが発生しました", error); }
   }
 }

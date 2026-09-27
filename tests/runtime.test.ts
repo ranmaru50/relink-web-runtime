@@ -14,7 +14,7 @@ const response = (body: string, status = 200, contentType = "application/json") 
 
 describe("Draft 4 XML parsing and validation", () => {
   it("Local ID は文字列として厳密比較し、Semantic Identifier と分離する", () => {
-    const document = buildARDocument(parser.parse(xml), "https://example.test/entities/ar.xml");
+    const document = buildARDocument(parser.parse(xml), "https://example.test/entities/ar.xml", { format: "draft4" });
     expect(isSameCapabilityLocalId("temperature", "temperature")).toBe(true);
     expect(document.capabilities[0]?.localId).toBe("temperature");
     expect(document.capabilities[0]?.semanticType).toBe("https://example.test/capabilities/temperature/1");
@@ -63,7 +63,7 @@ describe("browser fetch adapters", () => {
 });
 
 describe("ARRuntime first vertical slice", () => {
-  function runtimeWith(invoker: { invoke: ReturnType<typeof vi.fn> }): ARRuntime { return new ARRuntime({ xmlParser: parser, resourceFetcher: { fetchText: vi.fn().mockResolvedValue(xml) }, httpInvoker: invoker }); }
+  function runtimeWith(invoker: { invoke: ReturnType<typeof vi.fn> }): ARRuntime { return new ARRuntime({ documentFormat: "draft4", xmlParser: parser, resourceFetcher: { fetchText: vi.fn().mockResolvedValue(xml) }, httpInvoker: invoker }); }
   it("load、GET query serialization、single JSON Output mapping を実行する", async () => {
     const invoke = vi.fn().mockResolvedValue(response("20.1")); const runtime = runtimeWith({ invoke });
     const document = await runtime.load("https://example.test/entities/ar.xml"); const capability = document.getCapability("temperature");
@@ -72,7 +72,7 @@ describe("ARRuntime first vertical slice", () => {
   });
   it("required Input、非 2xx、壊れた JSON を層別エラーにする", async () => {
     const requiredXml = xml.replace('required="false"', 'required="true"');
-    const missing = new ARRuntime({ xmlParser: parser, resourceFetcher: { fetchText: vi.fn().mockResolvedValue(requiredXml) }, httpInvoker: { invoke: vi.fn() } });
+    const missing = new ARRuntime({ documentFormat: "draft4", xmlParser: parser, resourceFetcher: { fetchText: vi.fn().mockResolvedValue(requiredXml) }, httpInvoker: { invoke: vi.fn() } });
     await expect((await missing.load("https://example.test/a.xml")).getCapability("temperature")?.invoke({})).rejects.toBeInstanceOf(ValidationError);
     const failure = runtimeWith({ invoke: vi.fn().mockResolvedValue(response("", 500)) });
     await expect((await failure.load("https://example.test/a.xml")).getCapability("temperature")?.invoke({ unit: "C" })).rejects.toBeInstanceOf(InterfaceError);
@@ -80,7 +80,7 @@ describe("ARRuntime first vertical slice", () => {
     await expect((await invalidJson.load("https://example.test/a.xml")).getCapability("temperature")?.invoke({ unit: "C" })).rejects.toBeInstanceOf(RepresentationError);
   });
   it("同一 Origin 以外の Interface は既定ポリシーで拒否する", async () => {
-    const runtime = new ARRuntime({ xmlParser: parser, resourceFetcher: { fetchText: vi.fn().mockResolvedValue(xml.replace('endpoint="api/temperature"', 'endpoint="https://other.test/api"')) }, httpInvoker: { invoke: vi.fn() } });
+    const runtime = new ARRuntime({ documentFormat: "draft4", xmlParser: parser, resourceFetcher: { fetchText: vi.fn().mockResolvedValue(xml.replace('endpoint="api/temperature"', 'endpoint="https://other.test/api"')) }, httpInvoker: { invoke: vi.fn() } });
     await expect((await runtime.load("https://example.test/a.xml")).getCapability("temperature")?.invoke({})).rejects.toBeInstanceOf(InterfaceError);
   });
 });

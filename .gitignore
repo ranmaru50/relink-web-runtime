@@ -1,9 +1,7 @@
 # .gitignore
 node_modules/
+# Sourceからbuild / prepackで生成し、Release assetとして配布します。
 dist/
-!dist/
-dist/*
-!dist/relink-web-runtime.js
 examples/external-consumer/dist/
 .pnpm-store/
 pnpm-workspace.yaml

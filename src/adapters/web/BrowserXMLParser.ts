@@ -1,30 +1,35 @@
 // src/adapters/web/BrowserXMLParser.ts
-import type { ParsedARDocument, ParsedCapability, ParsedInterface } from "../../application/parsing";
+/** ブラウザ DOMParser を XML の namespace-aware 中間表現へ接続する Adapter です。 */
+
+import type { ParsedARDocument, ParsedAttribute, ParsedElement } from "../../application/parsing";
 import { ParseError } from "../../domain/errors";
-import type { CapabilityErrorDefinition, InputDefinition, OutputDefinition, ProfileClaim, RepresentationDefinition, RequirementDefinition } from "../../domain/model";
 import type { XMLParser } from "../../ports/runtime";
 
-/** ブラウザの DOMParser を用いて XML を中間構造へ抽出します。 */
+/** XML 構文だけを解析し、意味解決・認証・実行を一切行いません。 */
 export class BrowserXMLParser implements XMLParser {
   public parse(xml: string): ParsedARDocument {
     const document = new DOMParser().parseFromString(xml, "application/xml");
     if (document.querySelector("parsererror")) throw new ParseError("AR-XML の XML 構文が正しくありません");
     const root = document.documentElement;
-    return { namespace: root.namespaceURI, rootName: root.localName, version: root.getAttribute("version"), category: textOf(child(root, "category")), profileClaims: children(child(root, "profiles"), "conforms-to").map((element): ProfileClaim => ({ href: element.getAttribute("href") ?? "" })), capabilities: children(child(root, "capabilities"), "capability").map(parseCapability) };
+    if (!root) throw new ParseError("AR-XML の root element がありません");
+    const parsedRoot = parseElement(root);
+    return { root: parsedRoot, namespace: parsedRoot.namespace, rootName: parsedRoot.localName, version: attribute(parsedRoot, "", "version") };
   }
 }
 
-function parseCapability(element: Element): ParsedCapability {
-  const result = child(element, "result");
-  const inputs = children(child(element, "inputs"), "input").map((item): InputDefinition => ({ name: item.getAttribute("name") ?? "", type: (item.getAttribute("type") ?? "") as InputDefinition["type"], required: item.getAttribute("required") === "true", format: optional(item, "format"), unit: optional(item, "unit") }));
-  const outputs = children(child(result, "outputs"), "output").map((item): OutputDefinition => ({ name: item.getAttribute("name") ?? "", type: (item.getAttribute("type") ?? "") as OutputDefinition["type"], format: optional(item, "format"), unit: optional(item, "unit") }));
-  const representations = children(child(result, "representations"), "representation").map((item): RepresentationDefinition => ({ mediaType: item.getAttribute("media-type") ?? "" }));
-  const errors = children(child(result, "errors"), "error").map((item): CapabilityErrorDefinition => ({ type: item.getAttribute("type") ?? "" }));
-  const requirements = children(child(element, "requirements"), "require").map((item): RequirementDefinition => ({ type: item.getAttribute("type") ?? "" }));
-  const interfaces = children(child(element, "interfaces"), "interface").map((item): ParsedInterface => { const authentication = child(item, "authentication"); return { type: item.getAttribute("type") ?? "", method: optional(item, "method"), endpoint: optional(item, "endpoint"), encoding: optional(item, "encoding"), authentication: authentication ? { type: authentication.getAttribute("type") ?? "", scope: optional(authentication, "scope") } : undefined }; });
-  return { id: optional(element, "id"), type: optional(element, "type"), inputs, outputs, representations, errors, requirements, interfaces, hasResult: result !== undefined };
+/** DOM Element を Core validator が利用できる不変の中間構造へ変換します。 */
+function parseElement(element: Element): ParsedElement {
+  const children = Array.from(element.children, parseElement);
+  const directText = Array.from(element.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE).map((node) => node.nodeValue ?? "").join("");
+  const attributes: ParsedAttribute[] = [];
+  for (const item of Array.from(element.attributes)) {
+    if (item.namespaceURI === "http://www.w3.org/2000/xmlns/") continue;
+    attributes.push({ namespace: item.namespaceURI ?? "", localName: item.localName, value: item.value });
+  }
+  return { namespace: element.namespaceURI ?? "", localName: element.localName, attributes, children, text: directText };
 }
-function child(parent: Element | undefined, name: string): Element | undefined { return children(parent, name)[0]; }
-function children(parent: Element | undefined, name: string): Element[] { return parent ? Array.from(parent.children).filter((element) => element.localName === name) : []; }
-function optional(element: Element, attribute: string): string | undefined { return element.getAttribute(attribute) ?? undefined; }
-function textOf(element: Element | undefined): string | undefined { const text = element?.textContent?.trim(); return text || undefined; }
+
+/** 中間要素から namespace-aware attribute を取得します。 */
+function attribute(element: ParsedElement, namespace: string, localName: string): string | undefined {
+  return element.attributes.find((item) => item.namespace === namespace && item.localName === localName)?.value;
+}
