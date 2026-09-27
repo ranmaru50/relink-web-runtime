@@ -29,6 +29,8 @@ const result = await capability?.invoke({ on: true }, { accept: "application/jso
 
 既定の `ARRuntime` document format は Draft 5 です。Draft 4 は Draft 5 conformance mode ではなく、`{ documentFormat: "draft4" }` を指定した明示的な移行互換 mode としてのみ利用します。既定の Draft 5 validator は Draft 4 Capability child を拒否します。
 
+Draft 4 互換 mode の Result では `outputs` の省略または空の `outputs` を許可します。HTTP 204 は Output が宣言されていない場合のみ空の値で成功し、応答 Content-Type や本文の decode を必要としません。Output が宣言されていれば HTTP 204 は `RepresentationError` になります。Draft 5 は引き続き Result の宣言時に1件以上の Output を必須とします。
+
 ## RuntimeDocument
 
 ```ts

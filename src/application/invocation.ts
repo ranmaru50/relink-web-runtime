@@ -41,6 +41,11 @@ async function invokeLegacyCapability(capability: Capability, documentUrl: strin
   const representation = selectLegacyRepresentation(invocation.result, options.accept); const init = serializeRequest(http.method, url, invocation, inputs, representation, options.signal); const response = await invoker.invoke(url, init);
   if (response.status < 200 || response.status >= 300) throw new InterfaceError(`HTTP Interface が非成功を返しました (${response.status})`);
   if (!invocation.result) return { values: {} };
+  // Draft 4の204は本文やContent-Typeを評価せず、宣言Outputの有無だけを確認します。
+  if (response.status === 204) {
+    if (invocation.result.outputs.length > 0) throw new RepresentationError("required Output があるため 204 Response をマッピングできません");
+    return { values: {}, representation: representation?.mediaType };
+  }
   const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? ""; if (contentType !== representation?.mediaType.toLowerCase()) throw new RepresentationError("Response Content-Type が宣言済み Representation と一致しません");
   let decoded: unknown; try { decoded = JSON.parse(await response.text()); } catch { throw new RepresentationError("JSON Response の解析に失敗しました"); }
   if (invocation.result.outputs.length === 1) { const output = invocation.result.outputs[0]; if (!output || !matchesType(decoded, output.type)) throw new RepresentationError("Response 値が Output type と一致しません"); return { values: { [output.name]: decoded }, representation: representation?.mediaType }; }
